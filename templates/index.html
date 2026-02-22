@@ -2,23 +2,51 @@
 
 {% block title %}Inicio - EcoGrow{% endblock %}
 
-{% block content %}
-    <h1>🌱 Bienvenido a EcoGrow</h1>
-    <p class="subtitle">Sistema Hidropónico Inteligente con Reciclaje PET e Impresión 3D</p>
-    
-    <div class="info">
-        <h2>¿Qué es EcoGrow?</h2>
-        <p>Monitoreo y control automatizado de cultivos sostenibles.</p>
-        <p>Gestiona tus plantas hidropónicas de forma inteligente y eficiente.</p>
+{% block content_wrapper %}
+<!-- custom hero section copied from diseño adjunto -->
+<section class="relative overflow-hidden pt-20 pb-16 md:pt-32 md:pb-32" id="hero">
+    <div class="max-w-7xl mx-auto px-6 flex flex-col lg:flex-row items-center gap-12">
+        <div class="flex-1 text-center lg:text-left">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold mb-6">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </span>
+                SaaS para Hidroponía 4.0
+            </div>
+            <h1 class="text-5xl md:text-7xl font-black text-slate-900 dark:text-white leading-[1.1] tracking-tighter mb-6">
+                Cultiva Inteligente. <br/>
+                <span class="text-primary">Cultiva Sostenible.</span>
+            </h1>
+            <p class="text-lg md:text-xl text-slate-600 dark:text-slate-400 mb-10 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+                Plataforma SaaS moderna para la gestión de sistemas hidropónicos automatizados utilizando PET reciclado e impresión 3D modular.
+            </p>
+            <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
+                <a href="{{ url_for('login') }}" class="w-full sm:w-auto bg-primary text-white px-8 py-4 rounded-xl text-lg font-bold shadow-lg shadow-primary/25 hover:scale-[1.02] transition-transform">
+                    Iniciar Sesión
+                </a>
+                <button class="w-full sm:w-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-8 py-4 rounded-xl text-lg font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                    Ver Demo
+                </button>
+            </div>
+        </div>
+        <div class="flex-1 w-full max-w-[600px]">
+            <div class="relative rounded-2xl overflow-hidden shadow-2xl bg-white p-4">
+                <img alt="Modular Hydroponic System" class="w-full h-auto rounded-xl object-cover aspect-[4/3]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5Ha5lRM7pRoBnKPh8AxuNmTkKUR7PY8s1hrFIXRNlwOac_seTFMuhNHoqKS79cQhPQ0wZma4KkWkKvEkW1C1P2WsFsjVFsIzLnDI_C-6n5Ohd_GemeKvQMT7-QouW2yeZ6Bm6gMlMavVsJmxWtbVXoIc_WBv-4waZlyB6QYcuDUPUbIehUQkctifUlR_-OBGJC5VIL_T4iy2Zz2k4g9UG8mKL_xjA_rbLFcl6Nm0oDFmbm7FQ9Jce0kBj-wNmX5TOkuAEcHwPCjjk"/>
+                <div class="absolute bottom-8 right-8 bg-white/90 backdrop-blur-md p-4 rounded-xl shadow-xl border border-white/20">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-eco-green/20 p-2 rounded-lg text-eco-green">
+                            <span class="material-symbols-outlined">water_drop</span>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Humedad</p>
+                            <p class="text-lg font-bold text-slate-900">72% <span class="text-xs text-eco-green">+2%</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-
-    <div class="actions">
-        <h3>Prueba una ruta dinámica:</h3>
-        <ul>
-            <li><a href="{{ url_for('planta', nombre='lechuga') }}">Ver estado de Lechuga</a></li>
-            <li><a href="{{ url_for('planta', nombre='espinaca') }}">Ver estado de Espinaca</a></li>
-            <li><a href="{{ url_for('planta', nombre='tomate') }}">Ver estado de Tomate</a></li>
-        </ul>
-    </div>
+</section>
 {% endblock %}
 

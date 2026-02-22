@@ -29,6 +29,23 @@ def planta(nombre):
     return render_template("planta.html", mensaje=mensaje)
 
 
+@app.route('/login')
+def login():
+    # la plantilla login.html debe heredar de base.html y ofrecer el formulario de acceso
+    return render_template('login.html')
+
+
+@app.route('/irrigation')
+def irrigation():
+    # placeholder page based on el diseño de irrigation & automation control
+    return render_template('irrigation.html')
+
+@app.route('/dashboard')
+def dashboard():
+    # another example page (main IoT dashboard)
+    return render_template('dashboard.html')
+
+
 if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', 5000))
