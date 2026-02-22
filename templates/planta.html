@@ -1,25 +1,18 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planta - EcoGrow</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <div class="container">
-        <h2>{{ mensaje }}</h2>
-        
-        <div class="plant-info">
-            <p>✅ Sistema de riego funcionando correctamente</p>
-            <p>💧 Humedad: 75%</p>
-            <p>☀️ Luminosidad: Óptima</p>
-            <p>🌡️ Temperatura: 22°C</p>
-        </div>
+{% extends "base.html" %}
 
-        <div class="actions">
-            <a href="/" class="btn">← Volver al inicio</a>
-        </div>
+{% block title %}Detalle de planta - EcoGrow{% endblock %}
+
+{% block content %}
+    <h2>{{ mensaje }}</h2>
+    
+    <div class="plant-info">
+        <p>✅ Sistema de riego funcionando correctamente</p>
+        <p>💧 Humedad: 75%</p>
+        <p>☀️ Luminosidad: Óptima</p>
+        <p>🌡️ Temperatura: 22°C</p>
     </div>
-</body>
-</html>
+
+    <div class="actions">
+        <a href="{{ url_for('inicio') }}" class="btn">← Volver al inicio</a>
+    </div>
+{% endblock %}

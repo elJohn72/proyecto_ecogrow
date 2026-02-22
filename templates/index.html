@@ -1,30 +1,135 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EcoGrow - Sistema Hidropónico Inteligente</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <div class="container">
-        <h1>🌱 Bienvenido a EcoGrow</h1>
-        <p class="subtitle">Sistema Hidropónico Inteligente con Reciclaje PET e Impresión 3D</p>
-        
-        <div class="info">
-            <h2>¿Qué es EcoGrow?</h2>
-            <p>Monitoreo y control automatizado de cultivos sostenibles.</p>
-            <p>Gestiona tus plantas hidropónicas de forma inteligente y eficiente.</p>
-        </div>
+{% extends "base.html" %}
 
-        <div class="actions">
-            <h3>Prueba una ruta dinámica:</h3>
-            <ul>
-                <li><a href="/planta/lechuga">Ver estado de Lechuga</a></li>
-                <li><a href="/planta/espinaca">Ver estado de Espinaca</a></li>
-                <li><a href="/planta/tomate">Ver estado de Tomate</a></li>
-            </ul>
+{% block title %}Inicio - EcoGrow{% endblock %}
+
+{% block content_wrapper %}
+<!-- Landing: hero, secciones y tarjetas -->
+<div class="w-full">
+
+    <!-- Hero -->
+    <section class="px-6 lg:px-12 py-16 lg:py-24">
+        <div class="max-w-6xl mx-auto flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+            <div class="flex-1">
+                <span class="inline-block px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-semibold mb-6">
+                    Cultiva tu futuro, hoy 4.0
+                </span>
+                <h2 class="text-4xl lg:text-5xl font-bold text-slate-900 dark:text-slate-100 leading-tight mb-6">
+                    Cultiva Inteligente.<br>
+                    <span class="text-primary">Cultiva Sostenible.</span>
+                </h2>
+                <p class="text-lg text-slate-600 dark:text-slate-400 mb-8 max-w-xl">
+                    Plataforma para la gestión de sistemas hidropónicos automatizados utilizando PET reciclado e Impresión 3D modular.
+                </p>
+                <div class="flex flex-wrap gap-4">
+                    <a href="{{ url_for('cultivos') }}"
+                       class="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold py-3.5 px-6 rounded-lg shadow-lg shadow-primary/20 transition-all">
+                        <span>Comenzar Ahora</span>
+                        <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+                    </a>
+                    <a href="{{ url_for('planta', nombre='lechuga') }}"
+                       class="inline-flex items-center gap-2 bg-transparent border-2 border-primary text-primary font-bold py-3 px-6 rounded-lg hover:bg-primary/5 transition-all">
+                        <span class="material-symbols-outlined text-[20px]">science</span>
+                        <span>Ver Demo</span>
+                    </a>
+                </div>
+            </div>
+            <div class="flex-1 w-full max-w-md">
+                <div class="glass-card rounded-xl shadow-2xl p-6 overflow-hidden">
+                    <div class="aspect-[4/3] bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center">
+                        <span class="material-symbols-outlined text-8xl text-primary/40">grass</span>
+                    </div>
+                    <div class="mt-4 p-3 rounded-lg bg-white/60 dark:bg-slate-800/60">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Humedad</p>
+                        <div class="flex items-center gap-2 mt-1">
+                            <div class="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                                <div class="h-full bg-primary rounded-full" style="width: 72%"></div>
+                            </div>
+                            <span class="text-sm font-bold text-primary">72%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
-</body>
-</html>
+    </section>
+
+    <!-- Cómo Funciona -->
+    <section class="px-6 lg:px-12 py-16 lg:py-20 bg-slate-50/50 dark:bg-slate-900/30">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-16">
+                <h3 class="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">Cómo Funciona</h3>
+                <p class="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
+                    De residuos plásticos a cultivos frescos: nuestro proceso circular de alta tecnología.
+                </p>
+            </div>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="glass-card rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
+                    <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                        <span class="material-symbols-outlined text-2xl text-primary">recycling</span>
+                    </div>
+                    <h4 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Reciclar PET</h4>
+                    <p class="text-slate-600 dark:text-slate-400 text-sm">
+                        Transformamos botellas PET en estructuras modulares para sistemas hidropónicos sostenibles.
+                    </p>
+                </div>
+                <div class="glass-card rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
+                    <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                        <span class="material-symbols-outlined text-2xl text-primary">precision_manufacturing</span>
+                    </div>
+                    <h4 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Impresión 3D</h4>
+                    <p class="text-slate-600 dark:text-slate-400 text-sm">
+                        Piezas personalizadas impresas en 3D para conectar módulos y optimizar el cultivo.
+                    </p>
+                </div>
+                <div class="glass-card rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow">
+                    <div class="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                        <span class="material-symbols-outlined text-2xl text-primary">tune</span>
+                    </div>
+                    <h4 class="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">Cultivar & Optimizar</h4>
+                    <p class="text-slate-600 dark:text-slate-400 text-sm">
+                        Monitoreo de humedad, temperatura y luminosidad para un crecimiento óptimo.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Rutas dinámicas -->
+    <section class="px-6 lg:px-12 py-16 lg:py-20">
+        <div class="max-w-6xl mx-auto text-center">
+            <h3 class="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">Prueba tu cultivo</h3>
+            <p class="text-slate-600 dark:text-slate-400 mb-8 max-w-xl mx-auto">
+                Explora el estado de plantas en tiempo real con nuestras rutas dinámicas.
+            </p>
+            <div class="flex flex-wrap justify-center gap-4">
+                <a href="{{ url_for('planta', nombre='lechuga') }}"
+                   class="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold py-3 px-6 rounded-lg transition-all">
+                    Lechuga
+                </a>
+                <a href="{{ url_for('planta', nombre='espinaca') }}"
+                   class="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold py-3 px-6 rounded-lg transition-all">
+                    Espinaca
+                </a>
+                <a href="{{ url_for('planta', nombre='tomate') }}"
+                   class="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold py-3 px-6 rounded-lg transition-all">
+                    Tomate
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="px-6 lg:px-12 py-16 lg:py-20 bg-slate-50/50 dark:bg-slate-900/30">
+        <div class="max-w-3xl mx-auto text-center">
+            <h3 class="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">¿Listo para transformar tu cultivo?</h3>
+            <p class="text-slate-600 dark:text-slate-400 mb-8">
+                Únete a la revolución de la agricultura urbana y sostenible con EcoGrow.
+            </p>
+            <a href="{{ url_for('about') }}"
+               class="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold py-3.5 px-8 rounded-lg shadow-lg shadow-primary/20 transition-all">
+                Conoce más sobre EcoGrow
+            </a>
+        </div>
+    </section>
+
+</div>
+{% endblock %}

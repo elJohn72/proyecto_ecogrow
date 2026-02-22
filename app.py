@@ -2,14 +2,32 @@ from flask import Flask, render_template
 
 app = Flask(__name__)
 
+
 @app.route('/')
 def inicio():
     return render_template("index.html")
 
+
+@app.route('/about')
+def about():
+    return render_template("about.html")
+
+
+@app.route('/cultivos')
+def cultivos():
+    return render_template("cultivos.html")
+
+
+@app.route('/sensores')
+def sensores():
+    return render_template("sensores.html")
+
+
 @app.route('/planta/<nombre>')
 def planta(nombre):
-    mensaje = f"🌱 Planta: {nombre.capitalize()} registrada en EcoGrow"
+    mensaje = f"Planta: {nombre.capitalize()} registrada en EcoGrow"
     return render_template("planta.html", mensaje=mensaje)
+
 
 if __name__ == '__main__':
     import os

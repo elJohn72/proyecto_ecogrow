@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html class="light" lang="es">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>{% block title %}EcoGrow{% endblock %}</title>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+
+    <!-- Material Symbols Outlined -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0077cc",
+                        "background-light": "#f5f7f8",
+                        "background-dark": "#0f1b23",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .bg-pattern {
+            background-image: radial-gradient(circle at 2px 2px, #0077cc15 1px, transparent 0);
+            background-size: 32px 32px;
+        }
+        .leaf-accent {
+            position: absolute;
+            z-index: -1;
+            opacity: 0.05;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="font-display bg-background-light dark:bg-background-dark min-h-screen flex flex-col relative overflow-x-hidden">
+    <!-- Fondo -->
+    <div class="fixed inset-0 bg-pattern"></div>
+    <div class="leaf-accent top-[-10%] left-[-5%] w-[40vw] h-[40vw] rounded-full bg-primary/20 blur-[100px]"></div>
+    <div class="leaf-accent bottom-[-10%] right-[-5%] w-[30vw] h-[30vw] rounded-full bg-primary/10 blur-[80px]"></div>
+
+    <!-- Header -->
+    <header class="relative z-10 w-full px-6 py-6 lg:px-12 flex items-center justify-between">
+        <a href="{{ url_for('inicio') }}" class="flex items-center gap-2">
+            <div class="text-primary">
+                <span class="material-symbols-outlined text-4xl">eco</span>
+            </div>
+            <h1 class="text-slate-900 dark:text-slate-100 text-xl font-bold tracking-tight">EcoGrow</h1>
+        </a>
+        <nav class="hidden md:flex items-center gap-6 text-sm font-medium">
+            <a class="text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
+               href="{{ url_for('inicio') }}">Inicio</a>
+            <a class="text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
+               href="{{ url_for('about') }}">Acerca de</a>
+            <a class="text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
+               href="{{ url_for('cultivos') }}">Cultivos</a>
+            <a class="text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
+               href="{{ url_for('sensores') }}">Sensores</a>
+        </nav>
+    </header>
+
+    <!-- Contenido principal: landing usa bloque completo, otras páginas usan tarjeta centrada -->
+    <main class="flex-1 relative z-10">
+        {% block content_wrapper %}
+        <div class="flex items-center justify-center p-6 min-h-[60vh]">
+            <div class="w-full max-w-[520px]">
+                <div class="glass-card rounded-xl shadow-2xl p-8 md:p-10 flex flex-col gap-6 text-slate-700 dark:text-slate-300">
+                    {% block content %}{% endblock %}
+                </div>
+            </div>
+        </div>
+        {% endblock %}
+    </main>
+
+    <footer class="relative z-10 mt-auto py-8 px-6 lg:px-12 border-t border-slate-200 dark:border-slate-700">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-slate-500 dark:text-slate-400">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-xl">eco</span>
+                <span>EcoGrow · Sistema Hidropónico Inteligente</span>
+            </div>
+            <div class="flex flex-wrap justify-center gap-x-6 gap-y-1">
+                <span>Privacidad</span>
+                <span>Términos de Servicio</span>
+                <span>Seguridad</span>
+            </div>
+        </div>
+        <p class="text-center text-xs text-slate-400 mt-4">© 2026 EcoGrow · Proyecto académico</p>
+    </footer>
+</body>
+</html>
