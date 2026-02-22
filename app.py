@@ -45,6 +45,11 @@ def dashboard():
     # another example page (main IoT dashboard)
     return render_template('dashboard.html')
 
+@app.route('/demo')
+def demo():
+    # simple demo page
+    return render_template('demo.html')
+
 
 if __name__ == '__main__':
     import os
