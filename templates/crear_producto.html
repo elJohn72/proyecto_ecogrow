@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Producto - EcoGrow{% endblock %}
+
+{% block content %}
+    <h2>Crear producto</h2>
+    <form method="post" class="flex flex-col gap-4">
+        <label>
+            Nombre<br>
+            <input type="text" name="nombre" required class="w-full border rounded px-2 py-1" />
+        </label>
+        <label>
+            Cantidad<br>
+            <input type="number" name="cantidad" min="0" required class="w-full border rounded px-2 py-1" />
+        </label>
+        <label>
+            Precio<br>
+            <input type="number" name="precio" step="0.01" min="0" required class="w-full border rounded px-2 py-1" />
+        </label>
+        <button type="submit" class="bg-primary text-white px-4 py-2 rounded">Guardar</button>
+    </form>
+{% endblock %}

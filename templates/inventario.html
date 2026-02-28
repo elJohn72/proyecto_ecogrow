@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Inventario - EcoGrow{% endblock %}
+
+{% block content %}
+    <h2>Inventario</h2>
+    <p>Productos almacenados en la base de datos.</p>
+    <a class="text-primary hover:underline" href="{{ url_for('crear_producto') }}">[Añadir producto]</a>
+
+    {% if productos %}
+        <table class="w-full mt-4">
+            <thead>
+                <tr class="bg-background-light dark:bg-background-dark">
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Cantidad</th>
+                    <th>Precio</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in productos %}
+                <tr class="border-t">
+                    <td>{{ p.id }}</td>
+                    <td>{{ p.nombre }}</td>
+                    <td>{{ p.cantidad }}</td>
+                    <td>{{ '%.2f'|format(p.precio) }}</td>
+                    <td>
+                        <a class="text-blue-600 hover:underline" href="{{ url_for('editar_producto', pid=p.id) }}">editar</a> |
+                        <a class="text-red-600 hover:underline" href="{{ url_for('borrar', pid=p.id) }}">borrar</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No hay productos registrados.</p>
+    {% endif %}
+
+{% endblock %}

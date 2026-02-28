@@ -1,6 +1,13 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, redirect, url_for
+
+# dominio de inventario
+from models import init_db, Producto, Inventario
 
 app = Flask(__name__)
+
+# inicialización de bases de datos y carga en memoria
+init_db()
+inv = Inventario()
 
 
 @app.route('/')
@@ -50,6 +57,45 @@ def demo():
     # simple demo page
     return render_template('demo.html')
 
+
+# --- inventario crud -----------------------------------------------------
+@app.route('/inventario')
+def mostrar_inventario():
+    productos = inv.all()
+    return render_template('inventario.html', productos=productos)
+
+@app.route('/inventario/crear', methods=('GET','POST'))
+def crear_producto():
+    if request.method == 'POST':
+        p = Producto(
+            nombre=request.form['nombre'],
+            cantidad=int(request.form['cantidad']),
+            precio=float(request.form['precio'])
+        )
+        inv.add(p)
+        return redirect(url_for('mostrar_inventario'))
+    return render_template('crear_producto.html')
+
+@app.route('/inventario/borrar/<int:pid>')
+def borrar(pid):
+    inv.delete(pid)
+    return redirect(url_for('mostrar_inventario'))
+
+# ruta de edición básica (cantidad y precio)
+@app.route('/inventario/editar/<int:pid>', methods=('GET','POST'))
+def editar_producto(pid):
+    producto = inv.productos.get(pid)
+    if not producto:
+        return redirect(url_for('mostrar_inventario'))
+    if request.method == 'POST':
+        producto.nombre = request.form['nombre']
+        producto.cantidad = int(request.form['cantidad'])
+        producto.precio = float(request.form['precio'])
+        inv.update(pid, nombre=producto.nombre, cantidad=producto.cantidad, precio=producto.precio)
+        return redirect(url_for('mostrar_inventario'))
+    return render_template('editar_producto.html', producto=producto)
+
+# ------------------------------------------------------------------------
 
 if __name__ == '__main__':
     import os
