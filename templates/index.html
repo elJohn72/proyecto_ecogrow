@@ -1,52 +1,289 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
 
-{% block title %}Inicio - EcoGrow{% endblock %}
-
-{% block content_wrapper %}
-<!-- custom hero section copied from diseño adjunto -->
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>EcoGrow | Cultiva Inteligente. Cultiva Sostenible.</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0077cc",
+                        "eco-green": "#2ecc71",
+                        "background-light": "#f5f7f8",
+                        "background-dark": "#0f1b23",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<!-- Sticky Navigation Bar -->
+<header class="fixed top-0 w-full z-50 glass-nav border-b border-slate-200 dark:border-slate-800">
+<nav class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+<div class="flex items-center gap-2 text-primary font-bold text-xl">
+<span class="material-symbols-outlined text-3xl">eco</span>
+<span class="tracking-tight">EcoGrow</span>
+</div>
+<div class="hidden md:flex items-center gap-10">
+<a class="text-sm font-medium hover:text-primary transition-colors" href="{{ url_for('about') }}">Sobre Nosotros</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="{{ url_for('cultivos') }}">Cultivos</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="{{ url_for('sensores') }}">Sensores</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="{{ url_for('mostrar_inventario') }}">Inventario</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="{{ url_for('login') }}">Login</a>
+</div>
+<div class="md:hidden">
+<span class="material-symbols-outlined">menu</span>
+</div>
+</nav>
+</header>
+<main class="pt-16">
+<!-- Hero Section -->
 <section class="relative overflow-hidden pt-20 pb-16 md:pt-32 md:pb-32" id="hero">
-    <div class="max-w-7xl mx-auto px-6 flex flex-col lg:flex-row items-center gap-12">
-        <div class="flex-1 text-center lg:text-left">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold mb-6">
-                <span class="relative flex h-2 w-2">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                </span>
-                SaaS para Hidroponía 4.0
-            </div>
-            <h1 class="text-5xl md:text-7xl font-black text-slate-900 dark:text-white leading-[1.1] tracking-tighter mb-6">
-                Cultiva Inteligente. <br/>
-                <span class="text-primary">Cultiva Sostenible.</span>
-            </h1>
-            <p class="text-lg md:text-xl text-slate-600 dark:text-slate-400 mb-10 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                Plataforma SaaS moderna para la gestión de sistemas hidropónicos automatizados utilizando PET reciclado e impresión 3D modular.
-            </p>
-            <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
-                <a href="{{ url_for('login') }}" class="w-full sm:w-auto bg-primary text-white px-8 py-4 rounded-xl text-lg font-bold shadow-lg shadow-primary/25 hover:scale-[1.02] transition-transform">
-                    Iniciar Sesión
-                </a>
-                <button class="w-full sm:w-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-8 py-4 rounded-xl text-lg font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                    Ver Demo
-                </button>
-            </div>
-        </div>
-        <div class="flex-1 w-full max-w-[600px]">
-            <div class="relative rounded-2xl overflow-hidden shadow-2xl bg-white p-4">
-                <img alt="Modular Hydroponic System" class="w-full h-auto rounded-xl object-cover aspect-[4/3]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5Ha5lRM7pRoBnKPh8AxuNmTkKUR7PY8s1hrFIXRNlwOac_seTFMuhNHoqKS79cQhPQ0wZma4KkWkKvEkW1C1P2WsFsjVFsIzLnDI_C-6n5Ohd_GemeKvQMT7-QouW2yeZ6Bm6gMlMavVsJmxWtbVXoIc_WBv-4waZlyB6QYcuDUPUbIehUQkctifUlR_-OBGJC5VIL_T4iy2Zz2k4g9UG8mKL_xjA_rbLFcl6Nm0oDFmbm7FQ9Jce0kBj-wNmX5TOkuAEcHwPCjjk"/>
-                <div class="absolute bottom-8 right-8 bg-white/90 backdrop-blur-md p-4 rounded-xl shadow-xl border border-white/20">
-                    <div class="flex items-center gap-3">
-                        <div class="bg-eco-green/20 p-2 rounded-lg text-eco-green">
-                            <span class="material-symbols-outlined">water_drop</span>
-                        </div>
-                        <div>
-                            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Humedad</p>
-                            <p class="text-lg font-bold text-slate-900">72% <span class="text-xs text-eco-green">+2%</span></p>
-                        </div>
+<div class="max-w-7xl mx-auto px-6 flex flex-col lg:flex-row items-center gap-12">
+<div class="flex-1 text-center lg:text-left">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold mb-6">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+                        SaaS para Hidroponía 4.0
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
+<h1 class="text-5xl md:text-7xl font-black text-slate-900 dark:text-white leading-[1.1] tracking-tighter mb-6">
+                        Cultiva Inteligente. <br/>
+<span class="text-primary">Cultiva Sostenible.</span>
+</h1>
+<p class="text-lg md:text-xl text-slate-600 dark:text-slate-400 mb-10 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+                        Plataforma SaaS moderna para la gestión de sistemas hidropónicos automatizados utilizando PET reciclado e impresión 3D modular.
+                    </p>
+<div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
+<button class="w-full sm:w-auto bg-primary text-white px-8 py-4 rounded-xl text-lg font-bold shadow-lg shadow-primary/25 hover:scale-[1.02] transition-transform">
+                            Comenzar Ahora
+                        </button>
+<button class="w-full sm:w-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-8 py-4 rounded-xl text-lg font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                            Ver Demo
+                        </button>
+</div>
+</div>
+<div class="flex-1 w-full max-w-[600px]">
+<div class="relative rounded-2xl overflow-hidden shadow-2xl bg-white p-4">
+<img alt="Modular Hydroponic System" class="w-full h-auto rounded-xl object-cover aspect-[4/3]" data-alt="Futuristic modular 3D printed hydroponic vertical farm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD5Ha5lRM7pRoBnKPh8AxuNmTkKUR7PY8s1hrFIXRNlwOac_seTFMuhNHoqKS79cQhPQ0wZma4KkWkKvEkW1C1P2WsFsjVFsIzLnDI_C-6n5Ohd_GemeKvQMT7-QouW2yeZ6Bm6gMlMavVsJmxWtbVXoIc_WBv-4waZlyB6QYcuDUPUbIehUQkctifUlR_-OBGJC5VIL_T4iy2Zz2k4g9UG8mKL_xjA_rbLFcl6Nm0oDFmbm7FQ9Jce0kBj-wNmX5TOkuAEcHwPCjjk"/>
+<div class="absolute bottom-8 right-8 bg-white/90 backdrop-blur-md p-4 rounded-xl shadow-xl border border-white/20">
+<div class="flex items-center gap-3">
+<div class="bg-eco-green/20 p-2 rounded-lg text-eco-green">
+<span class="material-symbols-outlined">water_drop</span>
+</div>
+<div>
+<p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Humedad</p>
+<p class="text-lg font-bold text-slate-900">72% <span class="text-xs text-eco-green">+2%</span></p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
 </section>
-{% endblock %}
-
+<!-- How it Works Section -->
+<section class="py-24 bg-white dark:bg-slate-900/50" id="technology">
+<div class="max-w-7xl mx-auto px-6">
+<div class="text-center max-w-3xl mx-auto mb-20">
+<h2 class="text-3xl md:text-4xl font-bold mb-4 tracking-tight">Cómo Funciona</h2>
+<p class="text-slate-600 dark:text-slate-400 text-lg">De residuos plásticos a cultivos frescos: nuestro proceso circular de alta tecnología.</p>
+</div>
+<div class="grid md:grid-cols-3 gap-8">
+<!-- Step 1 -->
+<div class="group p-8 rounded-2xl border border-slate-100 dark:border-slate-800 bg-background-light dark:bg-background-dark hover:shadow-xl transition-all hover:-translate-y-1">
+<div class="size-14 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined text-3xl">recycling</span>
+</div>
+<h3 class="text-xl font-bold mb-3">Reciclar PET</h3>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+                            Transformamos botellas de PET desechadas en filamento de alta resistencia para nuestra infraestructura modular.
+                        </p>
+</div>
+<!-- Step 2 -->
+<div class="group p-8 rounded-2xl border border-slate-100 dark:border-slate-800 bg-background-light dark:bg-background-dark hover:shadow-xl transition-all hover:-translate-y-1">
+<div class="size-14 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined text-3xl">precision_manufacturing</span>
+</div>
+<h3 class="text-xl font-bold mb-3">Impresión 3D</h3>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+                            Fabricación digital bajo demanda que permite diseños escalables y adaptables a cualquier espacio urbano.
+                        </p>
+</div>
+<!-- Step 3 -->
+<div class="group p-8 rounded-2xl border border-slate-100 dark:border-slate-800 bg-background-light dark:bg-background-dark hover:shadow-xl transition-all hover:-translate-y-1">
+<div class="size-14 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined text-3xl">psychology</span>
+</div>
+<h3 class="text-xl font-bold mb-3">Cultivar &amp; Optimizar</h3>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+                            Gestión automatizada por IA que monitorea nutrientes y riego para un crecimiento 40% más rápido.
+                        </p>
+</div>
+</div>
+</div>
+</section>
+<!-- Sustainability Dashboard Snippet -->
+<section class="py-24 overflow-hidden" id="impact">
+<div class="max-w-7xl mx-auto px-6">
+<div class="bg-primary/5 dark:bg-primary/10 rounded-3xl p-8 md:p-16 border border-primary/10">
+<div class="flex flex-col lg:flex-row items-center gap-12">
+<div class="flex-1">
+<h2 class="text-3xl md:text-4xl font-bold mb-6 tracking-tight">Impacto de Sostenibilidad</h2>
+<p class="text-slate-600 dark:text-slate-400 mb-8 text-lg">
+                                Nuestra red global de granjas inteligentes está cambiando el planeta. Monitorea los ahorros ambientales en tiempo real desde tu panel de control.
+                            </p>
+<div class="flex flex-wrap gap-4">
+<div class="bg-white dark:bg-slate-800 p-6 rounded-2xl flex-1 min-w-[200px] shadow-sm">
+<div class="text-primary mb-2">
+<span class="material-symbols-outlined">water_drop</span>
+</div>
+<p class="text-sm font-medium text-slate-500 uppercase tracking-widest">Agua Ahorrada</p>
+<h4 class="text-3xl font-black mt-1">12,450 L</h4>
+<div class="mt-2 text-eco-green text-sm font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">trending_up</span> +15% este mes
+                                    </div>
+</div>
+<div class="bg-white dark:bg-slate-800 p-6 rounded-2xl flex-1 min-w-[200px] shadow-sm">
+<div class="text-primary mb-2">
+<span class="material-symbols-outlined">auto_delete</span>
+</div>
+<p class="text-sm font-medium text-slate-500 uppercase tracking-widest">PET Reciclado</p>
+<h4 class="text-3xl font-black mt-1">850 KG</h4>
+<div class="mt-2 text-eco-green text-sm font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">trending_up</span> +22% este mes
+                                    </div>
+</div>
+</div>
+</div>
+<div class="flex-1 w-full relative">
+<div class="aspect-square bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 p-8">
+<div class="flex justify-between items-center mb-8">
+<h5 class="font-bold">Análisis de Eficiencia</h5>
+<span class="material-symbols-outlined text-slate-400">more_horiz</span>
+</div>
+<div class="space-y-6">
+<div>
+<div class="flex justify-between text-sm mb-2 font-medium">
+<span>Uso de Energía</span>
+<span>94%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[94%] rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-sm mb-2 font-medium">
+<span>Ahorro de Nutrientes</span>
+<span>88%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+<div class="bg-eco-green h-full w-[88%] rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-sm mb-2 font-medium">
+<span>Optimización de PET</span>
+<span>75%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+<div class="bg-blue-400 h-full w-[75%] rounded-full"></div>
+</div>
+</div>
+</div>
+<div class="mt-10 pt-8 border-t border-slate-100 dark:border-slate-700">
+<div class="flex items-center gap-4">
+<div class="size-10 rounded-full bg-slate-200" data-alt="User profile placeholder avatar" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCJLcnin6hySXsyUcgiAjbEzG3co-XkwFMcdGbkOX1YHJIKQhS7irzueWepKhXRORRDCUADEBBFOMCeMfyP04OIT3zv38Ix5UWB4YhC-kGJq5pNKBNFuf1dc-FuvSYA6Y6mHrJ5BeT04i0cZty1d2rJI5rXbFxcZtTIU5xWqIpBElDBAI4exeZlU7ZV7F_IoKXaMoAikzypyYwQKcsijgYg0yW5V7xW_sj5QGtTMWDP1oD18QexhJc0JW15Y2HRS2A00ehXF6CEjt5a');"></div>
+<div>
+<p class="text-xs text-slate-500 font-medium">Responsable Técnico</p>
+<p class="font-bold">AJTecnology Team</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- CTA Section -->
+<section class="py-20 text-center">
+<div class="max-w-4xl mx-auto px-6">
+<h2 class="text-4xl md:text-5xl font-black mb-8 tracking-tighter">¿Listo para transformar tu cultivo?</h2>
+<p class="text-slate-600 dark:text-slate-400 text-lg mb-10">Únete a la revolución de la agricultura urbana y sostenible con EcoGrow.</p>
+<button class="bg-primary text-white px-12 py-5 rounded-2xl text-xl font-bold shadow-xl shadow-primary/30 hover:scale-105 transition-transform">
+                    Agenda una Demo Personalizada
+                </button>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 pt-16 pb-8">
+<div class="max-w-7xl mx-auto px-6">
+<div class="grid md:grid-cols-4 gap-12 mb-16">
+<div class="col-span-2">
+<div class="flex items-center gap-2 text-primary font-bold text-2xl mb-6">
+<span class="material-symbols-outlined text-3xl">eco</span>
+<span class="tracking-tight">EcoGrow</span>
+</div>
+<p class="text-slate-600 dark:text-slate-400 max-w-sm leading-relaxed">
+                        Haciendo que la agricultura sostenible sea accesible para todos a través de tecnología de código abierto y manufactura circular.
+                    </p>
+</div>
+<div>
+<h6 class="font-bold mb-6">Plataforma</h6>
+<ul class="space-y-4 text-sm text-slate-500 dark:text-slate-400">
+<li><a class="hover:text-primary transition-colors" href="#">Tecnología</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Software SaaS</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Hardware PET</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Comunidad</a></li>
+</ul>
+</div>
+<div>
+<h6 class="font-bold mb-6">Empresa</h6>
+<ul class="space-y-4 text-sm text-slate-500 dark:text-slate-400">
+<li><a class="hover:text-primary transition-colors" href="#">Sobre Nosotros</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Impacto Social</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Blog</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Contacto</a></li>
+</ul>
+</div>
+</div>
+<div class="pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-500 font-medium">
+<p>© 2024 EcoGrow Smart Platform. Todos los derechos reservados.</p>
+<div class="flex items-center gap-6">
+<span>Desarrollado por <span class="text-primary font-bold">AJTecnology</span></span>
+<span>Socio: <span class="text-slate-900 dark:text-white font-bold">U.E. Andrés Bello</span></span>
+</div>
+</div>
+</div>
+</footer>
+</body></html>

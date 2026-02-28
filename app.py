@@ -57,6 +57,11 @@ def demo():
     # simple demo page
     return render_template('demo.html')
 
+@app.route('/sustainability')
+def sustainability():
+    # full stitch sustainability page
+    return render_template('sustainability.html')
+
 
 # --- inventario crud -----------------------------------------------------
 @app.route('/inventario')

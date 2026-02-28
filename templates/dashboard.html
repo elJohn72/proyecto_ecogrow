@@ -1,9 +1,383 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
 
-{% block title %}Dashboard IoT - EcoGrow{% endblock %}
-
-{% block content %}
-    <h2>Panel Principal</h2>
-    <p>Este sería el punto de partida del dashboard IoT (ver diseño "main_iot_dashboard").
-       Usa esta plantilla como ejemplo para copiar secciones del archivo HTML adjunto.</p>
-{% endblock %}
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Main IoT Dashboard | EcoGrow Smart Platform</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0077cc",
+                        "background-light": "#f5f7f8",
+                        "background-dark": "#0f1b23",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .active-nav { border-left: 4px solid #0077cc; background-color: rgba(0, 119, 204, 0.08); }
+        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display transition-colors duration-300">
+<div class="flex h-screen overflow-hidden">
+<!-- Sidebar Navigation -->
+<aside class="w-64 bg-white dark:bg-background-dark border-r border-slate-200 dark:border-slate-800 flex flex-col h-full shrink-0">
+<div class="p-6 flex items-center gap-3">
+<div class="size-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined">eco</span>
+</div>
+<div>
+<h1 class="text-lg font-bold tracking-tight">EcoGrow</h1>
+<p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Smart Platform</p>
+</div>
+</div>
+<nav class="flex-1 px-3 space-y-1">
+<a class="active-nav flex items-center gap-3 px-3 py-3 rounded-lg text-primary font-semibold" href="{{ url_for('dashboard') }}">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all" href="{{ url_for('mostrar_inventario') }}">
+<span class="material-symbols-outlined">inventory_2</span>
+<span>Inventario</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all" href="{{ url_for('irrigation') }}">
+<span class="material-symbols-outlined">water_drop</span>
+<span>Irrigation</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all" href="{{ url_for('sustainability') }}">
+<span class="material-symbols-outlined">rebase_edit</span>
+<span>Sustainability</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all" href="{{ url_for('login') }}">
+<span class="material-symbols-outlined">login</span>
+<span>Login</span>
+</a>
+</nav>
+<div class="p-4 border-t border-slate-200 dark:border-slate-800">
+<a class="flex items-center gap-3 px-3 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>Settings</span>
+</a>
+<div class="mt-4 p-4 bg-primary/10 rounded-xl">
+<p class="text-[11px] font-bold text-primary uppercase tracking-wider mb-2">Sustainable Impact</p>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">recycling</span>
+<span class="text-sm font-semibold">12.4kg PET Saved</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+<!-- Header -->
+<header class="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md sticky top-0 z-10 px-8 flex items-center justify-between">
+<div class="flex items-center gap-4 w-1/3">
+<div class="relative w-full max-w-sm">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-primary/20" placeholder="Search systems or sensors..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="relative p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-red-500 border-2 border-white dark:border-background-dark rounded-full"></span>
+</button>
+<div class="flex items-center gap-3 pl-6 border-l border-slate-200 dark:border-slate-800">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-semibold leading-none">Alex Rivera</p>
+<p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-tighter">Premium Grower</p>
+</div>
+<div class="size-10 rounded-full bg-slate-200 overflow-hidden ring-2 ring-primary/20">
+<img alt="User" class="size-full object-cover" data-alt="Portrait of a young professional man smiling" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxIZuxQyaqieuM2ZHOf0HYRcjrHGWaOSteK2VMPoz_Ez6Dccc85GqJaFqnup7Xw1omVaasasEkOpKZUCj7wgJxjX4NiB6hcVtUHCT1BivpklxFy1AxE_niku9UEoffAAg055lE2yrJ4YF9c41sWnCYTsiEpCRwrTfbskjfxPU9i00V_BdYhSPmDDCqAyP4EOazI4WSjt83ufgVxwkKPWB0Zx4qjdGnqw8ptuNVZGUWbopE4CnKKOU4uWwq3rfyyo5LO-Qw-cbmy_We"/>
+</div>
+</div>
+</div>
+</header>
+<div class="p-8 space-y-8 max-w-[1600px] mx-auto w-full">
+<!-- KPI Dashboard Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+<!-- Water Level Gauge -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center text-center">
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4">Water Level</p>
+<div class="relative size-24">
+<svg class="size-full" viewbox="0 0 36 36">
+<path class="text-slate-100 dark:text-slate-800" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3"></path>
+<path class="text-primary" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="78, 100" stroke-linecap="round" stroke-width="3"></path>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-xl font-bold">78%</span>
+</div>
+</div>
+<div class="mt-4 flex items-center gap-1 text-emerald-500 text-xs font-bold">
+<span class="material-symbols-outlined text-sm">trending_up</span> +2.4%
+                        </div>
+</div>
+<!-- Pump Status -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400">Pump Status</p>
+<h3 class="text-2xl font-bold mt-1 text-primary">Active</h3>
+</div>
+<span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">speed</span>
+</div>
+<div class="flex items-center justify-between mt-6">
+<span class="text-xs font-medium opacity-60">System Pressure: 32 PSI</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+<!-- Nutrient Level -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400">Nutrient Level</p>
+<h3 class="text-2xl font-bold mt-1">1.2 <span class="text-sm font-normal text-slate-500">EC</span></h3>
+</div>
+<span class="material-symbols-outlined text-orange-500 bg-orange-50 dark:bg-orange-500/10 p-2 rounded-lg">science</span>
+</div>
+<div class="mt-4 text-xs font-medium text-slate-500 bg-slate-50 dark:bg-slate-800 p-2 rounded-lg">
+                            Target: 1.1 - 1.4 EC
+                        </div>
+</div>
+<!-- Temperature -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400">Temperature</p>
+<h3 class="text-2xl font-bold mt-1">24.5°C</h3>
+</div>
+<span class="material-symbols-outlined text-red-500 bg-red-50 dark:bg-red-500/10 p-2 rounded-lg">thermostat</span>
+</div>
+<div class="mt-4 flex items-center gap-1 text-emerald-500 text-xs font-bold">
+<span class="material-symbols-outlined text-sm">trending_flat</span> Stable
+                        </div>
+</div>
+<!-- Health Score -->
+<div class="bg-primary text-white p-6 rounded-xl shadow-lg shadow-primary/30 flex flex-col justify-between relative overflow-hidden">
+<div class="absolute -right-4 -bottom-4 opacity-20 transform rotate-12">
+<span class="material-symbols-outlined text-8xl">favorite</span>
+</div>
+<div class="flex justify-between items-start z-10">
+<div>
+<p class="text-sm font-medium text-white/80">Health Score</p>
+<h3 class="text-3xl font-bold mt-1">94%</h3>
+</div>
+<div class="size-2 bg-white rounded-full animate-pulse shadow-[0_0_8px_rgba(255,255,255,0.8)]"></div>
+</div>
+<p class="text-[10px] font-bold uppercase tracking-wider mt-6 z-10">Optimal Condition</p>
+</div>
+</div>
+<!-- Main Grid: Charts and Crops -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Water Consumption Chart Area -->
+<div class="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-8">
+<div class="flex items-center justify-between mb-8">
+<div>
+<h2 class="text-xl font-bold">Weekly Water Consumption</h2>
+<p class="text-sm text-slate-500">Usage trend across all automated systems</p>
+</div>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 text-xs font-semibold bg-slate-100 dark:bg-slate-800 rounded-lg">Day</button>
+<button class="px-3 py-1.5 text-xs font-semibold bg-primary text-white rounded-lg">Week</button>
+<button class="px-3 py-1.5 text-xs font-semibold bg-slate-100 dark:bg-slate-800 rounded-lg">Month</button>
+</div>
+</div>
+<!-- Simplified SVG Chart Representation -->
+<div class="relative h-64 w-full mt-4">
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 800 200">
+<defs>
+<lineargradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#0077cc" stop-opacity="0.2"></stop>
+<stop offset="100%" stop-color="#0077cc" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<!-- Grid Lines -->
+<line class="text-slate-100 dark:text-slate-800" stroke="currentColor" stroke-dasharray="4" x1="0" x2="800" y1="50" y2="50"></line>
+<line class="text-slate-100 dark:text-slate-800" stroke="currentColor" stroke-dasharray="4" x1="0" x2="800" y1="100" y2="100"></line>
+<line class="text-slate-100 dark:text-slate-800" stroke="currentColor" stroke-dasharray="4" x1="0" x2="800" y1="150" y2="150"></line>
+<!-- Area -->
+<path d="M0,150 Q100,120 200,160 T400,100 T600,80 T800,130 L800,200 L0,200 Z" fill="url(#chartGradient)"></path>
+<!-- Line -->
+<path d="M0,150 Q100,120 200,160 T400,100 T600,80 T800,130" fill="none" stroke="#0077cc" stroke-linecap="round" stroke-width="3"></path>
+<!-- Data Points -->
+<circle cx="200" cy="160" fill="white" r="4" stroke="#0077cc" stroke-width="2"></circle>
+<circle cx="400" cy="100" fill="white" r="4" stroke="#0077cc" stroke-width="2"></circle>
+<circle cx="600" cy="80" fill="white" r="4" stroke="#0077cc" stroke-width="2"></circle>
+</svg>
+<div class="flex justify-between mt-4 px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+<span>Mon</span>
+<span>Tue</span>
+<span>Wed</span>
+<span>Thu</span>
+<span>Fri</span>
+<span>Sat</span>
+<span>Sun</span>
+</div>
+</div>
+</div>
+<!-- Sustainability Summary -->
+<div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-8 flex flex-col justify-between">
+<div>
+<div class="flex items-center gap-2 text-primary mb-4">
+<span class="material-symbols-outlined">recycling</span>
+<h2 class="text-lg font-bold">Circular Impact</h2>
+</div>
+<p class="text-sm text-slate-500 mb-8 leading-relaxed">Your hydroponic setups currently use <strong>34kg of 3D-printed PET</strong> recovered from local waste streams.</p>
+<div class="space-y-6">
+<div class="flex items-center gap-4">
+<div class="size-12 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600">
+<span class="material-symbols-outlined">compost</span>
+</div>
+<div>
+<p class="text-sm font-bold">Plastic Diverted</p>
+<p class="text-xs text-slate-500">142 Bottles equivalent</p>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="size-12 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-600">
+<span class="material-symbols-outlined">humidity_low</span>
+</div>
+<div>
+<p class="text-sm font-bold">Water Saved</p>
+<p class="text-xs text-slate-500">240L vs Traditional Soil</p>
+</div>
+</div>
+</div>
+</div>
+<button class="w-full mt-8 py-3 bg-slate-900 dark:bg-slate-800 text-white rounded-lg text-sm font-bold hover:bg-slate-800 transition-colors">Download ESG Report</button>
+</div>
+<!-- Active Crops Grid -->
+<div class="lg:col-span-3">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-2xl font-bold">Active Crops</h2>
+<button class="flex items-center gap-2 text-primary text-sm font-bold hover:underline">
+<span class="material-symbols-outlined text-base">add_circle</span>
+                                Add System
+                            </button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+<!-- Crop Card 1 -->
+<div class="bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm group">
+<div class="h-40 relative">
+<img alt="Lettuce" class="size-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Vibrant green butterhead lettuce growing in a hydroponic tower" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtS6lYAzw3JXoBEH2TzM41X2KxhF3otFlx4cWYoPwCwKInPRagZ6D03rarkJqZoIUGSvutvh14ktaC5EVJnbJcDGsL4XBleorHRN080dW2SQeQn99vpky6_MQ_uAmaJvAEm7H_re6S1kVOvieZHThpyTFYYOo8heKv3VmDWVqA80VfUMMwFC2qvuJAG2QSqusbR-1DHxVzvhvOyLKoTJAeXido46G9M_BAFYSrog5QZoREEoAaerA4StmrsgIk7hMB9JeKCkQUAxq7"/>
+<div class="absolute top-3 left-3 flex gap-2">
+<span class="px-2 py-1 bg-emerald-500 text-white text-[10px] font-bold rounded uppercase">Optimal</span>
+</div>
+<div class="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
+<p class="absolute bottom-3 left-3 text-white font-bold">Tower A - Lettuce</p>
+</div>
+<div class="p-4 space-y-4">
+<div class="flex justify-between text-xs">
+<span class="text-slate-500">Days to Harvest</span>
+<span class="font-bold">12 Days</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[65%]"></div>
+</div>
+<div class="flex items-center justify-between pt-2">
+<div class="flex gap-1">
+<span class="material-symbols-outlined text-emerald-500 text-sm">recycling</span>
+<span class="text-[10px] font-bold uppercase tracking-tighter text-slate-500">3.2kg PET</span>
+</div>
+<button class="size-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined text-base">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Crop Card 2 -->
+<div class="bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm group">
+<div class="h-40 relative">
+<img alt="Basil" class="size-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Fresh purple and green basil leaves in a hydroponic tray" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHmdTHxiyS7Hmu5pS9B5hFJR6rJOox28mskR5zvqMnB6QY3gx_MYsjVFt3lYQS9AA_JCD5kNSmzxgtCFKJGus5KV7H8fXO9VEQ65Ex4RQbkP3p_JJ6Jzlt_QjXVdDc-s8y4IxPd66a45nd9B8apPEDZ8BO_Y8jI50HGImfKa1k6P93zXzjydVDY0KTn5QEOWXvf3EZ4t7ZEoX0QaFjLgbWcGa8ONPnqLwoX9RtG1NKriGjtRPS0EThZo3ukrllYWlWQfSBcPWnYrJl"/>
+<div class="absolute top-3 left-3 flex gap-2">
+<span class="px-2 py-1 bg-amber-500 text-white text-[10px] font-bold rounded uppercase">Attention</span>
+</div>
+<div class="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
+<p class="absolute bottom-3 left-3 text-white font-bold">Tray B - Basil</p>
+</div>
+<div class="p-4 space-y-4">
+<div class="flex justify-between text-xs">
+<span class="text-slate-500">Days to Harvest</span>
+<span class="font-bold">5 Days</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[85%]"></div>
+</div>
+<div class="flex items-center justify-between pt-2">
+<div class="flex gap-1">
+<span class="material-symbols-outlined text-emerald-500 text-sm">recycling</span>
+<span class="text-[10px] font-bold uppercase tracking-tighter text-slate-500">1.8kg PET</span>
+</div>
+<button class="size-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined text-base">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Crop Card 3 -->
+<div class="bg-white dark:bg-slate-900 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm group">
+<div class="h-40 relative">
+<img alt="Kale" class="size-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="Curly green kale growing in an indoor vertical hydroponic system" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBNll2UOSzazxOLF3UiqlLLEvQdOMBPRlflXQ7Fc_X-RlRjmxgvL9KHdorLa-qsBDWSmrNwvIrzmmKdVXv2ov7fnTUyclswrB10G_xcBmD4AFhf8UjFFj8mgN2Yyx6U1L-7HT7L6n6Pjcp-VafFfeCz6vGGQA-HYD_2pq9P8kpC2uciOGlZZnGqfuxh1LOWwIo51ulQSyF_4Z_P4MTy6RmJZR1gEMIxfZnKggqlwkwaRmPoPQIifMoz7qEVwX2qJQ96TWSxhTpKYFjD"/>
+<div class="absolute top-3 left-3 flex gap-2">
+<span class="px-2 py-1 bg-emerald-500 text-white text-[10px] font-bold rounded uppercase">Optimal</span>
+</div>
+<div class="absolute bottom-0 inset-x-0 h-1/2 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
+<p class="absolute bottom-3 left-3 text-white font-bold">Tower C - Kale</p>
+</div>
+<div class="p-4 space-y-4">
+<div class="flex justify-between text-xs">
+<span class="text-slate-500">Days to Harvest</span>
+<span class="font-bold">22 Days</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[35%]"></div>
+</div>
+<div class="flex items-center justify-between pt-2">
+<div class="flex gap-1">
+<span class="material-symbols-outlined text-emerald-500 text-sm">recycling</span>
+<span class="text-[10px] font-bold uppercase tracking-tighter text-slate-500">4.5kg PET</span>
+</div>
+<button class="size-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined text-base">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Crop Card 4 (Empty/Add New) -->
+<div class="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex flex-col items-center justify-center p-6 text-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group cursor-pointer">
+<div class="size-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white transition-all">
+<span class="material-symbols-outlined">add</span>
+</div>
+<h3 class="font-bold text-slate-600 dark:text-slate-400">Initialize New Tower</h3>
+<p class="text-xs text-slate-400 mt-2">Connect a 3D printed hydroponic module via IoT pairing</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sustainability &amp; Impact Analytics | EcoGrow Smart Platform</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0077cc",
+                        "background-light": "#f5f7f8",
+                        "background-dark": "#0f1b23",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .chart-gradient-blue { background: linear-gradient(180deg, rgba(0,119,204,0.1) 0%, rgba(0,119,204,0) 100%); }
+        @media print {
+            .no-print { display: none; }
+            .print-only { display: block; }
+            body { background: white; }
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<div class="relative flex min-h-screen flex-col">
+<!-- Top Navigation -->
+<header class="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md px-6 lg:px-20 py-3 no-print">
+<div class="flex items-center justify-between gap-8">
+<div class="flex items-center gap-10">
+<div class="flex items-center gap-3 text-primary">
+<span class="material-symbols-outlined text-3xl font-bold">potted_plant</span>
+<h2 class="text-slate-900 dark:text-white text-xl font-extrabold tracking-tight">EcoGrow <span class="font-light text-slate-500">Smart</span></h2>
+</div>
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-slate-600 dark:text-slate-400 text-sm font-semibold hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-slate-600 dark:text-slate-400 text-sm font-semibold hover:text-primary transition-colors" href="#">Inventory</a>
+<a class="text-primary text-sm font-bold border-b-2 border-primary pb-1" href="#">Sustainability</a>
+<a class="text-slate-600 dark:text-slate-400 text-sm font-semibold hover:text-primary transition-colors" href="#">Reports</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xl">search</span>
+<input class="pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-primary w-64" placeholder="Search analytics..." type="text"/>
+</div>
+<button class="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-sm">
+<span class="material-symbols-outlined text-lg">picture_as_pdf</span>
+<span>Export Report</span>
+</button>
+<div class="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden border-2 border-white dark:border-slate-800 shadow-sm">
+<img alt="Profile" data-alt="User profile professional portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8f6PrPKd_bRLjY8TKXJZCFHqPw9Xmz2wN8gWHInsM0-NEbclScot-uG2y8q843CVwxXaBrfIxXSnZd-XhHwLau4npZIpj4n1lhWxy5FmIywXt6zkYN_ylqKX7UvkXf00PTAlM728SVWOREDL4R_ZFN6S6IVkDp9QkeOjzpU8fDBrXW61Ixd3BEyOaZmAmj7jZGeYDlvioytdbUV0_yC4goNZNsA3VRZpOzyLeS_V4aN9eaYZl5h5IjIlFwbZ-eA8sbUdNz-AltiAY"/>
+</div>
+</div>
+</div>
+</header>
+<main class="flex-1 max-w-[1400px] mx-auto w-full px-6 lg:px-20 py-8">
+<!-- Breadcrumbs & Header -->
+<div class="mb-10">
+<nav class="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 mb-4">
+<a class="hover:text-primary" href="{{ url_for('dashboard') }}">Dashboard</a>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<a class="hover:text-primary" href="{{ url_for('sustainability') }}">Sustainability</a>
+</nav>
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<h1 class="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+                            Sustainability &amp; <br/>Impact Analytics
+                        </h1>
+<p class="mt-4 text-lg text-slate-500 dark:text-slate-400 max-w-2xl font-light">
+                            Quantifying the ecological footprint of our automated circular hydroponic infrastructure. Data synchronized: Today, 09:42 AM.
+                        </p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined text-lg">share</span>
+                            Share Report
+                        </button>
+<button class="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined text-lg">settings</span>
+                            Adjust Benchmarks
+                        </button>
+</div>
+</div>
+</div>
+<!-- KPI Row -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+<div class="bg-white dark:bg-slate-900 p-8 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl">recycling</span>
+</div>
+<p class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">PET Recycled</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black text-slate-900 dark:text-white">1,240</span>
+<span class="text-xl font-bold text-slate-500">KG</span>
+</div>
+<div class="mt-4 flex items-center gap-1.5 text-emerald-600 font-bold text-sm">
+<span class="material-symbols-outlined text-lg">trending_up</span>
+<span>+12.4% vs last period</span>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-900 p-8 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden group border-b-4 border-b-primary">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-6xl text-primary">water_drop</span>
+</div>
+<p class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Water Saved</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black text-slate-900 dark:text-white">45,000</span>
+<span class="text-xl font-bold text-slate-500">LITERS</span>
+</div>
+<div class="mt-4 flex items-center gap-1.5 text-emerald-600 font-bold text-sm">
+<span class="material-symbols-outlined text-lg">trending_up</span>
+<span>+15.1% vs soil farming</span>
+</div>
+</div>
+<div class="bg-slate-900 dark:bg-primary p-8 rounded-xl border border-slate-800 dark:border-primary shadow-lg relative overflow-hidden">
+<div class="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+<p class="text-sm font-bold text-slate-400 dark:text-white/70 uppercase tracking-widest mb-2">Sustainability Index</p>
+<div class="flex items-baseline gap-2">
+<span class="text-5xl font-black text-white">88</span>
+<span class="text-xl font-bold text-slate-400 dark:text-white/70">/ 100</span>
+</div>
+<div class="mt-4 flex items-center gap-1.5 text-emerald-400 dark:text-emerald-200 font-bold text-sm">
+<span class="material-symbols-outlined text-lg">verified</span>
+<span>Platinum Rating Tier</span>
+</div>
+</div>
+</div>
+<!-- Visualization Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+<!-- Main Growth Chart -->
+<div class="lg:col-span-8 bg-white dark:bg-slate-900 p-8 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex items-center justify-between mb-8">
+<div>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white">Growth Progress &amp; Carbon Capture</h3>
+<p class="text-sm text-slate-500 dark:text-slate-400">Plant biomass cumulative growth vs. CO2 sequestration (Metric Tons)</p>
+</div>
+<div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+<button class="px-3 py-1 text-xs font-bold bg-white dark:bg-slate-700 shadow-sm rounded">12M</button>
+<button class="px-3 py-1 text-xs font-bold text-slate-500">6M</button>
+<button class="px-3 py-1 text-xs font-bold text-slate-500">30D</button>
+</div>
+</div>
+<div class="h-80 w-full relative flex items-end justify-between gap-4 pt-4">
+<!-- Simplified SVG Chart Representation -->
+<div class="absolute inset-0 flex flex-col justify-between py-4 pointer-events-none">
+<div class="w-full border-t border-slate-100 dark:border-slate-800"></div>
+<div class="w-full border-t border-slate-100 dark:border-slate-800"></div>
+<div class="w-full border-t border-slate-100 dark:border-slate-800"></div>
+<div class="w-full border-t border-slate-100 dark:border-slate-800"></div>
+</div>
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 800 300">
+<defs>
+<lineargradient id="chartFill" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#0077cc" stop-opacity="0.2"></stop>
+<stop offset="100%" stop-color="#0077cc" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<path d="M0,250 Q100,220 200,230 T400,180 T600,120 T800,80 L800,300 L0,300 Z" fill="url(#chartFill)"></path>
+<path d="M0,250 Q100,220 200,230 T400,180 T600,120 T800,80" fill="none" stroke="#0077cc" stroke-width="3"></path>
+<circle cx="200" cy="230" fill="#0077cc" r="4"></circle>
+<circle cx="400" cy="180" fill="#0077cc" r="4"></circle>
+<circle cx="600" cy="120" fill="#0077cc" r="4"></circle>
+<circle cx="800" cy="80" fill="#0077cc" r="6" stroke="white" stroke-width="2"></circle>
+</svg>
+</div>
+<div class="flex justify-between mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+<span>Jan</span><span>Mar</span><span>May</span><span>Jul</span><span>Sep</span><span>Nov</span>
+</div>
+</div>
+<!-- Circular Economy Sankey Visualization -->
+<div class="lg:col-span-4 flex flex-col gap-8">
+<div class="bg-white dark:bg-slate-900 p-8 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex-1">
+<h3 class="text-xl font-bold text-slate-900 dark:text-white mb-6">Circular Flow</h3>
+<div class="space-y-6">
+<div class="relative pl-6 border-l-2 border-slate-200 dark:border-slate-800">
+<div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+<p class="text-xs font-bold text-slate-400 uppercase tracking-tighter">Raw Input</p>
+<p class="text-sm font-semibold">Post-Consumer PET Waste</p>
+<p class="text-lg font-bold text-primary">1.5 Tons</p>
+</div>
+<div class="relative pl-6 border-l-2 border-primary">
+<div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-primary animate-pulse"></div>
+<p class="text-xs font-bold text-primary uppercase tracking-tighter">Processing</p>
+<p class="text-sm font-semibold">3D Printed Systems</p>
+<p class="text-lg font-bold">124 Modular Units</p>
+</div>
+<div class="relative pl-6 border-l-2 border-emerald-500">
+<div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-emerald-500"></div>
+<p class="text-xs font-bold text-emerald-500 uppercase tracking-tighter">Output</p>
+<p class="text-sm font-semibold">Zero-Waste Crop Yield</p>
+<p class="text-lg font-bold text-emerald-600">8,420 Units</p>
+</div>
+</div>
+</div>
+<div class="bg-primary p-6 rounded-xl text-white shadow-lg shadow-primary/20">
+<div class="flex items-start justify-between">
+<div>
+<p class="text-sm font-bold opacity-75">Efficiency Score</p>
+<h4 class="text-3xl font-black">94.2%</h4>
+</div>
+<span class="material-symbols-outlined text-4xl opacity-50">bolt</span>
+</div>
+<p class="mt-4 text-xs font-medium opacity-90 leading-relaxed">
+                            Your system is performing in the top 5% of all EcoGrow networks globally.
+                        </p>
+</div>
+</div>
+</div>
+<!-- Detailed Methodology Section -->
+<div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden mb-12">
+<div class="grid grid-cols-1 md:grid-cols-2">
+<div class="p-10 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800">
+<h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-4">Resource Efficiency</h3>
+<p class="text-slate-600 dark:text-slate-400 mb-8 font-light leading-relaxed">
+                            Compared to traditional open-field agriculture, EcoGrow systems minimize evaporation loss and fertilizer runoff by recycling nutrient-rich water in a closed loop.
+                        </p>
+<div class="space-y-4">
+<div class="flex items-center justify-between text-sm">
+<span class="font-bold">Nutrient Recycling Rate</span>
+<span class="font-black text-primary">99.1%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[99%]"></div>
+</div>
+<div class="flex items-center justify-between text-sm mt-6">
+<span class="font-bold">Energy via Renewables</span>
+<span class="font-black text-primary">64.0%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[64%]"></div>
+</div>
+</div>
+</div>
+<div class="p-10 bg-slate-50 dark:bg-slate-900/50">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary p-2 bg-primary/10 rounded-lg">science</span>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white">Methodology &amp; Citations</h3>
+</div>
+<ul class="space-y-4 text-sm text-slate-600 dark:text-slate-400">
+<li class="flex gap-3">
+<span class="font-black text-slate-300">01</span>
+<p>PET recovery metrics validated against ISO 14040 Life Cycle Assessment standards.</p>
+</li>
+<li class="flex gap-3">
+<span class="font-black text-slate-300">02</span>
+<p>Water savings benchmarks derived from the 2023 FAO Global Agricultural Report for leafy greens.</p>
+</li>
+<li class="flex gap-3">
+<span class="font-black text-slate-300">03</span>
+<p>Circular Economy Index calculated based on the Ellen MacArthur Foundation toolkit.</p>
+</li>
+</ul>
+<button class="mt-8 text-primary font-bold text-sm flex items-center gap-2 hover:underline">
+                            Download Methodology PDF <span class="material-symbols-outlined text-sm">open_in_new</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Academic Footer -->
+<footer class="bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 py-12 px-6 lg:px-20">
+<div class="max-w-[1400px] mx-auto">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-12">
+<div class="flex items-center gap-3 grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all cursor-pointer">
+<span class="material-symbols-outlined text-2xl">school</span>
+<div class="text-xs">
+<p class="font-bold uppercase tracking-widest text-slate-400">Collaborative Partner</p>
+<p class="font-black text-slate-900 dark:text-white text-base">Institute of Green Systems</p>
+</div>
+</div>
+<div class="flex gap-12">
+<div>
+<p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Core Team</p>
+<p class="text-sm font-medium text-slate-600 dark:text-slate-400">Dr. Helena Vance</p>
+<p class="text-sm font-medium text-slate-600 dark:text-slate-400">Marcus Thorne</p>
+</div>
+<div>
+<p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Contact</p>
+<p class="text-sm font-medium text-slate-600 dark:text-slate-400">impact@ecogrow.io</p>
+<p class="text-sm font-medium text-slate-600 dark:text-slate-400">Oxford, UK Hub</p>
+</div>
+</div>
+</div>
+<div class="flex flex-col md:flex-row justify-between items-center gap-4 pt-8 border-t border-slate-100 dark:border-slate-900">
+<p class="text-xs text-slate-500 dark:text-slate-500">
+                        © 2024 EcoGrow Smart Platform. All impact data is protected under Circular License v2.0.
+                    </p>
+<div class="flex gap-6 text-xs font-bold text-slate-400">
+<a class="hover:text-primary" href="#">Legal Disclosure</a>
+<a class="hover:text-primary" href="#">Privacy Policy</a>
+<a class="hover:text-primary" href="#">Data Security</a>
+</div>
+</div>
+</div>
+</footer>
+</div>
+</body></html>
