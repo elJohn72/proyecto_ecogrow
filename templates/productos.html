@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Productos - EcoGrow{% endblock %}
+
+{% block content_wrapper %}
+    <div class="px-6 py-10 lg:px-12">
+        <div class="mx-auto max-w-6xl glass-card rounded-2xl shadow-2xl p-8 text-slate-700 dark:text-slate-300">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="mb-6 flex flex-col gap-3">
+                        {% for category, message in messages %}
+                            <div class="rounded-lg border px-4 py-3 text-sm {% if category == 'success' %}border-emerald-300 bg-emerald-50 text-emerald-700{% else %}border-red-300 bg-red-50 text-red-700{% endif %}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h2 class="text-3xl font-bold text-slate-900 dark:text-slate-100">Inventario de productos</h2>
+                    <p>Registros persistidos en SQLite y sincronizados con TXT, JSON y CSV.</p>
+                </div>
+                <div class="flex gap-3">
+                    <a class="rounded-lg bg-primary px-4 py-2 text-white hover:opacity-90" href="{{ url_for('crear_producto') }}">Nuevo producto</a>
+                    <a class="rounded-lg border border-slate-300 px-4 py-2 hover:bg-slate-50" href="{{ url_for('ver_datos') }}">Ver datos</a>
+                </div>
+            </div>
+
+            {% if productos %}
+                <div class="overflow-x-auto">
+                    <table class="min-w-full border-collapse text-left text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-slate-900 dark:text-slate-100">
+                                <th class="px-4 py-3">ID</th>
+                                <th class="px-4 py-3">Nombre</th>
+                                <th class="px-4 py-3">Cantidad</th>
+                                <th class="px-4 py-3">Precio</th>
+                                <th class="px-4 py-3">Descripcion</th>
+                                <th class="px-4 py-3">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in productos %}
+                                <tr class="border-b border-slate-100">
+                                    <td class="px-4 py-3">{{ p.id }}</td>
+                                    <td class="px-4 py-3">{{ p.nombre }}</td>
+                                    <td class="px-4 py-3">{{ p.cantidad }}</td>
+                                    <td class="px-4 py-3">${{ "%.2f"|format(p.precio) }}</td>
+                                    <td class="px-4 py-3">{{ p.descripcion }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex gap-3">
+                                            <a class="text-blue-600 hover:underline" href="{{ url_for('editar_producto', pid=p.id) }}">Editar</a>
+                                            <a class="text-red-600 hover:underline" href="{{ url_for('borrar', pid=p.id) }}">Borrar</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No hay productos registrados.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

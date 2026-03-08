@@ -74,6 +74,8 @@
             <a class="text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
                href="{{ url_for('about') }}">Acerca de</a>
             <a class="text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
+               href="{{ url_for('contactos') }}">Contactos</a>
+            <a class="text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
                href="{{ url_for('cultivos') }}">Cultivos</a>
             <a class="text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
                href="{{ url_for('sensores') }}">Sensores</a>
@@ -89,6 +91,8 @@
             <!-- nueva sección inventario -->
             <a class="text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
                href="{{ url_for('mostrar_inventario') }}">Inventario</a>
+            <a class="text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
+               href="{{ url_for('ver_datos') }}">Datos</a>
             <a class="text-primary font-semibold hover:underline transition-colors"
                href="{{ url_for('login') }}">Iniciar sesión</a>
         </nav>
@@ -100,6 +104,17 @@
         <div class="flex items-center justify-center p-6 min-h-[60vh]">
             <div class="w-full max-w-[520px]">
                 <div class="glass-card rounded-xl shadow-2xl p-8 md:p-10 flex flex-col gap-6 text-slate-700 dark:text-slate-300">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            <div class="flex flex-col gap-3">
+                                {% for category, message in messages %}
+                                    <div class="rounded-lg border px-4 py-3 text-sm {% if category == 'success' %}border-emerald-300 bg-emerald-50 text-emerald-700{% else %}border-red-300 bg-red-50 text-red-700{% endif %}">
+                                        {{ message }}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    {% endwith %}
                     {% block content %}{% endblock %}
                 </div>
             </div>
