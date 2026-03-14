@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }} - EcoGrow{% endblock %}
+
+{% block content %}
+    <h2 class="text-3xl font-bold text-slate-900 dark:text-slate-100">{{ titulo }}</h2>
+    <p>Formulario conectado a la tabla <code>usuarios</code> en MySQL.</p>
+
+    {% if errores %}
+        <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {% for error in errores %}
+                <p>{{ error }}</p>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <form method="post" class="flex flex-col gap-4">
+        <label>
+            Nombre<br>
+            <input type="text" name="nombre" value="{{ usuario.nombre }}" required class="w-full rounded border px-3 py-2" />
+        </label>
+        <label>
+            Correo electronico<br>
+            <input type="email" name="mail" value="{{ usuario.mail }}" required class="w-full rounded border px-3 py-2" />
+        </label>
+        <label>
+            Contrasena<br>
+            <input type="text" name="password" value="{{ usuario.password }}" required class="w-full rounded border px-3 py-2" />
+        </label>
+        <div class="flex gap-3">
+            <button type="submit" class="rounded bg-primary px-4 py-2 text-white">{{ accion }}</button>
+            <a href="{{ url_for('listar_usuarios_mysql') }}" class="rounded border border-slate-300 px-4 py-2">Cancelar</a>
+        </div>
+    </form>
+{% endblock %}

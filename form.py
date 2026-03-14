@@ -59,3 +59,40 @@ class ProductoFormData:
 
     def is_valid(self) -> bool:
         return not self.errors
+
+
+@dataclass
+class UsuarioFormData:
+    nombre: str = ""
+    mail: str = ""
+    password: str = ""
+    errors: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_request(cls, form) -> "UsuarioFormData":
+        errors: list[str] = []
+        nombre = form.get("nombre", "").strip()
+        mail = form.get("mail", "").strip()
+        password = form.get("password", "").strip()
+
+        if not nombre:
+            errors.append("El nombre es obligatorio.")
+        if not mail:
+            errors.append("El correo es obligatorio.")
+        elif "@" not in mail or "." not in mail:
+            errors.append("El correo no tiene un formato valido.")
+        if not password:
+            errors.append("La contrasena es obligatoria.")
+
+        return cls(nombre=nombre, mail=mail, password=password, errors=errors)
+
+    @classmethod
+    def from_mysql_usuario(cls, usuario: dict) -> "UsuarioFormData":
+        return cls(
+            nombre=usuario.get("nombre", ""),
+            mail=usuario.get("mail", ""),
+            password=usuario.get("password", ""),
+        )
+
+    def is_valid(self) -> bool:
+        return not self.errors

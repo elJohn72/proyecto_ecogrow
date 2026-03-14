@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Usuarios MySQL - EcoGrow{% endblock %}
+
+{% block content_wrapper %}
+    <div class="px-6 py-10 lg:px-12">
+        <div class="mx-auto max-w-5xl glass-card rounded-2xl shadow-2xl p-8 text-slate-700 dark:text-slate-300">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="mb-6 flex flex-col gap-3">
+                        {% for category, message in messages %}
+                            <div class="rounded-lg border px-4 py-3 text-sm {% if category == 'success' %}border-emerald-300 bg-emerald-50 text-emerald-700{% else %}border-red-300 bg-red-50 text-red-700{% endif %}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <div class="mb-6 flex items-center justify-between">
+                <div>
+                    <h2 class="text-3xl font-bold text-slate-900 dark:text-slate-100">Usuarios en MySQL</h2>
+                    <p>Consulta, registro, edicion y eliminacion de la tabla <code>usuarios</code>.</p>
+                </div>
+                <a class="rounded-lg bg-primary px-4 py-2 text-white hover:opacity-90" href="{{ url_for('crear_usuario_mysql') }}">Nuevo usuario</a>
+            </div>
+
+            <p class="mb-4 text-sm {% if mysql_status.available %}text-emerald-700{% else %}text-red-700{% endif %}">
+                {{ mysql_status.message }}
+            </p>
+
+            {% if usuarios %}
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-slate-200">
+                                <th class="px-4 py-3 text-left">ID</th>
+                                <th class="px-4 py-3 text-left">Nombre</th>
+                                <th class="px-4 py-3 text-left">Correo</th>
+                                <th class="px-4 py-3 text-left">Contrasena</th>
+                                <th class="px-4 py-3 text-left">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for usuario in usuarios %}
+                                <tr class="border-b border-slate-100">
+                                    <td class="px-4 py-3">{{ usuario.id_usuario }}</td>
+                                    <td class="px-4 py-3">{{ usuario.nombre }}</td>
+                                    <td class="px-4 py-3">{{ usuario.mail }}</td>
+                                    <td class="px-4 py-3">{{ "*" * (usuario.password|length) }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex gap-3">
+                                            <a class="text-blue-600 hover:underline" href="{{ url_for('editar_usuario_mysql', uid=usuario.id_usuario) }}">Editar</a>
+                                            <a class="text-red-600 hover:underline" href="{{ url_for('borrar_usuario_mysql', uid=usuario.id_usuario) }}">Borrar</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No hay usuarios registrados en MySQL.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
