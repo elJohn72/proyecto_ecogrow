@@ -2,14 +2,141 @@
 
 {% block title %}Sensores - EcoGrow{% endblock %}
 
-{% block content %}
-    <h2>Sensores del sistema</h2>
-    <p>Vista general de los sensores que usa EcoGrow para tomar decisiones:</p>
+{% block content_wrapper %}
+    <div class="px-6 py-10 lg:px-12">
+        <div class="mx-auto max-w-6xl glass-card rounded-2xl shadow-2xl p-8 text-slate-700 dark:text-slate-300">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="mb-6 flex flex-col gap-3">
+                        {% for category, message in messages %}
+                            <div class="rounded-lg border px-4 py-3 text-sm {% if category == 'success' %}border-emerald-300 bg-emerald-50 text-emerald-700{% else %}border-red-300 bg-red-50 text-red-700{% endif %}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
 
-    <ul>
-        <li>Sensor de humedad</li>
-        <li>Sensor de temperatura</li>
-        <li>Sensor de luminosidad</li>
-        <li>Bomba de riego controlada</li>
-    </ul>
+            <div class="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                    <h2 class="text-3xl font-bold text-slate-900 dark:text-slate-100">Monitoreo de sensores</h2>
+                    <p>Panel de recepcion de lecturas desde ESP32 usando PlatformIO y almacenamiento en MySQL.</p>
+                </div>
+                <div class="rounded-xl bg-slate-900 px-4 py-3 text-xs text-slate-100">
+                    <p class="font-semibold">Endpoint para el ESP32</p>
+                    <p>{{ api_url }}</p>
+                </div>
+            </div>
+
+            <section class="mb-8 rounded-xl border border-slate-200 p-5">
+                <h3 class="mb-3 text-xl font-semibold text-slate-900 dark:text-slate-100">Estado MySQL</h3>
+                <p class="{% if mysql_status.available %}text-emerald-700{% else %}text-red-700{% endif %}">
+                    {{ mysql_status.message }}
+                </p>
+            </section>
+
+            <div class="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div class="rounded-xl border border-slate-200 p-5">
+                    <p class="text-sm text-slate-500">Dispositivo</p>
+                    <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                        {{ ultima_lectura.dispositivo if ultima_lectura else "Sin datos" }}
+                    </p>
+                </div>
+                <div class="rounded-xl border border-slate-200 p-5">
+                    <p class="text-sm text-slate-500">Temp. agua</p>
+                    <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                        {% if ultima_lectura and ultima_lectura.temperatura_agua is not none %}
+                            {{ "%.2f"|format(ultima_lectura.temperatura_agua) }} °C
+                        {% else %}
+                            Sin datos
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="rounded-xl border border-slate-200 p-5">
+                    <p class="text-sm text-slate-500">pH</p>
+                    <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                        {% if ultima_lectura and ultima_lectura.ph is not none %}
+                            {{ "%.2f"|format(ultima_lectura.ph) }}
+                        {% else %}
+                            Sin datos
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="rounded-xl border border-slate-200 p-5">
+                    <p class="text-sm text-slate-500">Nivel de agua</p>
+                    <p class="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                        {% if ultima_lectura and ultima_lectura.nivel_agua is not none %}
+                            {{ "%.2f"|format(ultima_lectura.nivel_agua) }} %
+                        {% else %}
+                            Sin datos
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <section class="mb-8 rounded-xl border border-slate-200 p-5">
+                <div class="mb-4 flex items-center justify-between">
+                    <h3 class="text-xl font-semibold text-slate-900 dark:text-slate-100">Ultima lectura</h3>
+                    {% if ultima_lectura %}
+                        <span class="text-sm text-slate-500">{{ ultima_lectura.fecha_registro }}</span>
+                    {% endif %}
+                </div>
+
+                {% if ultima_lectura %}
+                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4 text-sm">
+                        <div class="rounded bg-slate-50 px-4 py-3"><strong>Temperatura aire:</strong> {{ ultima_lectura.temperatura_aire }} °C</div>
+                        <div class="rounded bg-slate-50 px-4 py-3"><strong>Humedad aire:</strong> {{ ultima_lectura.humedad_aire }} %</div>
+                        <div class="rounded bg-slate-50 px-4 py-3"><strong>Temperatura agua:</strong> {{ ultima_lectura.temperatura_agua }} °C</div>
+                        <div class="rounded bg-slate-50 px-4 py-3"><strong>pH:</strong> {{ ultima_lectura.ph }}</div>
+                        <div class="rounded bg-slate-50 px-4 py-3"><strong>EC:</strong> {{ ultima_lectura.ec }}</div>
+                        <div class="rounded bg-slate-50 px-4 py-3"><strong>Nivel agua:</strong> {{ ultima_lectura.nivel_agua }} %</div>
+                        <div class="rounded bg-slate-50 px-4 py-3"><strong>Luminosidad:</strong> {{ ultima_lectura.luminosidad }}</div>
+                        <div class="rounded bg-slate-50 px-4 py-3"><strong>Dispositivo:</strong> {{ ultima_lectura.dispositivo }}</div>
+                    </div>
+                {% else %}
+                    <p>Aun no se han recibido lecturas desde el ESP32.</p>
+                {% endif %}
+            </section>
+
+            <section class="rounded-xl border border-slate-200 p-5">
+                <h3 class="mb-4 text-xl font-semibold text-slate-900 dark:text-slate-100">Historial reciente</h3>
+                {% if historial %}
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-slate-200">
+                                    <th class="px-3 py-2 text-left">Fecha</th>
+                                    <th class="px-3 py-2 text-left">Dispositivo</th>
+                                    <th class="px-3 py-2 text-left">Temp. aire</th>
+                                    <th class="px-3 py-2 text-left">Humedad</th>
+                                    <th class="px-3 py-2 text-left">Temp. agua</th>
+                                    <th class="px-3 py-2 text-left">pH</th>
+                                    <th class="px-3 py-2 text-left">EC</th>
+                                    <th class="px-3 py-2 text-left">Nivel</th>
+                                    <th class="px-3 py-2 text-left">Luz</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for lectura in historial %}
+                                    <tr class="border-b border-slate-100">
+                                        <td class="px-3 py-2">{{ lectura.fecha_registro }}</td>
+                                        <td class="px-3 py-2">{{ lectura.dispositivo }}</td>
+                                        <td class="px-3 py-2">{{ lectura.temperatura_aire }}</td>
+                                        <td class="px-3 py-2">{{ lectura.humedad_aire }}</td>
+                                        <td class="px-3 py-2">{{ lectura.temperatura_agua }}</td>
+                                        <td class="px-3 py-2">{{ lectura.ph }}</td>
+                                        <td class="px-3 py-2">{{ lectura.ec }}</td>
+                                        <td class="px-3 py-2">{{ lectura.nivel_agua }}</td>
+                                        <td class="px-3 py-2">{{ lectura.luminosidad }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p>No hay historial de lecturas todavia.</p>
+                {% endif %}
+            </section>
+        </div>
+    </div>
 {% endblock %}

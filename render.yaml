@@ -4,3 +4,20 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
+    envVars:
+      - key: MYSQL_HOST
+        sync: false
+      - key: MYSQL_PORT
+        sync: false
+      - key: MYSQL_USER
+        sync: false
+      - key: MYSQL_PASSWORD
+        sync: false
+      - key: MYSQL_DATABASE
+        sync: false
+      - key: MYSQL_USE_SOCKET
+        value: "false"
+      - key: MYSQL_AUTO_CREATE_DATABASE
+        value: "false"
+      - key: MYSQL_SSL_DISABLED
+        value: "true"

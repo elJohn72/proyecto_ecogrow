@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from flask import Flask, flash, redirect, render_template, request, url_for
+from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
 from mysql.connector import Error
 
 from Conexión import (
@@ -12,8 +12,11 @@ from Conexión import (
     fetch_mysql_productos,
     fetch_mysql_usuario,
     fetch_mysql_usuarios,
+    fetch_latest_sensor_reading,
+    fetch_sensor_readings,
     get_mysql_config_help,
     get_mysql_status,
+    insert_sensor_reading,
     insert_mysql_producto,
     insert_mysql_usuario,
     update_mysql_producto,
@@ -55,7 +58,50 @@ def cultivos():
 
 @app.route("/sensores")
 def sensores():
-    return render_template("sensores.html")
+    try:
+        status = get_mysql_status()
+        ultima_lectura = fetch_latest_sensor_reading() if status["available"] else None
+        historial = fetch_sensor_readings(10) if status["available"] else []
+    except Error as exc:
+        flash(f"No se pudo consultar las lecturas de sensores: {exc}", "error")
+        status = get_mysql_status()
+        ultima_lectura = None
+        historial = []
+
+    return render_template(
+        "sensores.html",
+        mysql_status=status,
+        ultima_lectura=ultima_lectura,
+        historial=historial,
+        api_url=url_for("api_sensor_reading"),
+    )
+
+
+@app.route("/api/sensores/lectura", methods=("POST",))
+def api_sensor_reading():
+    payload = request.get_json(silent=True) or {}
+
+    dispositivo = str(payload.get("dispositivo", "")).strip()
+    if not dispositivo:
+        return jsonify({"ok": False, "error": "El campo 'dispositivo' es obligatorio."}), 400
+
+    try:
+        lectura_id = insert_sensor_reading(
+            dispositivo=dispositivo,
+            temperatura_aire=_parse_optional_float(payload.get("temperatura_aire")),
+            humedad_aire=_parse_optional_float(payload.get("humedad_aire")),
+            temperatura_agua=_parse_optional_float(payload.get("temperatura_agua")),
+            ph=_parse_optional_float(payload.get("ph")),
+            ec=_parse_optional_float(payload.get("ec")),
+            nivel_agua=_parse_optional_float(payload.get("nivel_agua")),
+            luminosidad=_parse_optional_float(payload.get("luminosidad")),
+        )
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Error as exc:
+        return jsonify({"ok": False, "error": f"No se pudo guardar la lectura: {exc}"}), 500
+
+    return jsonify({"ok": True, "id_lectura": lectura_id}), 201
 
 
 @app.route("/planta/<nombre>")
@@ -421,6 +467,16 @@ def mysql_init():
         print(f"Puerto: {MYSQL_CONFIG['port']} | Socket: {MYSQL_CONFIG['unix_socket']}")
     except Error as exc:
         print(f"No se pudo inicializar MySQL: {exc}")
+
+
+def _parse_optional_float(value):
+    if value in (None, ""):
+        return None
+
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Uno de los valores numericos del sensor no es valido.") from exc
 
 
 if __name__ == "__main__":
