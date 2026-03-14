@@ -2,15 +2,31 @@
 
 {% block title %}Acerca de - EcoGrow{% endblock %}
 
-{% block content %}
-    <h2>Acerca de EcoGrow</h2>
-    <p>EcoGrow es un sistema hidropónico inteligente que aprovecha materiales reciclados (botellas PET) y piezas impresas en 3D.</p>
-    <p>Permite monitorear variables como humedad, temperatura y luminosidad para optimizar el crecimiento de las plantas.</p>
-
-    <h3>Objetivos del proyecto</h3>
-    <ul>
-        <li>Fomentar la agricultura sostenible en espacios reducidos.</li>
-        <li>Reutilizar materiales plásticos de forma responsable.</li>
-        <li>Incorporar tecnología IoT para el monitoreo de cultivos.</li>
-    </ul>
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Proyecto</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">EcoGrow conecta sostenibilidad, datos y automatización en un mismo flujo.</h1>
+                <p class="page-subtitle mt-3">
+                    El proyecto nació como una práctica de Flask y hoy ya integra persistencia local, base relacional externa,
+                    telemetría IoT y una interfaz más clara para explicar el sistema completo.
+                </p>
+            </div>
+        </div>
+        <div class="section-grid mt-6">
+            <article class="soft-card">
+                <h3>Enfoque académico</h3>
+                <p class="mt-3">Cada módulo responde a una semana distinta del proyecto: plantillas, CRUD, archivos, SQLite, MySQL y sensores.</p>
+            </article>
+            <article class="soft-card">
+                <h3>Enfoque técnico</h3>
+                <p class="mt-3">La plataforma usa Flask como núcleo, MySQL para datos relacionales y ESP32 con PlatformIO para sensorización.</p>
+            </article>
+            <article class="soft-card">
+                <h3>Enfoque sostenible</h3>
+                <p class="mt-3">La propuesta gira alrededor del cultivo hidropónico, la reutilización de materiales y el monitoreo eficiente de recursos.</p>
+            </article>
+        </div>
+    </section>
 {% endblock %}

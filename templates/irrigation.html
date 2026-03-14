@@ -1,376 +1,51 @@
-<!DOCTYPE html>
+{% extends "base.html" %}
 
-<html class="light" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Irrigation &amp; Automation Control - EcoGrow</title>
-<!-- Tailwind CSS -->
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<!-- Google Fonts: Inter -->
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
-<!-- Material Symbols -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-        tailwind.config = {
-          darkMode: "class",
-          theme: {
-            extend: {
-              colors: {
-                "primary": "#0077cc",
-                "success": "#28a745",
-                "warning": "#f59e0b",
-                "background-light": "#f5f7f8",
-                "background-dark": "#0f1b23",
-              },
-              fontFamily: {
-                "display": ["Inter", "sans-serif"]
-              },
-              borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
-            },
-          },
-        }
-    </script>
-<style>
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-        }
-        .simulation-active-border {
-            border: 2px solid #f59e0b;
-        }
-    </style>
-</head>
-<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
-<div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
-<div class="layout-container flex h-full grow flex-col">
-<!-- Top Navigation Bar -->
-<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3 lg:px-10">
-<div class="flex items-center gap-8">
-<div class="flex items-center gap-3 text-primary">
-<div class="size-8 flex items-center justify-center bg-primary/10 rounded-lg">
-<span class="material-symbols-outlined text-primary">potted_plant</span>
-</div>
-<h2 class="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-tight">EcoGrow <span class="font-normal text-slate-500">Smart</span></h2>
-</div>
-<nav class="hidden md:flex items-center gap-6">
-<a class="text-slate-600 dark:text-slate-300 text-sm font-medium hover:text-primary transition-colors" href="{{ url_for('dashboard') }}">Dashboard</a>
-<a class="text-slate-600 dark:text-slate-300 text-sm font-medium hover:text-primary transition-colors" href="{{ url_for('mostrar_inventario') }}">Inventario</a>
-<a class="text-primary text-sm font-bold border-b-2 border-primary pb-1" href="{{ url_for('irrigation') }}">Irrigation</a>
-<a class="text-slate-600 dark:text-slate-300 text-sm font-medium hover:text-primary transition-colors" href="{{ url_for('sustainability') }}">Sustainability</a>
-<a class="text-slate-600 dark:text-slate-300 text-sm font-medium hover:text-primary transition-colors" href="{{ url_for('login') }}">Login</a>
-</nav>
-</div>
-<div class="flex flex-1 justify-end gap-4 items-center">
-<label class="hidden lg:flex flex-col min-w-40 h-10 max-w-64">
-<div class="flex w-full flex-1 items-stretch rounded-lg h-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-<div class="text-slate-400 flex items-center justify-center pl-3">
-<span class="material-symbols-outlined text-[20px]">search</span>
-</div>
-<input class="w-full border-none bg-transparent focus:ring-0 text-sm placeholder:text-slate-400 px-3" placeholder="Search sensors..." value=""/>
-</div>
-</label>
-<div class="flex items-center gap-2 bg-warning/10 px-3 py-1.5 rounded-lg border border-warning/20">
-<span class="text-warning text-xs font-bold uppercase tracking-wider">Sim Mode: ON</span>
-<label class="relative flex h-5 w-9 cursor-pointer items-center rounded-full bg-warning/30 p-0.5">
-<input checked="" class="sr-only peer" type="checkbox"/>
-<div class="h-4 w-4 rounded-full bg-white transition-all peer-checked:translate-x-4 shadow-sm"></div>
-</label>
-</div>
-<button class="flex items-center justify-center rounded-full size-10 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-<span class="material-symbols-outlined text-slate-600 dark:text-slate-300">notifications</span>
-</button>
-<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary/20" data-alt="User profile avatar of a male professional" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCeCy9JE0RG9kSoq3m3mVZ1HTBeFAjk6UjhBKxwXKWX4BrgrJXXVDqPJ9EMKI_mjrv6b9A4_4lO4HY1UfifeVzWtvRSIELj23OrHmDdgdLSDEYjKuEsZOuDL9ONjeCgfVm91DPxRkYpPqWNFcQLsZxkazX_lWwnPcdl1TIjrv2eX-_aSUl2O4tIMkNQ-n25JowYqV2uqhZofv3ZYE4riG30ZVuTZXkcCedDGbsfIUYgWXYg3zKD_i6NM0T8EnubY5EfGd-U0RomSutb");'></div>
-</div>
-</header>
-<main class="flex-1 overflow-y-auto px-6 py-6 lg:px-10 lg:py-8">
-<!-- Breadcrumbs & Header -->
-<div class="max-w-[1400px] mx-auto">
-<div class="flex items-center gap-2 text-sm font-medium text-slate-500 mb-2">
-<a class="hover:text-primary" href="#">Home</a>
-<span class="material-symbols-outlined text-xs">chevron_right</span>
-<span class="text-slate-900 dark:text-slate-200">Irrigation &amp; Automation</span>
-</div>
-<div class="flex flex-wrap justify-between items-end gap-4 mb-8">
-<div>
-<h1 class="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white tracking-tight">System Control</h1>
-<p class="text-slate-500 dark:text-slate-400 mt-1">Manage manual overrides, watering schedules, and reservoir thresholds.</p>
-</div>
-<button class="group flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-red-600/20 active:scale-95">
-<span class="material-symbols-outlined">emergency_home</span>
-<span>EMERGENCY STOP</span>
-</button>
-</div>
-<!-- Main Dashboard Content -->
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-<!-- Left Column: Controls (8 cols) -->
-<div class="lg:col-span-8 space-y-8">
-<!-- Control Cards Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-<!-- Manual Pump Toggle Card -->
-<div class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden group">
-<div class="absolute top-0 right-0 p-4">
-<div class="flex items-center gap-1.5 px-2 py-1 bg-success/10 text-success rounded text-[10px] font-bold">
-<span class="size-1.5 bg-success rounded-full animate-pulse"></span>
-                                            SYSTEM ONLINE
-                                        </div>
-</div>
-<div class="flex flex-col h-full justify-between">
-<div>
-<div class="size-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
-<span class="material-symbols-outlined text-primary text-3xl">water_pump</span>
-</div>
-<h3 class="text-xl font-bold text-slate-900 dark:text-white">Water Pump</h3>
-<p class="text-slate-500 dark:text-slate-400 text-sm mb-6">Manual override for reservoir pump.</p>
-</div>
-<div class="flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg">
-<span class="text-sm font-semibold uppercase tracking-wider text-slate-500">Status: <span class="text-primary">RUNNING</span></span>
-<label class="relative inline-flex items-center cursor-pointer scale-110">
-<input checked="" class="sr-only peer" type="checkbox"/>
-<div class="w-14 h-7 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary"></div>
-</label>
-</div>
-</div>
-</div>
-<!-- Sensor Thresholds Card -->
-<div class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-<div class="flex items-center justify-between mb-4">
-<div class="flex items-center gap-3">
-<div class="size-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center">
-<span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400">opacity</span>
-</div>
-<h3 class="font-bold text-slate-900 dark:text-white">Water Levels</h3>
-</div>
-<span class="text-indigo-600 font-mono font-bold">78%</span>
-</div>
-<div class="space-y-6">
-<div>
-<div class="flex justify-between text-xs font-bold mb-2">
-<span class="text-slate-500">LOW THRESHOLD (ALERT)</span>
-<span class="text-slate-900 dark:text-slate-100">20%</span>
-</div>
-<input class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary" type="range" value="20"/>
-</div>
-<div>
-<div class="flex justify-between text-xs font-bold mb-2">
-<span class="text-slate-500">AUTO-REFILL TARGET</span>
-<span class="text-slate-900 dark:text-slate-100">85%</span>
-</div>
-<input class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary" type="range" value="85"/>
-</div>
-</div>
-</div>
-</div>
-<!-- Scheduling Interface -->
-<div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-<div class="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-<div class="flex items-center gap-3">
-<span class="material-symbols-outlined text-primary">calendar_clock</span>
-<h3 class="font-bold text-lg">Automated Watering Schedule</h3>
-</div>
-<button class="text-primary text-sm font-bold flex items-center gap-1 hover:underline">
-<span class="material-symbols-outlined text-sm">add</span> Add New Event
-                                    </button>
-</div>
-<div class="p-6">
-<div class="flex gap-2 mb-8 overflow-x-auto pb-2">
-<button class="px-4 py-2 rounded-lg bg-primary text-white font-bold text-sm">Mon</button>
-<button class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-sm">Tue</button>
-<button class="px-4 py-2 rounded-lg bg-primary text-white font-bold text-sm">Wed</button>
-<button class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-sm">Thu</button>
-<button class="px-4 py-2 rounded-lg bg-primary text-white font-bold text-sm">Fri</button>
-<button class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-sm">Sat</button>
-<button class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-sm">Sun</button>
-</div>
-<div class="space-y-4">
-<div class="flex items-center gap-4 p-4 rounded-lg border border-primary/20 bg-primary/5">
-<div class="flex-1">
-<div class="flex items-center gap-2 mb-1">
-<span class="text-lg font-bold">08:00 AM</span>
-<span class="text-xs font-bold text-primary uppercase bg-primary/10 px-2 py-0.5 rounded">Active</span>
-</div>
-<p class="text-slate-500 text-sm">Duration: 15 mins • Intensity: High</p>
-</div>
-<div class="flex gap-2">
-<button class="p-2 text-slate-400 hover:text-slate-600 transition-colors">
-<span class="material-symbols-outlined">edit</span>
-</button>
-<button class="p-2 text-slate-400 hover:text-red-500 transition-colors">
-<span class="material-symbols-outlined">delete</span>
-</button>
-</div>
-</div>
-<div class="flex items-center gap-4 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
-<div class="flex-1">
-<div class="flex items-center gap-2 mb-1">
-<span class="text-lg font-bold">06:30 PM</span>
-<span class="text-xs font-bold text-slate-400 uppercase bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">Disabled</span>
-</div>
-<p class="text-slate-500 text-sm">Duration: 10 mins • Intensity: Low</p>
-</div>
-<div class="flex gap-2">
-<button class="p-2 text-slate-400 hover:text-slate-600 transition-colors">
-<span class="material-symbols-outlined">edit</span>
-</button>
-<button class="p-2 text-slate-400 hover:text-red-500 transition-colors">
-<span class="material-symbols-outlined">delete</span>
-</button>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- Right Column: History & Stats (4 cols) -->
-<div class="lg:col-span-4 space-y-8">
-<!-- Water Efficiency Chart -->
-<div class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-<div class="flex items-center justify-between mb-6">
-<h3 class="font-bold text-slate-900 dark:text-white">Water Efficiency</h3>
-<span class="text-xs font-bold text-slate-400">LAST 7 DAYS</span>
-</div>
-<div class="flex items-end justify-between h-40 gap-2 mb-4">
-<div class="w-full bg-slate-100 dark:bg-slate-800 rounded-t-sm relative group h-24">
-<div class="absolute bottom-0 w-full bg-primary rounded-t-sm h-[60%] group-hover:bg-primary/80 transition-all"></div>
-</div>
-<div class="w-full bg-slate-100 dark:bg-slate-800 rounded-t-sm relative group h-24">
-<div class="absolute bottom-0 w-full bg-primary rounded-t-sm h-[85%] group-hover:bg-primary/80 transition-all"></div>
-</div>
-<div class="w-full bg-slate-100 dark:bg-slate-800 rounded-t-sm relative group h-24">
-<div class="absolute bottom-0 w-full bg-primary rounded-t-sm h-[45%] group-hover:bg-primary/80 transition-all"></div>
-</div>
-<div class="w-full bg-slate-100 dark:bg-slate-800 rounded-t-sm relative group h-24">
-<div class="absolute bottom-0 w-full bg-primary rounded-t-sm h-[70%] group-hover:bg-primary/80 transition-all"></div>
-</div>
-<div class="w-full bg-slate-100 dark:bg-slate-800 rounded-t-sm relative group h-24">
-<div class="absolute bottom-0 w-full bg-primary rounded-t-sm h-[90%] group-hover:bg-primary/80 transition-all"></div>
-</div>
-<div class="w-full bg-slate-100 dark:bg-slate-800 rounded-t-sm relative group h-24">
-<div class="absolute bottom-0 w-full bg-primary rounded-t-sm h-[55%] group-hover:bg-primary/80 transition-all"></div>
-</div>
-<div class="w-full bg-slate-100 dark:bg-slate-800 rounded-t-sm relative group h-24">
-<div class="absolute bottom-0 w-full bg-primary rounded-t-sm h-[80%] group-hover:bg-primary/80 transition-all"></div>
-</div>
-</div>
-<div class="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-</div>
-<div class="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
-<div class="flex justify-between items-center">
-<div>
-<p class="text-xs font-bold text-slate-400">RECYCLED USAGE</p>
-<p class="text-2xl font-black text-slate-900 dark:text-white">42.8 L</p>
-</div>
-<div class="text-right">
-<p class="text-xs font-bold text-slate-400">SAVED THIS WEEK</p>
-<p class="text-2xl font-black text-success">12.4%</p>
-</div>
-</div>
-</div>
-</div>
-<!-- Irrigation History -->
-<div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col max-h-[500px]">
-<div class="p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
-<h3 class="font-bold text-slate-900 dark:text-white">Irrigation History</h3>
-</div>
-<div class="overflow-y-auto p-2">
-<div class="space-y-1">
-<!-- History Item 1 -->
-<div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-<div class="flex items-center gap-3">
-<div class="size-8 bg-success/10 text-success rounded-full flex items-center justify-center">
-<span class="material-symbols-outlined text-sm">check_circle</span>
-</div>
-<div>
-<p class="text-sm font-bold text-slate-900 dark:text-white">Scheduled Water</p>
-<p class="text-[11px] text-slate-500 font-medium">Today, 08:00 AM</p>
-</div>
-</div>
-<div class="text-right">
-<p class="text-sm font-mono font-bold text-primary">2.4 L</p>
-<p class="text-[10px] text-slate-400 font-bold">15 MINS</p>
-</div>
-</div>
-<!-- History Item 2 -->
-<div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-<div class="flex items-center gap-3">
-<div class="size-8 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-full flex items-center justify-center">
-<span class="material-symbols-outlined text-sm">settings_input_component</span>
-</div>
-<div>
-<p class="text-sm font-bold text-slate-900 dark:text-white">Manual Override</p>
-<p class="text-[11px] text-slate-500 font-medium">Yesterday, 11:45 PM</p>
-</div>
-</div>
-<div class="text-right">
-<p class="text-sm font-mono font-bold text-primary">0.8 L</p>
-<p class="text-[10px] text-slate-400 font-bold">5 MINS</p>
-</div>
-</div>
-<!-- History Item 3 -->
-<div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-<div class="flex items-center gap-3">
-<div class="size-8 bg-success/10 text-success rounded-full flex items-center justify-center">
-<span class="material-symbols-outlined text-sm">check_circle</span>
-</div>
-<div>
-<p class="text-sm font-bold text-slate-900 dark:text-white">Scheduled Water</p>
-<p class="text-[11px] text-slate-500 font-medium">Yesterday, 08:00 AM</p>
-</div>
-</div>
-<div class="text-right">
-<p class="text-sm font-mono font-bold text-primary">2.4 L</p>
-<p class="text-[10px] text-slate-400 font-bold">15 MINS</p>
-</div>
-</div>
-<!-- History Item 4 -->
-<div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-<div class="flex items-center gap-3">
-<div class="size-8 bg-warning/10 text-warning rounded-full flex items-center justify-center">
-<span class="material-symbols-outlined text-sm">priority_high</span>
-</div>
-<div>
-<p class="text-sm font-bold text-slate-900 dark:text-white">Auto-Refill Trigger</p>
-<p class="text-[11px] text-slate-500 font-medium">Oct 12, 02:20 PM</p>
-</div>
-</div>
-<div class="text-right">
-<p class="text-sm font-mono font-bold text-primary">15.0 L</p>
-<p class="text-[10px] text-slate-400 font-bold">REFILL</p>
-</div>
-</div>
-</div>
-</div>
-<div class="p-4 border-t border-slate-100 dark:border-slate-800 text-center">
-<button class="text-xs font-bold text-slate-500 hover:text-primary transition-colors">VIEW ALL ACTIVITY</button>
-</div>
-</div>
-</div>
-</div>
-</div>
-</main>
-<!-- Footer Information Bar -->
-<footer class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-6 py-4">
-<div class="max-w-[1400px] mx-auto flex flex-wrap justify-between items-center gap-4 text-xs font-medium text-slate-500 uppercase tracking-widest">
-<div class="flex items-center gap-6">
-<div class="flex items-center gap-2">
-<span class="size-2 bg-success rounded-full"></span>
-<span>Main Hub: Connected</span>
-</div>
-<div class="flex items-center gap-2">
-<span class="size-2 bg-success rounded-full"></span>
-<span>Network: 5G (Excellent)</span>
-</div>
-</div>
-<div class="flex items-center gap-4">
-<span>Last Sync: 2 mins ago</span>
-<span>API Status: Healthy</span>
-<div class="flex items-center gap-1 text-primary">
-<span class="material-symbols-outlined text-sm">verified</span>
-<span>Secure Channel</span>
-</div>
-</div>
-</div>
-</footer>
-</div>
-</div>
-</body></html>
+{% block title %}Riego - EcoGrow{% endblock %}
+
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Automatización</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Control de riego y lógica operativa del sistema.</h1>
+                <p class="page-subtitle mt-3">Pantalla conceptual para explicar estado de bombas, umbrales de agua y cronogramas automáticos.</p>
+            </div>
+            <div>
+                <span class="eyebrow bg-amber-100 text-amber-700">Modo simulación</span>
+            </div>
+        </div>
+
+        <div class="metric-grid mt-6">
+            <div class="metric-card">
+                <p class="metric-label">Bomba principal</p>
+                <p class="metric-value">Activa</p>
+                <p class="metric-note">Operando con presión estable.</p>
+            </div>
+            <div class="metric-card">
+                <p class="metric-label">Nivel mínimo</p>
+                <p class="metric-value">20%</p>
+                <p class="metric-note">Umbral de alerta configurado.</p>
+            </div>
+            <div class="metric-card">
+                <p class="metric-label">Auto-recarga</p>
+                <p class="metric-value">85%</p>
+                <p class="metric-note">Objetivo de relleno automático.</p>
+            </div>
+        </div>
+
+        <div class="section-grid mt-6">
+            <article class="soft-card">
+                <h3>Evento 08:00 AM</h3>
+                <p class="mt-3">Duración 15 min, intensidad alta. Programación activa para días hábiles.</p>
+            </article>
+            <article class="soft-card">
+                <h3>Evento 06:30 PM</h3>
+                <p class="mt-3">Duración 10 min, intensidad baja. Actualmente deshabilitado.</p>
+            </article>
+            <article class="soft-card">
+                <h3>Parada de emergencia</h3>
+                <p class="mt-3">Concepto de protección para exponer control manual y contingencias del sistema.</p>
+            </article>
+        </div>
+    </section>
+{% endblock %}

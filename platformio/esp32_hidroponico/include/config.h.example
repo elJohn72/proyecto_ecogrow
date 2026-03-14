@@ -9,3 +9,4 @@ constexpr char WIFI_PASSWORD[] = "TU_CLAVE_WIFI";
 constexpr char API_URL[] = "http://192.168.1.13:5001/api/sensores/lectura";
 
 constexpr char DEVICE_ID[] = "esp32_torre_1";
+constexpr char TORRE_CODIGO[] = "ECO-TORRE-001";

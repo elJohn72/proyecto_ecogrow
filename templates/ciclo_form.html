@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Cultivo actual - EcoGrow{% endblock %}
+
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Fase de cultivo</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">{{ titulo }}</h1>
+                <p class="page-subtitle mt-3">La torre <strong>{{ torre.nombre }}</strong> usa el código <strong>{{ torre.codigo_unico }}</strong>. Aquí decides con qué cultivo trabajarás en esta fase.</p>
+            </div>
+            {% if ciclo_activo %}
+                <a class="site-button site-button--ghost" href="{{ url_for('finalizar_ciclo_torre') }}">Finalizar fase actual</a>
+            {% endif %}
+        </div>
+
+        <div class="metric-grid mt-6">
+            <div class="metric-card">
+                <p class="metric-label">Torre activa</p>
+                <p class="metric-value text-[1.4rem]">{{ torre.nombre }}</p>
+                <p class="metric-note">{{ torre.codigo_unico }}</p>
+            </div>
+            <div class="metric-card">
+                <p class="metric-label">Cultivo actual</p>
+                <p class="metric-value text-[1.4rem]">{{ ciclo_activo.cultivo_nombre if ciclo_activo else "Sin fase activa" }}</p>
+                <p class="metric-note">{{ ciclo_activo.fase if ciclo_activo else "Configura el cultivo de hoy" }}</p>
+            </div>
+        </div>
+
+        <div class="dashboard-panel mt-6">
+            <form method="post" class="grid gap-5 md:grid-cols-2">
+                <label class="block">
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Cultivo para esta fase</span>
+                    <select name="cultivo_id" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <option value="">Selecciona un cultivo</option>
+                        {% for cultivo in cultivos %}
+                            <option value="{{ cultivo.id_cultivo }}" {% if ciclo.cultivo_id == cultivo.id_cultivo %}selected{% endif %}>
+                                {{ cultivo.nombre }} · {{ cultivo.variedad }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="block">
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Fase actual</span>
+                    <input type="text" name="fase" value="{{ ciclo.fase }}" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" placeholder="Ejemplo: germinación, crecimiento, producción" />
+                </label>
+                <label class="block md:col-span-2">
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Notas</span>
+                    <textarea name="notas" rows="4" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" placeholder="Detalles de esta etapa o del manejo actual">{{ ciclo.notas }}</textarea>
+                </label>
+
+                {% if errores %}
+                    <div class="md:col-span-2 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {% for error in errores %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="md:col-span-2 flex flex-wrap gap-3">
+                    <a href="{{ url_for('dashboard') }}" class="site-button site-button--ghost">Volver al panel</a>
+                    <button type="submit" class="site-button site-button--primary">{{ accion }}</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-card mt-6">
+            <div class="panel-header">
+                <div>
+                    <h3>Historial de fases en esta torre</h3>
+                    <p class="mt-2">Así puedes rotar cultivos o repetir uno nuevo sin perder trazabilidad.</p>
+                </div>
+            </div>
+            {% if historial_ciclos %}
+                <div class="overflow-x-auto">
+                    <table class="ecogrow-table">
+                        <thead>
+                            <tr>
+                                <th>Inicio</th>
+                                <th>Cultivo</th>
+                                <th>Fase</th>
+                                <th>Estado</th>
+                                <th>Fin</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in historial_ciclos %}
+                                <tr>
+                                    <td>{{ item.iniciado_en }}</td>
+                                    <td>{{ item.cultivo_nombre }}</td>
+                                    <td>{{ item.fase }}</td>
+                                    <td>{{ item.estado }}</td>
+                                    <td>{{ item.finalizado_en or "Activa" }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No hay fases registradas todavía para esta torre.</p>
+            {% endif %}
+        </div>
+    </section>
+{% endblock %}

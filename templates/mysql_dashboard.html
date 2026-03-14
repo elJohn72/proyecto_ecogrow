@@ -3,56 +3,56 @@
 {% block title %}Panel MySQL - EcoGrow{% endblock %}
 
 {% block content_wrapper %}
-    <div class="px-6 py-10 lg:px-12">
-        <div class="mx-auto max-w-6xl glass-card rounded-2xl shadow-2xl p-8 text-slate-700 dark:text-slate-300">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <div class="mb-6 flex flex-col gap-3">
-                        {% for category, message in messages %}
-                            <div class="rounded-lg border px-4 py-3 text-sm {% if category == 'success' %}border-emerald-300 bg-emerald-50 text-emerald-700{% else %}border-red-300 bg-red-50 text-red-700{% endif %}">
-                                {{ message }}
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            {% endwith %}
-
-            <div class="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <section class="content-shell fade-in-up">
+            <div class="panel-header">
                 <div>
-                    <h2 class="text-3xl font-bold text-slate-900 dark:text-slate-100">Panel MySQL</h2>
-                    <p>Configuracion de conexion, tablas relacionales y operaciones CRUD desde Flask.</p>
+                    <span class="eyebrow">Gestión relacional</span>
+                    <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Panel MySQL con foco en conexión, tablas y flujo CRUD.</h1>
+                    <p class="page-subtitle mt-3">Este módulo agrupa la configuración de la base relacional, el estado actual de la conexión y el acceso rápido a usuarios y productos.</p>
                 </div>
-                <div class="flex gap-3">
-                    <a class="rounded-lg bg-primary px-4 py-2 text-white hover:opacity-90" href="{{ url_for('inicializar_mysql') }}">Inicializar tablas</a>
-                    <a class="rounded-lg border border-slate-300 px-4 py-2 hover:bg-slate-50" href="{{ url_for('listar_usuarios_mysql') }}">Usuarios</a>
-                    <a class="rounded-lg border border-slate-300 px-4 py-2 hover:bg-slate-50" href="{{ url_for('listar_productos_mysql') }}">Productos</a>
+                <div class="panel-actions">
+                    <a class="site-button site-button--primary" href="{{ url_for('inicializar_mysql') }}">Inicializar tablas</a>
+                    <a class="site-button site-button--ghost" href="{{ url_for('listar_usuarios_mysql') }}">Usuarios</a>
+                    <a class="site-button site-button--ghost" href="{{ url_for('listar_productos_mysql') }}">Productos</a>
                 </div>
             </div>
 
-            <section class="mb-8 rounded-xl border border-slate-200 p-5">
-                <h3 class="mb-3 text-xl font-semibold text-slate-900 dark:text-slate-100">Estado de la conexion</h3>
+            <div class="dashboard-panel mt-6">
+                <div class="panel-header">
+                    <div>
+                        <h3>Estado de la conexión</h3>
+                        <p class="mt-2">Indicadores principales para validar acceso a la base relacional.</p>
+                    </div>
+                    <div>
+                        {% if mysql_status.available %}
+                            <span class="eyebrow bg-emerald-100 text-emerald-700"><span class="status-dot status-dot--ok"></span>Disponible</span>
+                        {% else %}
+                            <span class="eyebrow bg-rose-100 text-rose-700"><span class="status-dot status-dot--off"></span>Fallando</span>
+                        {% endif %}
+                    </div>
+                </div>
                 <p class="{% if mysql_status.available %}text-emerald-700{% else %}text-red-700{% endif %}">
                     {{ mysql_status.message }}
                 </p>
-                <div class="mt-4 grid gap-3 md:grid-cols-2 text-sm">
-                    <div class="rounded bg-slate-50 px-4 py-3"><strong>Host:</strong> {{ mysql_status.config.host }}</div>
-                    <div class="rounded bg-slate-50 px-4 py-3"><strong>Puerto:</strong> {{ mysql_status.config.port }}</div>
-                    <div class="rounded bg-slate-50 px-4 py-3"><strong>Usuario:</strong> {{ mysql_status.config.user }}</div>
-                    <div class="rounded bg-slate-50 px-4 py-3"><strong>Base de datos:</strong> {{ mysql_status.config.database }}</div>
-                    <div class="rounded bg-slate-50 px-4 py-3"><strong>Contrasena:</strong> {{ "Configurada" if mysql_status.config.password else "Vacia" }}</div>
-                    <div class="rounded bg-slate-50 px-4 py-3 md:col-span-2"><strong>Socket:</strong> {{ mysql_status.config.unix_socket or "No configurado" }}</div>
+                <div class="section-grid mt-4">
+                    <div class="soft-card"><strong>Host</strong><p class="mt-2">{{ mysql_status.config.host }}</p></div>
+                    <div class="soft-card"><strong>Puerto</strong><p class="mt-2">{{ mysql_status.config.port }}</p></div>
+                    <div class="soft-card"><strong>Usuario</strong><p class="mt-2">{{ mysql_status.config.user }}</p></div>
+                    <div class="soft-card"><strong>Base</strong><p class="mt-2">{{ mysql_status.config.database }}</p></div>
+                    <div class="soft-card"><strong>Contraseña</strong><p class="mt-2">{{ "Configurada" if mysql_status.config.password else "Vacia" }}</p></div>
+                    <div class="soft-card"><strong>Socket</strong><p class="mt-2 break-all">{{ mysql_status.config.unix_socket or "No configurado" }}</p></div>
                 </div>
-            </section>
+            </div>
 
-            <section class="mb-8 rounded-xl border border-slate-200 p-5">
-                <h3 class="mb-3 text-xl font-semibold text-slate-900 dark:text-slate-100">Variables de entorno sugeridas</h3>
-                <p class="mb-4 text-sm">Puedes usar el archivo <code>.env.example</code> como referencia para tu configuracion local.</p>
+            <div class="dashboard-panel mt-6">
+                <h3>Variables de entorno sugeridas</h3>
+                <p class="mt-2 text-sm">Puedes usar el archivo <code>.env.example</code> como referencia para local y adaptar el mismo esquema en Render.</p>
                 <ul class="space-y-2 text-sm">
                     {% for item in mysql_help %}
-                        <li class="rounded bg-slate-50 px-4 py-3">{{ item }}</li>
+                        <li class="soft-card">{{ item }}</li>
                     {% endfor %}
                 </ul>
-                <div class="mt-4 rounded bg-slate-900 p-4 text-xs text-slate-100 overflow-x-auto">
+                <div class="mt-4 rounded-[1.25rem] bg-slate-900 p-4 text-xs text-slate-100 overflow-x-auto">
                     <pre>MYSQL_HOST={{ mysql_status.config.host }}
 MYSQL_PORT={{ mysql_status.config.port }}
 MYSQL_USER={{ mysql_status.config.user }}
@@ -60,12 +60,15 @@ MYSQL_PASSWORD=
 MYSQL_DATABASE={{ mysql_status.config.database }}
 MYSQL_UNIX_SOCKET={{ mysql_status.config.unix_socket }}</pre>
                 </div>
-            </section>
+            </div>
 
-            <div class="grid gap-6 lg:grid-cols-2">
-                <section class="rounded-xl border border-slate-200 p-5">
-                    <div class="mb-4 flex items-center justify-between">
-                        <h3 class="text-xl font-semibold text-slate-900 dark:text-slate-100">Usuarios</h3>
+            <div class="section-grid mt-6">
+                <section class="soft-card">
+                    <div class="panel-header mb-0">
+                        <div>
+                            <h3>Usuarios</h3>
+                            <p class="mt-2">Acceso rápido al CRUD relacional de cuentas del sistema.</p>
+                        </div>
                         <a class="text-blue-600 hover:underline" href="{{ url_for('crear_usuario_mysql') }}">Crear usuario</a>
                     </div>
                     {% if usuarios %}
@@ -81,9 +84,12 @@ MYSQL_UNIX_SOCKET={{ mysql_status.config.unix_socket }}</pre>
                     {% endif %}
                 </section>
 
-                <section class="rounded-xl border border-slate-200 p-5">
-                    <div class="mb-4 flex items-center justify-between">
-                        <h3 class="text-xl font-semibold text-slate-900 dark:text-slate-100">Productos</h3>
+                <section class="soft-card">
+                    <div class="panel-header mb-0">
+                        <div>
+                            <h3>Productos</h3>
+                            <p class="mt-2">Vista resumida del inventario relacional y acceso a operaciones CRUD.</p>
+                        </div>
                         <a class="text-blue-600 hover:underline" href="{{ url_for('crear_producto_mysql') }}">Crear producto</a>
                     </div>
                     {% if productos_mysql %}
@@ -99,6 +105,5 @@ MYSQL_UNIX_SOCKET={{ mysql_status.config.unix_socket }}</pre>
                     {% endif %}
                 </section>
             </div>
-        </div>
-    </div>
+    </section>
 {% endblock %}

@@ -3,54 +3,65 @@
 {% block title %}Productos - EcoGrow{% endblock %}
 
 {% block content_wrapper %}
-    <div class="px-6 py-10 lg:px-12">
-        <div class="mx-auto max-w-6xl glass-card rounded-2xl shadow-2xl p-8 text-slate-700 dark:text-slate-300">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <div class="mb-6 flex flex-col gap-3">
-                        {% for category, message in messages %}
-                            <div class="rounded-lg border px-4 py-3 text-sm {% if category == 'success' %}border-emerald-300 bg-emerald-50 text-emerald-700{% else %}border-red-300 bg-red-50 text-red-700{% endif %}">
-                                {{ message }}
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            {% endwith %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Inventario local</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Productos del sistema y persistencia académica.</h1>
+                <p class="page-subtitle mt-3">Gestión de productos almacenados en SQLite y sincronizados con archivos TXT, JSON y CSV.</p>
+            </div>
+            <div class="panel-actions">
+                <a class="site-button site-button--primary" href="{{ url_for('crear_producto') }}">Nuevo producto</a>
+                <a class="site-button site-button--ghost" href="{{ url_for('ver_datos') }}">Ver persistencia</a>
+            </div>
+        </div>
 
-            <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                    <h2 class="text-3xl font-bold text-slate-900 dark:text-slate-100">Inventario de productos</h2>
-                    <p>Registros persistidos en SQLite y sincronizados con TXT, JSON y CSV.</p>
+        {% if productos %}
+            <div class="metric-grid mt-6">
+                <div class="metric-card">
+                    <p class="metric-label">Productos</p>
+                    <p class="metric-value">{{ productos|length }}</p>
+                    <p class="metric-note">Registros activos en el inventario local.</p>
                 </div>
-                <div class="flex gap-3">
-                    <a class="rounded-lg bg-primary px-4 py-2 text-white hover:opacity-90" href="{{ url_for('crear_producto') }}">Nuevo producto</a>
-                    <a class="rounded-lg border border-slate-300 px-4 py-2 hover:bg-slate-50" href="{{ url_for('ver_datos') }}">Ver datos</a>
+                <div class="metric-card">
+                    <p class="metric-label">Formatos</p>
+                    <p class="metric-value">4</p>
+                    <p class="metric-note">TXT, JSON, CSV y SQLite sincronizados.</p>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="table-card mt-6">
+            <div class="panel-header">
+                <div>
+                    <h3>Listado de productos</h3>
+                    <p class="mt-2">Tabla principal para alta, edición y eliminación de productos.</p>
                 </div>
             </div>
 
             {% if productos %}
                 <div class="overflow-x-auto">
-                    <table class="min-w-full border-collapse text-left text-sm">
+                    <table class="ecogrow-table">
                         <thead>
-                            <tr class="border-b border-slate-200 text-slate-900 dark:text-slate-100">
-                                <th class="px-4 py-3">ID</th>
-                                <th class="px-4 py-3">Nombre</th>
-                                <th class="px-4 py-3">Cantidad</th>
-                                <th class="px-4 py-3">Precio</th>
-                                <th class="px-4 py-3">Descripcion</th>
-                                <th class="px-4 py-3">Acciones</th>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Cantidad</th>
+                                <th>Precio</th>
+                                <th>Descripcion</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for p in productos %}
-                                <tr class="border-b border-slate-100">
-                                    <td class="px-4 py-3">{{ p.id }}</td>
-                                    <td class="px-4 py-3">{{ p.nombre }}</td>
-                                    <td class="px-4 py-3">{{ p.cantidad }}</td>
-                                    <td class="px-4 py-3">${{ "%.2f"|format(p.precio) }}</td>
-                                    <td class="px-4 py-3">{{ p.descripcion }}</td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex gap-3">
+                                <tr>
+                                    <td>{{ p.id }}</td>
+                                    <td>{{ p.nombre }}</td>
+                                    <td>{{ p.cantidad }}</td>
+                                    <td>${{ "%.2f"|format(p.precio) }}</td>
+                                    <td>{{ p.descripcion }}</td>
+                                    <td>
+                                        <div class="panel-actions">
                                             <a class="text-blue-600 hover:underline" href="{{ url_for('editar_producto', pid=p.id) }}">Editar</a>
                                             <a class="text-red-600 hover:underline" href="{{ url_for('borrar', pid=p.id) }}">Borrar</a>
                                         </div>
@@ -64,5 +75,5 @@
                 <p>No hay productos registrados.</p>
             {% endif %}
         </div>
-    </div>
+    </section>
 {% endblock %}

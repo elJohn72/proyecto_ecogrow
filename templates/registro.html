@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Crear cuenta - EcoGrow{% endblock %}
+
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="page-hero page-hero--split">
+            <div>
+                <span class="eyebrow">Registro</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Crea tu cuenta y activa tu torre.</h1>
+                <p class="page-subtitle mt-3">
+                    Este es el punto de entrada real para un cliente nuevo. Primero crea su cuenta, luego registra
+                    el código único de su torre y finalmente define qué cultivo trabajará en la fase actual.
+                </p>
+                <div class="section-grid mt-6">
+                    <div class="soft-card">
+                        <h3>1. Crear cuenta</h3>
+                        <p class="mt-3">Tus datos de acceso quedarán vinculados a tus torres hidropónicas.</p>
+                    </div>
+                    <div class="soft-card">
+                        <h3>2. Registrar torre</h3>
+                        <p class="mt-3">Después del registro te llevaremos directamente al alta de tu equipo.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-panel">
+                <div class="panel-header">
+                    <div>
+                        <h3>Crear cuenta</h3>
+                        <p class="mt-2">Acceso para usuarios finales del sistema EcoGrow.</p>
+                    </div>
+                    <span class="eyebrow">Nuevo usuario</span>
+                </div>
+
+                <form method="post" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2" for="nombre">Nombre completo</label>
+                        <input class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" id="nombre" name="nombre" value="{{ usuario.nombre if usuario else '' }}" placeholder="Tu nombre" type="text"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2" for="mail">Correo electrónico</label>
+                        <input class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" id="mail" name="mail" value="{{ usuario.mail if usuario else '' }}" placeholder="nombre@correo.com" type="email"/>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2" for="password">Contraseña</label>
+                        <input class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" id="password" name="password" placeholder="Crea una contraseña" type="password"/>
+                    </div>
+
+                    {% if errores %}
+                        <div class="flash-card flash-card--error">
+                            {% for error in errores %}
+                                <p>{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <div class="hero-actions pt-2">
+                        <button class="site-button site-button--primary" type="submit">Crear cuenta</button>
+                        <a class="site-button site-button--ghost" href="{{ url_for('login') }}">Ya tengo cuenta</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+{% endblock %}

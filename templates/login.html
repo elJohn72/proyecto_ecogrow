@@ -3,77 +3,60 @@
 {% block title %}EcoGrow Login{% endblock %}
 
 {% block content_wrapper %}
-<div class="flex items-center justify-center p-6 min-h-[60vh]">
-    <div class="w-full max-w-[440px]">
-        <!-- Login Card -->
-        <div class="glass-card rounded-xl shadow-2xl p-8 md:p-10 flex flex-col gap-8">
-            <!-- Card Header -->
-            <div class="text-center">
-                <h2 class="text-slate-900 dark:text-slate-100 text-2xl font-bold">Bienvenido de nuevo</h2>
-                <p class="text-slate-500 dark:text-slate-400 text-sm mt-2">Gestiona tu ecosistema hidropónico inteligente</p>
+    <section class="content-shell fade-in-up">
+        <div class="page-hero page-hero--split">
+            <div>
+                <span class="eyebrow">Acceso</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Un acceso más claro para presentar el sistema sin ruido visual.</h1>
+                <p class="page-subtitle mt-3">
+                    Esta pantalla funciona como acceso real al sistema. Si el cliente todavía no tiene cuenta,
+                    puede crearla y luego registrar la torre que recibió con su código único.
+                </p>
+                <div class="section-grid mt-6">
+                    <div class="soft-card">
+                        <h3>Panel técnico</h3>
+                        <p class="mt-3">Acceso a tus torres, fases de cultivo, sensores y módulos internos del sistema.</p>
+                    </div>
+                    <div class="soft-card">
+                        <h3>Modo demostración</h3>
+                        <p class="mt-3">Ideal para exponer el proyecto sin depender todavía de autenticación real.</p>
+                    </div>
+                </div>
             </div>
-<!-- Form Fields -->
-<div class="flex flex-col gap-5">
-<!-- Email Field -->
-<div class="flex flex-col gap-1.5">
-<label class="text-slate-700 dark:text-slate-300 text-sm font-semibold" for="email">Correo Electrónico</label>
-<div class="relative">
-<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">mail</span>
-<input class="w-full bg-white/50 border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 rounded-lg py-3 pl-10 pr-4 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" id="email" placeholder="nombre@empresa.com" type="email"/>
-</div>
-</div>
-<!-- Password Field -->
-<div class="flex flex-col gap-1.5">
-<div class="flex justify-between items-center">
-<label class="text-slate-700 dark:text-slate-300 text-sm font-semibold" for="password">Contraseña</label>
-<a class="text-primary text-xs font-semibold hover:underline" href="#">¿Olvidaste tu contraseña?</a>
-</div>
-<div class="relative">
-<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">lock</span>
-<input class="w-full bg-white/50 border border-slate-200 dark:border-slate-700 dark:bg-slate-800/50 rounded-lg py-3 pl-10 pr-12 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" id="password" placeholder="••••••••" type="password"/>
-<button class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
-<span class="material-symbols-outlined text-[20px]">visibility</span>
-</button>
-</div>
-</div>
-<!-- Remember Me -->
-<div class="flex items-center gap-2">
-<input class="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary/20 cursor-pointer" id="remember" type="checkbox"/>
-<label class="text-slate-600 dark:text-slate-400 text-sm cursor-pointer select-none" for="remember">Recordarme en este equipo</label>
-</div>
-</div>
-<!-- Action Buttons -->
-<div class="flex flex-col gap-3">
-<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 rounded-lg shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 group">
-<span>Iniciar Sesión</span>
-<span class="material-symbols-outlined text-[18px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
-</button>
-<button class="w-full bg-transparent border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold py-3.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2">
-<span class="material-symbols-outlined text-[18px]">science</span>
-<span>Modo Demo</span>
-</button>
-</div>
-<!-- Bottom Link -->
-<p class="text-center text-slate-500 dark:text-slate-400 text-sm">
-                    ¿No tienes una cuenta? 
-                    <a class="text-primary font-bold hover:underline" href="#">Regístrate aquí</a>
-</p>
-</div>
-<!-- Footer Small Links -->
-<footer class="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 px-4">
-<a class="text-slate-400 dark:text-slate-500 text-xs hover:text-slate-600 transition-colors" href="#">Privacidad</a>
-<a class="text-slate-400 dark:text-slate-500 text-xs hover:text-slate-600 transition-colors" href="#">Términos de Servicio</a>
-<a class="text-slate-400 dark:text-slate-500 text-xs hover:text-slate-600 transition-colors" href="#">Seguridad</a>
-<span class="text-slate-400 dark:text-slate-500 text-xs">© 2024 EcoGrow Inc.</span>
-</footer>
-</div>
-</main>
-<!-- Floating Graphic (Visual interest) -->
-<div class="hidden lg:block fixed bottom-12 right-12 w-32 h-32 opacity-20 rotate-12">
-<svg class="text-primary fill-current" viewbox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-<path d="M44.7,-76.4C58.1,-69.2,70.1,-59.1,79.6,-46.5C89.1,-33.8,96.2,-18.6,95.7,-3.5C95.2,11.6,87.2,26.5,77.3,39.8C67.4,53.1,55.6,64.8,41.9,73.1C28.2,81.3,12.6,86.1,-2.9,91.1C-18.4,96.1,-33.7,101.3,-47.1,95.9C-60.5,90.5,-72,74.5,-80.4,58.3C-88.8,42.1,-94.1,25.7,-94.9,9.4C-95.7,-6.9,-92.1,-23.1,-84.1,-37.5C-76.1,-51.9,-63.8,-64.5,-49.8,-71.4C-35.8,-78.3,-20.1,-79.5,-2.9,-74.5C14.3,-69.5,28.7,-58.3,44.7,-76.4Z" transform="translate(100 100)"></path>
-</svg>
-</div>
-    </div>
-</div>
+            <div class="dashboard-panel">
+                <div class="panel-header">
+                    <div>
+                        <h3>Iniciar sesión</h3>
+                        <p class="mt-2">Demo visual del acceso al ecosistema hidropónico.</p>
+                    </div>
+                    <span class="eyebrow">Demo</span>
+                </div>
+                <form method="post" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2" for="email">Correo electrónico</label>
+                        <input class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" id="email" name="mail" value="{{ form_data.mail if form_data else '' }}" placeholder="nombre@empresa.com" type="email"/>
+                    </div>
+                    <div>
+                        <div class="mb-2 flex items-center justify-between">
+                            <label class="block text-sm font-semibold text-slate-700" for="password">Contraseña</label>
+                            <a class="text-sm text-primary hover:underline" href="#">¿Olvidaste tu contraseña?</a>
+                        </div>
+                        <input class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" id="password" name="password" placeholder="••••••••" type="password"/>
+                    </div>
+                    {% if errores %}
+                        <div class="flash-card flash-card--error">
+                            {% for error in errores %}
+                                <p>{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    <div class="hero-actions pt-2">
+                        <button class="site-button site-button--primary" type="submit">Iniciar sesión</button>
+                        <a class="site-button site-button--ghost" href="{{ url_for('registro') }}">Crear cuenta</a>
+                        <a class="site-button site-button--ghost" href="{{ url_for('demo') }}">Modo demo</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
 {% endblock %}

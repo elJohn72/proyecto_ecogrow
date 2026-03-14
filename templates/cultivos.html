@@ -2,13 +2,110 @@
 
 {% block title %}Cultivos - EcoGrow{% endblock %}
 
-{% block content %}
-    <h2>Cultivos registrados</h2>
-    <p>Listado de cultivos que maneja el sistema EcoGrow.</p>
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Cultivos y fases</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Qué cultivo trabajará hoy la torre {{ torre.nombre }}.</h1>
+                <p class="page-subtitle mt-3">Aquí mantienes el catálogo general y además decides el cultivo activo de la torre seleccionada. La misma torre puede pasar por varios ciclos distintos.</p>
+            </div>
+            <div class="panel-actions">
+                <a class="site-button site-button--primary" href="{{ url_for('crear_cultivo') }}">Nuevo cultivo</a>
+                <a class="site-button site-button--ghost" href="{{ url_for('elegir_cultivo_actual') }}">Elegir cultivo actual</a>
+            </div>
+        </div>
 
-    <ul>
-        <li>Lechuga hidropónica</li>
-        <li>Espinaca</li>
-        <li>Tomate cherry</li>
-    </ul>
+        {% if ciclo_activo %}
+            <div class="dashboard-panel mt-6">
+                <div class="panel-header">
+                    <div>
+                        <h3>Fase activa en esta torre</h3>
+                        <p class="mt-2">La torre se mantiene igual; lo que cambia es el cultivo o la etapa que estás manejando.</p>
+                    </div>
+                    <span class="eyebrow">{{ torre.codigo_unico }}</span>
+                </div>
+                <p><strong>Cultivo actual:</strong> {{ ciclo_activo.cultivo_nombre }}</p>
+                <p class="mt-2"><strong>Fase:</strong> {{ ciclo_activo.fase }}</p>
+                <p class="mt-2"><strong>Inicio:</strong> {{ ciclo_activo.iniciado_en }}</p>
+            </div>
+        {% endif %}
+
+        {% if historial_ciclos %}
+            <div class="table-card mt-6">
+                <div class="panel-header">
+                    <div>
+                        <h3>Historial de ciclos de esta torre</h3>
+                        <p class="mt-2">Te ayuda a saber qué cultivos ya pasaron por esta torre y en qué fase quedaron.</p>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="ecogrow-table">
+                        <thead>
+                            <tr>
+                                <th>Inicio</th>
+                                <th>Cultivo</th>
+                                <th>Fase</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in historial_ciclos %}
+                                <tr>
+                                    <td>{{ item.iniciado_en }}</td>
+                                    <td>{{ item.cultivo_nombre }}</td>
+                                    <td>{{ item.fase }}</td>
+                                    <td>{{ item.estado }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="table-card mt-6">
+            <div class="panel-header">
+                <div>
+                    <h3>Catálogo de cultivos</h3>
+                    <p class="mt-2">Base reutilizable para abrir nuevas fases en cualquier torre registrada.</p>
+                </div>
+            </div>
+            {% if cultivos %}
+                <div class="overflow-x-auto">
+                    <table class="ecogrow-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Variedad</th>
+                                <th>Ubicación</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cultivo in cultivos %}
+                                <tr>
+                                    <td>{{ cultivo.id_cultivo }}</td>
+                                    <td>{{ cultivo.nombre }}</td>
+                                    <td>{{ cultivo.variedad }}</td>
+                                    <td>{{ cultivo.ubicacion }}</td>
+                                    <td>{{ cultivo.estado }}</td>
+                                    <td>
+                                        <div class="panel-actions">
+                                            <a class="text-blue-600 hover:underline" href="{{ url_for('editar_cultivo', cid=cultivo.id_cultivo) }}">Editar</a>
+                                            <a class="text-red-600 hover:underline" href="{{ url_for('borrar_cultivo', cid=cultivo.id_cultivo) }}">Borrar</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No hay cultivos registrados todavía.</p>
+            {% endif %}
+        </div>
+    </section>
 {% endblock %}

@@ -121,7 +121,7 @@ La carpeta `Conexión/` contiene:
 
 - configuracion de acceso a MySQL/MariaDB
 - creacion de la base de datos si no existe
-- creacion de tablas `usuarios` y `productos`
+- creacion de tablas `usuarios`, `productos`, `cultivos`, `torres`, `ciclos_cultivo` y `lecturas_sensores`
 - operaciones CRUD basicas
 - almacenamiento de lecturas de sensores
 
@@ -139,6 +139,10 @@ La carpeta `platformio/esp32_hidroponico/` contiene un proyecto base para ESP32 
 
 - productos
 - usuarios
+- login
+- cultivos
+- torres
+- fases de cultivo por torre
 
 ## Persistencia de datos
 
@@ -160,6 +164,9 @@ El sistema tambien permite trabajar con una base relacional externa usando:
 
 - tabla `usuarios`
 - tabla `productos`
+- tabla `cultivos`
+- tabla `torres`
+- tabla `ciclos_cultivo`
 - tabla `lecturas_sensores`
 
 ## Tablas principales
@@ -187,11 +194,40 @@ CREATE TABLE productos (
 );
 ```
 
+### Tabla `torres`
+
+```sql
+CREATE TABLE torres (
+    id_torre INT AUTO_INCREMENT PRIMARY KEY,
+    codigo_unico VARCHAR(80) NOT NULL UNIQUE,
+    nombre VARCHAR(120) NOT NULL,
+    ubicacion VARCHAR(120) NOT NULL,
+    usuario_id INT NOT NULL,
+    estado VARCHAR(40) NOT NULL DEFAULT 'registrada'
+);
+```
+
+### Tabla `ciclos_cultivo`
+
+```sql
+CREATE TABLE ciclos_cultivo (
+    id_ciclo INT AUTO_INCREMENT PRIMARY KEY,
+    torre_id INT NOT NULL,
+    cultivo_id INT NOT NULL,
+    fase VARCHAR(80) NOT NULL,
+    notas VARCHAR(255) NOT NULL DEFAULT '',
+    estado VARCHAR(40) NOT NULL DEFAULT 'activo',
+    iniciado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    finalizado_en TIMESTAMP NULL DEFAULT NULL
+);
+```
+
 ### Tabla `lecturas_sensores`
 
 ```sql
 CREATE TABLE lecturas_sensores (
     id_lectura INT AUTO_INCREMENT PRIMARY KEY,
+    ciclo_id INT NOT NULL,
     dispositivo VARCHAR(100) NOT NULL,
     temperatura_aire DECIMAL(5,2),
     humedad_aire DECIMAL(5,2),
@@ -204,6 +240,20 @@ CREATE TABLE lecturas_sensores (
 );
 ```
 
+### Tabla `cultivos`
+
+```sql
+CREATE TABLE cultivos (
+    id_cultivo INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(120) NOT NULL,
+    variedad VARCHAR(120) NOT NULL,
+    ubicacion VARCHAR(120) NOT NULL,
+    estado VARCHAR(80) NOT NULL,
+    descripcion VARCHAR(255) NOT NULL,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
 ## Rutas principales
 
 ### Sitio general
@@ -211,11 +261,26 @@ CREATE TABLE lecturas_sensores (
 - `/`
 - `/about`
 - `/contactos`
+- `/login`
+- `/logout`
+- `/demo`
+- `/planta/<nombre>`
+
+### Panel autenticado
+
+- `/dashboard`
+- `/torres`
+- `/torres/registrar`
+- `/torres/seleccionar/<id>`
+- `/torres/cultivo`
+- `/torres/cultivo/finalizar`
 - `/cultivos`
+- `/cultivos/nuevo`
+- `/cultivos/editar/<id>`
+- `/cultivos/borrar/<id>`
 - `/sensores`
 - `/api/sensores/lectura`
 - `/irrigation`
-- `/dashboard`
 - `/sustainability`
 
 ### Inventario local
@@ -322,6 +387,7 @@ Ejemplo de payload:
 
 ```json
 {
+  "torre_codigo": "ECO-TORRE-001",
   "dispositivo": "esp32_torre_1",
   "temperatura_aire": 24.5,
   "humedad_aire": 67.0,
@@ -335,9 +401,21 @@ Ejemplo de payload:
 
 El dashboard de sensores muestra:
 
+- torre asociada a la lectura
+- cultivo activo de la fase actual
 - ultima lectura recibida
 - historial reciente
 - endpoint a consumir desde el ESP32
+
+## Modelo funcional del sistema hidropónico
+
+EcoGrow ahora separa tres conceptos:
+
+- `torre`: estructura fisica que el cliente registra una sola vez con un codigo unico.
+- `cultivo`: catalogo de tipos de cultivo disponibles para usar en el sistema.
+- `ciclo_cultivo`: fase activa de una torre en un momento dado. Cuando termina la cosecha, se puede cerrar el ciclo y abrir otro con el mismo cultivo o con uno distinto.
+
+Las `lecturas_sensores` dependen del `ciclo_cultivo`, no guardan `cultivo_id` ni `torre_id` como columnas de trabajo. Esa decision evita redundancia y acerca el modelo a una tercera forma normal real: desde `ciclo_id` se obtiene tanto la torre como el cultivo asociado.
 
 ## Despliegue en Render
 
@@ -363,7 +441,6 @@ La arquitectura esta bien para la etapa actual del proyecto porque:
 
 - agregar un archivo `.env` real con carga automatica usando `python-dotenv`
 - unificar nombres de plantillas antiguas que ya no se usan
-- eliminar archivos heredados como `models.py` si dejan de ser necesarios
 - separar las rutas en blueprints
 - hash de contrasenas para usuarios en MySQL
 - agregar pruebas automatizadas

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Mis torres - EcoGrow{% endblock %}
+
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Torres hidropónicas</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Tus torres son el activo fijo del sistema.</h1>
+                <p class="page-subtitle mt-3">Cada torre se registra una sola vez con su código único. Luego puedes cambiar el cultivo activo cuantas veces quieras según el ciclo de producción.</p>
+            </div>
+            <div class="panel-actions">
+                <a class="site-button site-button--primary" href="{{ url_for('registrar_torre') }}">Registrar torre</a>
+                {% if current_torre %}
+                    <a class="site-button site-button--ghost" href="{{ url_for('elegir_cultivo_actual') }}">Elegir cultivo de hoy</a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="table-card mt-6">
+            <div class="panel-header">
+                <div>
+                    <h3>Listado de torres</h3>
+                    <p class="mt-2">Selecciona la torre con la que vas a trabajar hoy para ver su monitoreo y su fase de cultivo.</p>
+                </div>
+            </div>
+            {% if torres %}
+                <div class="overflow-x-auto">
+                    <table class="ecogrow-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Ubicación</th>
+                                <th>Cultivo activo</th>
+                                <th>Fase</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for torre in torres %}
+                                <tr>
+                                    <td>{{ torre.codigo_unico }}</td>
+                                    <td>{{ torre.nombre }}</td>
+                                    <td>{{ torre.ubicacion }}</td>
+                                    <td>{{ torre.cultivo_activo_nombre or "Sin cultivo activo" }}</td>
+                                    <td>{{ torre.fase_activa or "Sin fase" }}</td>
+                                    <td>
+                                        {% if current_torre and current_torre.id_torre == torre.id_torre %}
+                                            <span class="site-pill">Activa</span>
+                                        {% else %}
+                                            <a class="text-blue-600 hover:underline" href="{{ url_for('seleccionar_torre', torre_id=torre.id_torre) }}">Usar esta torre</a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>Todavía no has registrado una torre. Empieza con el código único del equipo que entregas al cliente.</p>
+            {% endif %}
+        </div>
+    </section>
+{% endblock %}

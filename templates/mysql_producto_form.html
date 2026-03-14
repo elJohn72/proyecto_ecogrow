@@ -2,38 +2,47 @@
 
 {% block title %}{{ titulo }} - EcoGrow{% endblock %}
 
-{% block content %}
-    <h2 class="text-3xl font-bold text-slate-900 dark:text-slate-100">{{ titulo }}</h2>
-    <p>Formulario conectado a la tabla <code>productos</code> en MySQL.</p>
-
-    {% if errores %}
-        <div class="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {% for error in errores %}
-                <p>{{ error }}</p>
-            {% endfor %}
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">MySQL · productos</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">{{ titulo }}</h1>
+                <p class="page-subtitle mt-3">Formulario conectado a la tabla <code>productos</code> en MySQL.</p>
+            </div>
         </div>
-    {% endif %}
 
-    <form method="post" class="flex flex-col gap-4">
-        <label>
-            Nombre<br>
-            <input type="text" name="nombre" value="{{ producto.nombre }}" required class="w-full rounded border px-3 py-2" />
-        </label>
-        <label>
-            Cantidad<br>
-            <input type="number" name="cantidad" min="0" value="{{ producto.cantidad if producto.cantidad is not none else '' }}" required class="w-full rounded border px-3 py-2" />
-        </label>
-        <label>
-            Precio<br>
-            <input type="number" name="precio" step="0.01" min="0" value="{{ producto.precio if producto.precio is not none else '' }}" required class="w-full rounded border px-3 py-2" />
-        </label>
-        <label>
-            Descripcion<br>
-            <textarea name="descripcion" rows="3" required class="w-full rounded border px-3 py-2">{{ producto.descripcion }}</textarea>
-        </label>
-        <div class="flex gap-3">
-            <button type="submit" class="rounded bg-primary px-4 py-2 text-white">{{ accion }}</button>
-            <a href="{{ url_for('listar_productos_mysql') }}" class="rounded border border-slate-300 px-4 py-2">Cancelar</a>
+        {% if errores %}
+            <div class="flash-card flash-card--error mt-6">
+                {% for error in errores %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="dashboard-panel mt-6">
+            <form method="post" class="grid gap-4 md:grid-cols-2">
+                <label class="block">
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Nombre</span>
+                    <input type="text" name="nombre" value="{{ producto.nombre }}" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" />
+                </label>
+                <label class="block">
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Cantidad</span>
+                    <input type="number" name="cantidad" min="0" value="{{ producto.cantidad if producto.cantidad is not none else '' }}" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" />
+                </label>
+                <label class="block">
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Precio</span>
+                    <input type="number" name="precio" step="0.01" min="0" value="{{ producto.precio if producto.precio is not none else '' }}" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" />
+                </label>
+                <label class="block md:col-span-2">
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Descripcion</span>
+                    <textarea name="descripcion" rows="4" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3">{{ producto.descripcion }}</textarea>
+                </label>
+                <div class="hero-actions md:col-span-2">
+                    <button type="submit" class="site-button site-button--primary">{{ accion }}</button>
+                    <a href="{{ url_for('listar_productos_mysql') }}" class="site-button site-button--ghost">Cancelar</a>
+                </div>
+            </form>
         </div>
-    </form>
+    </section>
 {% endblock %}

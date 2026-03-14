@@ -2,18 +2,35 @@
 
 {% block title %}Planta - EcoGrow{% endblock %}
 
-{% block content %}
-    <h2>{{ mensaje }}</h2>
-    
-    <div class="plant-info">
-        <p>✅ Sistema de riego funcionando correctamente</p>
-        <p>💧 Humedad: 75%</p>
-        <p>☀️ Luminosidad: Óptima</p>
-        <p>🌡️ Temperatura: 22°C</p>
-    </div>
-
-    <div class="actions">
-        <a href="{{ url_for('inicio') }}" class="btn">← Volver al inicio</a>
-    </div>
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Detalle de planta</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">{{ mensaje }}</h1>
+                <p class="page-subtitle mt-3">Vista simplificada para representar el estado general de una planta monitoreada dentro de EcoGrow.</p>
+            </div>
+        </div>
+        <div class="section-grid mt-6">
+            <article class="soft-card">
+                <h3>Sistema de riego</h3>
+                <p class="mt-3">Funcionando correctamente.</p>
+            </article>
+            <article class="soft-card">
+                <h3>Humedad</h3>
+                <p class="mt-3">75%</p>
+            </article>
+            <article class="soft-card">
+                <h3>Luminosidad</h3>
+                <p class="mt-3">Óptima</p>
+            </article>
+            <article class="soft-card">
+                <h3>Temperatura</h3>
+                <p class="mt-3">22°C</p>
+            </article>
+        </div>
+        <div class="hero-actions mt-6">
+            <a href="{{ url_for('inicio') }}" class="site-button site-button--ghost">Volver al inicio</a>
+        </div>
+    </section>
 {% endblock %}
-

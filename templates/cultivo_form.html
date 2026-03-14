@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }} - EcoGrow{% endblock %}
+
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Gestión de cultivos</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">{{ titulo }}</h1>
+                <p class="page-subtitle mt-3">Este formulario crea la base que relaciona el cultivo físico con las lecturas del sistema.</p>
+            </div>
+        </div>
+
+        {% if errores %}
+            <div class="flash-card flash-card--error mt-6">
+                {% for error in errores %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="dashboard-panel mt-6">
+            <form method="post" class="grid gap-4 md:grid-cols-2">
+                <label class="block">
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Nombre del cultivo</span>
+                    <input type="text" name="nombre" value="{{ cultivo.nombre }}" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" />
+                </label>
+                <label class="block">
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Variedad</span>
+                    <input type="text" name="variedad" value="{{ cultivo.variedad }}" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" />
+                </label>
+                <label class="block">
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Ubicación</span>
+                    <input type="text" name="ubicacion" value="{{ cultivo.ubicacion }}" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" />
+                </label>
+                <label class="block">
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Estado</span>
+                    <input type="text" name="estado" value="{{ cultivo.estado }}" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" placeholder="Ejemplo: germinación, crecimiento, cosecha" />
+                </label>
+                <label class="block md:col-span-2">
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Descripción</span>
+                    <textarea name="descripcion" rows="4" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3">{{ cultivo.descripcion }}</textarea>
+                </label>
+                <div class="hero-actions md:col-span-2">
+                    <button type="submit" class="site-button site-button--primary">{{ accion }}</button>
+                    <a href="{{ url_for('cultivos') }}" class="site-button site-button--ghost">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </section>
+{% endblock %}

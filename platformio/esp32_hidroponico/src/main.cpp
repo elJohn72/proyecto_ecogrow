@@ -60,6 +60,7 @@ void sendSensorReading() {
   http.addHeader("Content-Type", "application/json");
 
   StaticJsonDocument<256> payload;
+  payload["torre_codigo"] = TORRE_CODIGO;
   payload["dispositivo"] = DEVICE_ID;
   payload["temperatura_aire"] = readAirTemperature();
   payload["humedad_aire"] = readAirHumidity();

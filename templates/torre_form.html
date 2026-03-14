@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Registrar torre - EcoGrow{% endblock %}
+
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Alta de torre</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">{{ titulo }}</h1>
+                <p class="page-subtitle mt-3">Registra el código único que viene con el equipo. Esa torre podrá cambiar de cultivo a lo largo del tiempo sin perder su historial.</p>
+            </div>
+        </div>
+
+        <div class="dashboard-panel mt-6">
+            <form method="post" class="grid gap-5 md:grid-cols-2">
+                <label class="block">
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Código único de torre</span>
+                    <input type="text" name="codigo_unico" value="{{ torre.codigo_unico }}" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" placeholder="Ejemplo: ECO-TORRE-003" />
+                </label>
+                <label class="block">
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Nombre de la torre</span>
+                    <input type="text" name="nombre" value="{{ torre.nombre }}" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" placeholder="Ejemplo: Torre balcón norte" />
+                </label>
+                <label class="block md:col-span-2">
+                    <span class="mb-2 block text-sm font-semibold text-slate-700">Ubicación</span>
+                    <input type="text" name="ubicacion" value="{{ torre.ubicacion }}" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" placeholder="Ejemplo: Patio principal" />
+                </label>
+
+                {% if errores %}
+                    <div class="md:col-span-2 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                        {% for error in errores %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="md:col-span-2 flex flex-wrap gap-3">
+                    <a href="{{ url_for('torres') }}" class="site-button site-button--ghost">Cancelar</a>
+                    <button type="submit" class="site-button site-button--primary">{{ accion }}</button>
+                </div>
+            </form>
+        </div>
+    </section>
+{% endblock %}

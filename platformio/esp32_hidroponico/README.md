@@ -7,7 +7,7 @@ Proyecto base de PlatformIO para enviar lecturas del sistema hidroponico a Flask
 1. El ESP32 se conecta a la red WiFi.
 2. Lee sensores del sistema.
 3. Envia un `POST` en JSON a `http://IP_PC:5001/api/sensores/lectura`.
-4. Flask guarda la lectura en MySQL y la muestra en `/sensores`.
+4. Flask identifica la torre por su codigo unico, toma el cultivo activo de esa fase y guarda la lectura en MySQL.
 
 ## Archivos importantes
 
@@ -23,6 +23,7 @@ Proyecto base de PlatformIO para enviar lecturas del sistema hidroponico a Flask
    - clave WiFi
    - IP local de tu computador
    - identificador del dispositivo
+   - `TORRE_CODIGO` de la torre registrada en EcoGrow
 
 ## Sensores sugeridos para integrar despues
 
@@ -36,3 +37,11 @@ Proyecto base de PlatformIO para enviar lecturas del sistema hidroponico a Flask
 ## Observacion
 
 El `main.cpp` usa funciones simuladas para las lecturas. Eso te permite validar primero la comunicacion HTTP con Flask y luego reemplazar esas funciones por la lectura real de cada sensor.
+
+## Flujo recomendado
+
+1. Inicia sesion en EcoGrow.
+2. Registra tu torre con su codigo unico.
+3. Elige el cultivo activo de esa torre para la fase actual.
+4. Coloca ese codigo en `TORRE_CODIGO`.
+5. Compila y sube el firmware al ESP32.

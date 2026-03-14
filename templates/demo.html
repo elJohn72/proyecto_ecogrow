@@ -2,9 +2,27 @@
 
 {% block title %}Demo - EcoGrow{% endblock %}
 
-{% block content %}
-    <h2>Página de demostración</h2>
-    <p>Aquí podrías mostrar una versión de prueba de tu sistema, un video o un recorrido interactivo.</p>
-    <p>Este contenido es sólo un marcador; reemplázalo con lo que quieras demostrar.</p>
-    <a href="{{ url_for('inicio') }}" class="btn">← Volver al inicio</a>
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Demo</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Espacio de demostración del proyecto.</h1>
+                <p class="page-subtitle mt-3">Esta vista puede usarse para exponer un flujo guiado, una presentación o una demostración funcional del sistema EcoGrow.</p>
+            </div>
+        </div>
+        <div class="section-grid mt-6">
+            <article class="soft-card">
+                <h3>Recorrido funcional</h3>
+                <p class="mt-3">Ideal para mostrar sensores, inventario, persistencia y la conexión con MySQL en una exposición.</p>
+            </article>
+            <article class="soft-card">
+                <h3>Material de apoyo</h3>
+                <p class="mt-3">Puedes incluir video, capturas, GIFs o una explicación paso a paso de la arquitectura.</p>
+            </article>
+        </div>
+        <div class="hero-actions mt-6">
+            <a href="{{ url_for('inicio') }}" class="site-button site-button--ghost">Volver al inicio</a>
+        </div>
+    </section>
 {% endblock %}
