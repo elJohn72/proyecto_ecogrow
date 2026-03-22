@@ -4,78 +4,48 @@
 
 {% block content_wrapper %}
     <section class="content-shell fade-in-up">
-            <div class="panel-header">
-                <div>
-                    <span class="eyebrow">MySQL · usuarios</span>
-                    <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Gestión de usuarios relacionales.</h1>
-                    <p class="page-subtitle mt-3">Consulta, registro, edición y eliminación sobre la tabla <code>usuarios</code>.</p>
-                </div>
-                <a class="site-button site-button--primary" href="{{ url_for('crear_usuario_mysql') }}">Nuevo usuario</a>
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">MySQL · usuarios</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Gestión de usuarios relacionales.</h1>
+                <p class="page-subtitle mt-3">Consulta, registro, edición y eliminación sobre la tabla <code>usuarios</code>.</p>
             </div>
+            <a class="site-button site-button--primary" href="{{ url_for('mysql.crear_usuario_mysql') }}">Nuevo usuario</a>
+        </div>
 
-            <div class="dashboard-panel mt-6">
-                <p class="{% if mysql_status.available %}text-emerald-700{% else %}text-red-700{% endif %}">
-                    {{ mysql_status.message }}
-                </p>
-            </div>
+        <div class="dashboard-panel mt-6">
+            <p class="{% if mysql_status.available %}text-emerald-700{% else %}text-red-700{% endif %}">
+                {{ mysql_status.message }}
+            </p>
+        </div>
 
-            <div class="table-card mt-6">
-                {% if usuarios %}
-                    <div class="overflow-x-auto">
-                        <table class="ecogrow-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Nombre</th>
-                                    <th>Correo</th>
-                                    <th>Contrasena</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for usuario in usuarios %}
-                                    <tr>
-                                        <td>{{ usuario.id_usuario }}</td>
-                                        <td>{{ usuario.nombre }}</td>
-                                        <td>{{ usuario.mail }}</td>
-                                        <td>{{ "*" * (usuario.password|length) }}</td>
-                                        <td>
-                                            <div class="panel-actions">
-                                                <a class="text-blue-600 hover:underline" href="{{ url_for('editar_usuario_mysql', uid=usuario.id_usuario) }}">Editar</a>
-                                                <a class="text-red-600 hover:underline" href="{{ url_for('borrar_usuario_mysql', uid=usuario.id_usuario) }}">Borrar</a>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                {% else %}
-                    <p>No hay usuarios registrados en MySQL.</p>
-                {% endif %}
-            </div>
-    </section>
-{% endblock %}
+        <div class="table-card mt-6">
+            {% if usuarios %}
+                <div class="overflow-x-auto">
+                    <table class="ecogrow-table">
                         <thead>
-                            <tr class="border-b border-slate-200">
-                                <th class="px-4 py-3 text-left">ID</th>
-                                <th class="px-4 py-3 text-left">Nombre</th>
-                                <th class="px-4 py-3 text-left">Correo</th>
-                                <th class="px-4 py-3 text-left">Contrasena</th>
-                                <th class="px-4 py-3 text-left">Acciones</th>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Correo</th>
+                                <th>Contrasena</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for usuario in usuarios %}
-                                <tr class="border-b border-slate-100">
-                                    <td class="px-4 py-3">{{ usuario.id_usuario }}</td>
-                                    <td class="px-4 py-3">{{ usuario.nombre }}</td>
-                                    <td class="px-4 py-3">{{ usuario.mail }}</td>
-                                    <td class="px-4 py-3">{{ "*" * (usuario.password|length) }}</td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex gap-3">
-                                            <a class="text-blue-600 hover:underline" href="{{ url_for('editar_usuario_mysql', uid=usuario.id_usuario) }}">Editar</a>
-                                            <a class="text-red-600 hover:underline" href="{{ url_for('borrar_usuario_mysql', uid=usuario.id_usuario) }}">Borrar</a>
+                                <tr>
+                                    <td>{{ usuario.id_usuario }}</td>
+                                    <td>{{ usuario.nombre }}</td>
+                                    <td>{{ usuario.mail }}</td>
+                                    <td>Protegida</td>
+                                    <td>
+                                        <div class="panel-actions">
+                                            <a class="text-blue-600 hover:underline" href="{{ url_for('mysql.editar_usuario_mysql', uid=usuario.id_usuario) }}">Editar</a>
+                                            <form method="post" action="{{ url_for('mysql.borrar_usuario_mysql', uid=usuario.id_usuario) }}">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                <button class="text-red-600 hover:underline" type="submit">Borrar</button>
+                                            </form>
                                         </div>
                                     </td>
                                 </tr>
@@ -87,5 +57,5 @@
                 <p>No hay usuarios registrados en MySQL.</p>
             {% endif %}
         </div>
-    </div>
+    </section>
 {% endblock %}

@@ -11,8 +11,8 @@
                 <p class="page-subtitle mt-3">Aquí mantienes el catálogo general y además decides el cultivo activo de la torre seleccionada. La misma torre puede pasar por varios ciclos distintos.</p>
             </div>
             <div class="panel-actions">
-                <a class="site-button site-button--primary" href="{{ url_for('crear_cultivo') }}">Nuevo cultivo</a>
-                <a class="site-button site-button--ghost" href="{{ url_for('elegir_cultivo_actual') }}">Elegir cultivo actual</a>
+                <a class="site-button site-button--primary" href="{{ url_for('cultivos.crear_cultivo') }}">Nuevo cultivo</a>
+                <a class="site-button site-button--ghost" href="{{ url_for('torres.elegir_cultivo_actual') }}">Elegir cultivo actual</a>
             </div>
         </div>
 
@@ -94,8 +94,11 @@
                                     <td>{{ cultivo.estado }}</td>
                                     <td>
                                         <div class="panel-actions">
-                                            <a class="text-blue-600 hover:underline" href="{{ url_for('editar_cultivo', cid=cultivo.id_cultivo) }}">Editar</a>
-                                            <a class="text-red-600 hover:underline" href="{{ url_for('borrar_cultivo', cid=cultivo.id_cultivo) }}">Borrar</a>
+                                            <a class="text-blue-600 hover:underline" href="{{ url_for('cultivos.editar_cultivo', cid=cultivo.id_cultivo) }}">Editar</a>
+                                            <form method="post" action="{{ url_for('cultivos.borrar_cultivo', cid=cultivo.id_cultivo) }}">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                <button class="text-red-600 hover:underline" type="submit">Borrar</button>
+                                            </form>
                                         </div>
                                     </td>
                                 </tr>

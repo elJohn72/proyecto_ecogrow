@@ -10,7 +10,7 @@
                     <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Inventario relacional del sistema.</h1>
                     <p class="page-subtitle mt-3">Consulta, registro, edición y eliminación sobre la tabla <code>productos</code>.</p>
                 </div>
-                <a class="site-button site-button--primary" href="{{ url_for('crear_producto_mysql') }}">Nuevo producto</a>
+                <a class="site-button site-button--primary" href="{{ url_for('mysql.crear_producto_mysql') }}">Nuevo producto</a>
             </div>
 
             <div class="dashboard-panel mt-6">
@@ -43,8 +43,11 @@
                                         <td>{{ producto.descripcion }}</td>
                                         <td>
                                             <div class="panel-actions">
-                                                <a class="text-blue-600 hover:underline" href="{{ url_for('editar_producto_mysql', pid=producto.id_producto) }}">Editar</a>
-                                                <a class="text-red-600 hover:underline" href="{{ url_for('borrar_producto_mysql', pid=producto.id_producto) }}">Borrar</a>
+                                                <a class="text-blue-600 hover:underline" href="{{ url_for('mysql.editar_producto_mysql', pid=producto.id_producto) }}">Editar</a>
+                                                <form method="post" action="{{ url_for('mysql.borrar_producto_mysql', pid=producto.id_producto) }}">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                    <button class="text-red-600 hover:underline" type="submit">Borrar</button>
+                                                </form>
                                             </div>
                                         </td>
                                     </tr>

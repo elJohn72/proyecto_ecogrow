@@ -32,6 +32,7 @@
                     <span class="eyebrow">Demo</span>
                 </div>
                 <form method="post" class="space-y-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <div>
                         <label class="block text-sm font-semibold text-slate-700 mb-2" for="email">Correo electrónico</label>
                         <input class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" id="email" name="mail" value="{{ form_data.mail if form_data else '' }}" placeholder="nombre@empresa.com" type="email"/>
@@ -52,8 +53,8 @@
                     {% endif %}
                     <div class="hero-actions pt-2">
                         <button class="site-button site-button--primary" type="submit">Iniciar sesión</button>
-                        <a class="site-button site-button--ghost" href="{{ url_for('registro') }}">Crear cuenta</a>
-                        <a class="site-button site-button--ghost" href="{{ url_for('demo') }}">Modo demo</a>
+                        <a class="site-button site-button--ghost" href="{{ url_for('auth.registro') }}">Crear cuenta</a>
+                        <a class="site-button site-button--ghost" href="{{ url_for('main.demo') }}">Modo demo</a>
                     </div>
                 </form>
             </div>

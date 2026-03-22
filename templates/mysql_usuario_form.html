@@ -22,6 +22,7 @@
 
         <div class="dashboard-panel mt-6">
             <form method="post" class="grid gap-4">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <label class="block">
                     <span class="mb-2 block text-sm font-semibold text-slate-700">Nombre</span>
                     <input type="text" name="nombre" value="{{ usuario.nombre }}" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" />
@@ -32,11 +33,12 @@
                 </label>
                 <label class="block">
                     <span class="mb-2 block text-sm font-semibold text-slate-700">Contrasena</span>
-                    <input type="text" name="password" value="{{ usuario.password }}" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" />
+                    <input type="password" name="password" value="" class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" autocomplete="new-password" />
+                    <span class="mt-2 block text-sm text-slate-500">{% if 'Editar' in titulo %}Deja este campo vacio para conservar la contrasena actual.{% else %}Debe tener al menos 8 caracteres.{% endif %}</span>
                 </label>
                 <div class="hero-actions">
                     <button type="submit" class="site-button site-button--primary">{{ accion }}</button>
-                    <a href="{{ url_for('listar_usuarios_mysql') }}" class="site-button site-button--ghost">Cancelar</a>
+                    <a href="{{ url_for('mysql.listar_usuarios_mysql') }}" class="site-button site-button--ghost">Cancelar</a>
                 </div>
             </form>
         </div>

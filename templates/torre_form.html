@@ -14,6 +14,7 @@
 
         <div class="dashboard-panel mt-6">
             <form method="post" class="grid gap-5 md:grid-cols-2">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <label class="block">
                     <span class="mb-2 block text-sm font-semibold text-slate-700">Código único de torre</span>
                     <input type="text" name="codigo_unico" value="{{ torre.codigo_unico }}" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" placeholder="Ejemplo: ECO-TORRE-003" />
@@ -36,7 +37,7 @@
                 {% endif %}
 
                 <div class="md:col-span-2 flex flex-wrap gap-3">
-                    <a href="{{ url_for('torres') }}" class="site-button site-button--ghost">Cancelar</a>
+                    <a href="{{ url_for('torres.torres') }}" class="site-button site-button--ghost">Cancelar</a>
                     <button type="submit" class="site-button site-button--primary">{{ accion }}</button>
                 </div>
             </form>

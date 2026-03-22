@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 instance/
 .env
+inventario.db

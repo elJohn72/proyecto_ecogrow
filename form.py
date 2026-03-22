@@ -69,7 +69,7 @@ class UsuarioFormData:
     errors: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_request(cls, form) -> "UsuarioFormData":
+    def from_request(cls, form, *, password_required: bool = True) -> "UsuarioFormData":
         errors: list[str] = []
         nombre = form.get("nombre", "").strip()
         mail = form.get("mail", "").strip()
@@ -81,8 +81,10 @@ class UsuarioFormData:
             errors.append("El correo es obligatorio.")
         elif "@" not in mail or "." not in mail:
             errors.append("El correo no tiene un formato valido.")
-        if not password:
+        if password_required and not password:
             errors.append("La contrasena es obligatoria.")
+        elif password and len(password) < 8:
+            errors.append("La contrasena debe tener al menos 8 caracteres.")
 
         return cls(nombre=nombre, mail=mail, password=password, errors=errors)
 
@@ -91,7 +93,6 @@ class UsuarioFormData:
         return cls(
             nombre=usuario.get("nombre", ""),
             mail=usuario.get("mail", ""),
-            password=usuario.get("password", ""),
         )
 
     def is_valid(self) -> bool:

@@ -11,8 +11,8 @@
                 <p class="page-subtitle mt-3">Gestión de productos almacenados en SQLite y sincronizados con archivos TXT, JSON y CSV.</p>
             </div>
             <div class="panel-actions">
-                <a class="site-button site-button--primary" href="{{ url_for('crear_producto') }}">Nuevo producto</a>
-                <a class="site-button site-button--ghost" href="{{ url_for('ver_datos') }}">Ver persistencia</a>
+                <a class="site-button site-button--primary" href="{{ url_for('inventario.crear_producto') }}">Nuevo producto</a>
+                <a class="site-button site-button--ghost" href="{{ url_for('inventario.ver_datos') }}">Ver persistencia</a>
             </div>
         </div>
 
@@ -62,8 +62,11 @@
                                     <td>{{ p.descripcion }}</td>
                                     <td>
                                         <div class="panel-actions">
-                                            <a class="text-blue-600 hover:underline" href="{{ url_for('editar_producto', pid=p.id) }}">Editar</a>
-                                            <a class="text-red-600 hover:underline" href="{{ url_for('borrar', pid=p.id) }}">Borrar</a>
+                                            <a class="text-blue-600 hover:underline" href="{{ url_for('inventario.editar_producto', pid=p.id) }}">Editar</a>
+                                            <form method="post" action="{{ url_for('inventario.borrar', pid=p.id) }}">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                <button class="text-red-600 hover:underline" type="submit">Borrar</button>
+                                            </form>
                                         </div>
                                     </td>
                                 </tr>

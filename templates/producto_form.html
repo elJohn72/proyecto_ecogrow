@@ -22,6 +22,7 @@
 
         <div class="dashboard-panel mt-6">
             <form method="post" class="grid gap-4 md:grid-cols-2">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <label class="block">
                     <span class="mb-2 block text-sm font-semibold text-slate-700">Nombre</span>
                     <input type="text" name="nombre" value="{{ producto.nombre }}" required class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" />
@@ -40,7 +41,7 @@
                 </label>
                 <div class="hero-actions md:col-span-2">
                     <button type="submit" class="site-button site-button--primary">{{ accion }}</button>
-                    <a href="{{ url_for('mostrar_inventario') }}" class="site-button site-button--ghost">Cancelar</a>
+                    <a href="{{ url_for('inventario.mostrar_inventario') }}" class="site-button site-button--ghost">Cancelar</a>
                 </div>
             </form>
         </div>

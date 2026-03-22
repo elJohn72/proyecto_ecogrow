@@ -3,6 +3,7 @@ from pathlib import Path
 
 import mysql.connector
 from mysql.connector import Error
+from werkzeug.security import check_password_hash, generate_password_hash
 
 XAMPP_SOCKET_PATH = "/Applications/XAMPP/xamppfiles/var/mysql/mysql.sock"
 
@@ -266,12 +267,32 @@ def fetch_mysql_usuario(usuario_id: int) -> dict | None:
 
 
 def fetch_mysql_user_by_credentials(mail: str, password: str) -> dict | None:
+    return verify_mysql_user_credentials(mail, password)
+
+
+def verify_mysql_user_credentials(mail: str, password: str) -> dict | None:
     create_mysql_tables()
-    return _execute(
-        "SELECT * FROM usuarios WHERE mail = %s AND password = %s LIMIT 1",
-        (mail, password),
+    usuario = _execute(
+        "SELECT * FROM usuarios WHERE mail = %s LIMIT 1",
+        (mail,),
         fetchone=True,
     )
+    if not usuario:
+        return None
+
+    stored_password = usuario["password"]
+    if stored_password.startswith(("pbkdf2:", "scrypt:")):
+        return usuario if check_password_hash(stored_password, password) else None
+
+    if stored_password == password:
+        _execute(
+            "UPDATE usuarios SET password = %s WHERE id_usuario = %s",
+            (generate_password_hash(password), usuario["id_usuario"]),
+        )
+        usuario["password"] = ""
+        return usuario
+
+    return None
 
 
 def fetch_mysql_user_by_mail(mail: str) -> dict | None:
@@ -287,19 +308,35 @@ def insert_mysql_usuario(nombre: str, mail: str, password: str) -> int:
     create_mysql_tables()
     return _execute(
         "INSERT INTO usuarios (nombre, mail, password) VALUES (%s, %s, %s)",
-        (nombre, mail, password),
+        (nombre, mail, generate_password_hash(password)),
     )
 
 
-def update_mysql_usuario(usuario_id: int, nombre: str, mail: str, password: str) -> None:
+def update_mysql_usuario(
+    usuario_id: int,
+    nombre: str,
+    mail: str,
+    password: str | None = None,
+) -> None:
     create_mysql_tables()
+    if password:
+        _execute(
+            """
+            UPDATE usuarios
+            SET nombre = %s, mail = %s, password = %s
+            WHERE id_usuario = %s
+            """,
+            (nombre, mail, generate_password_hash(password), usuario_id),
+        )
+        return
+
     _execute(
         """
         UPDATE usuarios
-        SET nombre = %s, mail = %s, password = %s
+        SET nombre = %s, mail = %s
         WHERE id_usuario = %s
         """,
-        (nombre, mail, password, usuario_id),
+        (nombre, mail, usuario_id),
     )
 
 

@@ -58,6 +58,7 @@ void sendSensorReading() {
   HTTPClient http;
   http.begin(API_URL);
   http.addHeader("Content-Type", "application/json");
+  http.addHeader("X-API-Token", API_TOKEN);
 
   StaticJsonDocument<256> payload;
   payload["torre_codigo"] = TORRE_CODIGO;

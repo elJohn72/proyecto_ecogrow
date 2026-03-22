@@ -11,9 +11,9 @@
                 <p class="page-subtitle mt-3">Cada torre se registra una sola vez con su código único. Luego puedes cambiar el cultivo activo cuantas veces quieras según el ciclo de producción.</p>
             </div>
             <div class="panel-actions">
-                <a class="site-button site-button--primary" href="{{ url_for('registrar_torre') }}">Registrar torre</a>
+                <a class="site-button site-button--primary" href="{{ url_for('torres.registrar_torre') }}">Registrar torre</a>
                 {% if current_torre %}
-                    <a class="site-button site-button--ghost" href="{{ url_for('elegir_cultivo_actual') }}">Elegir cultivo de hoy</a>
+                    <a class="site-button site-button--ghost" href="{{ url_for('torres.elegir_cultivo_actual') }}">Elegir cultivo de hoy</a>
                 {% endif %}
             </div>
         </div>
@@ -50,7 +50,7 @@
                                         {% if current_torre and current_torre.id_torre == torre.id_torre %}
                                             <span class="site-pill">Activa</span>
                                         {% else %}
-                                            <a class="text-blue-600 hover:underline" href="{{ url_for('seleccionar_torre', torre_id=torre.id_torre) }}">Usar esta torre</a>
+                                            <a class="text-blue-600 hover:underline" href="{{ url_for('torres.seleccionar_torre', torre_id=torre.id_torre) }}">Usar esta torre</a>
                                         {% endif %}
                                     </td>
                                 </tr>

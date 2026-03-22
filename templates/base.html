@@ -40,7 +40,7 @@
 
     <header class="site-header">
         <div class="site-header__bar">
-            <a href="{{ url_for('inicio') }}" class="site-brand">
+            <a href="{{ url_for('main.inicio') }}" class="site-brand">
                 <span class="site-brand__icon material-symbols-outlined">eco</span>
                 <span>
                     <strong class="site-brand__name">EcoGrow</strong>
@@ -48,9 +48,9 @@
                 </span>
             </a>
             <nav class="site-nav">
-                <a class="site-nav__link {% if request.endpoint == 'inicio' %}is-active{% endif %}" href="{{ url_for('inicio') }}">Inicio</a>
-                <a class="site-nav__link {% if request.endpoint == 'about' %}is-active{% endif %}" href="{{ url_for('about') }}">Proyecto</a>
-                <a class="site-nav__link {% if request.endpoint == 'contactos' %}is-active{% endif %}" href="{{ url_for('contactos') }}">Contacto</a>
+                <a class="site-nav__link {% if request.endpoint == 'main.inicio' %}is-active{% endif %}" href="{{ url_for('main.inicio') }}">Inicio</a>
+                <a class="site-nav__link {% if request.endpoint == 'main.about' %}is-active{% endif %}" href="{{ url_for('main.about') }}">Proyecto</a>
+                <a class="site-nav__link {% if request.endpoint == 'main.contactos' %}is-active{% endif %}" href="{{ url_for('main.contactos') }}">Contacto</a>
             </nav>
             <div class="site-header__actions">
                 {% if is_authenticated %}
@@ -58,22 +58,22 @@
                     {% if current_torre %}
                         <span class="site-pill">{{ current_torre.nombre }} · {{ current_torre.codigo_unico }}</span>
                     {% endif %}
-                    <a class="site-button site-button--primary" href="{{ url_for('dashboard') }}">Panel</a>
+                    <a class="site-button site-button--primary" href="{{ url_for('torres.dashboard') }}">Panel</a>
                 {% else %}
-                    <a class="site-pill" href="{{ url_for('demo') }}">Demo</a>
-                    <a class="site-button site-button--primary" href="{{ url_for('login') }}">Ingresar</a>
+                    <a class="site-pill" href="{{ url_for('main.demo') }}">Demo</a>
+                    <a class="site-button site-button--primary" href="{{ url_for('auth.login') }}">Ingresar</a>
                 {% endif %}
             </div>
         </div>
         {% if is_authenticated %}
             <div class="site-header__subnav">
-                <a class="site-chip {% if request.endpoint == 'dashboard' %}is-active{% endif %}" href="{{ url_for('dashboard') }}">Dashboard</a>
-                <a class="site-chip {% if request.endpoint in ['torres', 'registrar_torre', 'seleccionar_torre', 'elegir_cultivo_actual'] %}is-active{% endif %}" href="{{ url_for('torres') }}">Mis torres</a>
-                <a class="site-chip {% if request.endpoint in ['cultivos', 'crear_cultivo', 'editar_cultivo', 'elegir_cultivo_actual'] %}is-active{% endif %}" href="{{ url_for('cultivos') }}">Cultivos</a>
-                <a class="site-chip {% if request.endpoint == 'sensores' %}is-active{% endif %}" href="{{ url_for('sensores') }}">Sensores</a>
-                <a class="site-chip {% if request.endpoint == 'irrigation' %}is-active{% endif %}" href="{{ url_for('irrigation') }}">Riego</a>
-                <a class="site-chip {% if request.endpoint == 'sustainability' %}is-active{% endif %}" href="{{ url_for('sustainability') }}">Sostenibilidad</a>
-                <a class="site-chip" href="{{ url_for('logout') }}">Salir</a>
+                <a class="site-chip {% if request.endpoint == 'torres.dashboard' %}is-active{% endif %}" href="{{ url_for('torres.dashboard') }}">Dashboard</a>
+                <a class="site-chip {% if request.endpoint in ['torres.torres', 'torres.registrar_torre', 'torres.seleccionar_torre', 'torres.elegir_cultivo_actual'] %}is-active{% endif %}" href="{{ url_for('torres.torres') }}">Mis torres</a>
+                <a class="site-chip {% if request.endpoint in ['cultivos.cultivos', 'cultivos.crear_cultivo', 'cultivos.editar_cultivo', 'torres.elegir_cultivo_actual'] %}is-active{% endif %}" href="{{ url_for('cultivos.cultivos') }}">Cultivos</a>
+                <a class="site-chip {% if request.endpoint == 'sensores.sensores' %}is-active{% endif %}" href="{{ url_for('sensores.sensores') }}">Sensores</a>
+                <a class="site-chip {% if request.endpoint == 'sensores.irrigation' %}is-active{% endif %}" href="{{ url_for('sensores.irrigation') }}">Riego</a>
+                <a class="site-chip {% if request.endpoint == 'sensores.sustainability' %}is-active{% endif %}" href="{{ url_for('sensores.sustainability') }}">Sostenibilidad</a>
+                <a class="site-chip" href="{{ url_for('auth.logout') }}">Salir</a>
             </div>
         {% endif %}
     </header>

@@ -35,21 +35,21 @@
                 <h3>Elegir cultivo para hoy</h3>
                 <p class="mt-3">Cuando termina una cosecha, puedes iniciar una nueva fase con el mismo cultivo o con otro diferente sobre esta misma torre.</p>
                 <div class="hero-actions">
-                    <a class="site-button site-button--primary" href="{{ url_for('elegir_cultivo_actual') }}">Configurar fase</a>
+                    <a class="site-button site-button--primary" href="{{ url_for('torres.elegir_cultivo_actual') }}">Configurar fase</a>
                 </div>
             </article>
             <article class="soft-card">
                 <h3>Sensores</h3>
                 <p class="mt-3">Consulta la telemetría de la torre seleccionada con el contexto del cultivo activo y su fase actual.</p>
                 <div class="hero-actions">
-                    <a class="site-button site-button--ghost" href="{{ url_for('sensores') }}">Abrir monitoreo</a>
+                    <a class="site-button site-button--ghost" href="{{ url_for('sensores.sensores') }}">Abrir monitoreo</a>
                 </div>
             </article>
             <article class="soft-card">
                 <h3>Catálogo de cultivos</h3>
                 <p class="mt-3">Mantén una base de tipos de cultivo reutilizable para todas tus torres y para los próximos ciclos de producción.</p>
                 <div class="hero-actions">
-                    <a class="site-button site-button--ghost" href="{{ url_for('cultivos') }}">Ver catálogo</a>
+                    <a class="site-button site-button--ghost" href="{{ url_for('cultivos.cultivos') }}">Ver catálogo</a>
                 </div>
             </article>
         </div>

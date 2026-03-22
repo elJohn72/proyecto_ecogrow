@@ -5,6 +5,12 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: SESSION_COOKIE_SAMESITE
+        value: "Lax"
       - key: MYSQL_HOST
         sync: false
       - key: MYSQL_PORT
@@ -21,3 +27,5 @@ services:
         value: "false"
       - key: MYSQL_SSL_DISABLED
         value: "true"
+      - key: ECOGROW_SENSOR_API_TOKEN
+        sync: false
