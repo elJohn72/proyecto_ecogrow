@@ -6,37 +6,82 @@
     <section class="content-shell fade-in-up">
         <div class="panel-header">
             <div>
-                <span class="eyebrow">Cultivos y fases</span>
-                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Qué cultivo trabajará hoy la torre {{ torre.nombre }}.</h1>
-                <p class="page-subtitle mt-3">Aquí mantienes el catálogo general y además decides el cultivo activo de la torre seleccionada. La misma torre puede pasar por varios ciclos distintos.</p>
+                <span class="eyebrow">Cultivos</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Administra tus cultivos sin complicarte.</h1>
+                <p class="page-subtitle mt-3">Crea cultivos nuevos o cambia el que esta usando la torre activa.</p>
             </div>
             <div class="panel-actions">
                 <a class="site-button site-button--primary" href="{{ url_for('cultivos.crear_cultivo') }}">Nuevo cultivo</a>
-                <a class="site-button site-button--ghost" href="{{ url_for('torres.elegir_cultivo_actual') }}">Elegir cultivo actual</a>
+                <a class="site-button site-button--ghost" href="{{ url_for('torres.elegir_cultivo_actual') }}">Cambiar cultivo actual</a>
             </div>
         </div>
 
         {% if ciclo_activo %}
-            <div class="dashboard-panel mt-6">
-                <div class="panel-header">
-                    <div>
-                        <h3>Fase activa en esta torre</h3>
-                        <p class="mt-2">La torre se mantiene igual; lo que cambia es el cultivo o la etapa que estás manejando.</p>
-                    </div>
-                    <span class="eyebrow">{{ torre.codigo_unico }}</span>
+            <div class="dashboard-panel mt-6 simple-panel-block">
+                <h3>Cultivo activo</h3>
+                <div class="simple-summary-list mt-4">
+                    <div><strong>Torre:</strong> {{ torre.nombre }}</div>
+                    <div><strong>Cultivo:</strong> {{ ciclo_activo.cultivo_nombre }}</div>
+                    <div><strong>Etapa:</strong> {{ ciclo_activo.fase }}</div>
                 </div>
-                <p><strong>Cultivo actual:</strong> {{ ciclo_activo.cultivo_nombre }}</p>
-                <p class="mt-2"><strong>Fase:</strong> {{ ciclo_activo.fase }}</p>
-                <p class="mt-2"><strong>Inicio:</strong> {{ ciclo_activo.iniciado_en }}</p>
             </div>
         {% endif %}
 
-        {% if historial_ciclos %}
+        <div class="table-card mt-6">
+            <div class="panel-header">
+                <div>
+                    <h3>Lista de cultivos</h3>
+                    <p class="mt-2">Aqui puedes editar o borrar cultivos guardados.</p>
+                </div>
+            </div>
+            {% if cultivos %}
+                <div class="overflow-x-auto">
+                    <table class="ecogrow-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Variedad</th>
+                                <th>Etapa</th>
+                                {% if ui_mode == 'admin' %}
+                                    <th>Ubicacion</th>
+                                {% endif %}
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cultivo in cultivos %}
+                                <tr>
+                                    <td>{{ cultivo.nombre }}</td>
+                                    <td>{{ cultivo.variedad }}</td>
+                                    <td>{{ cultivo.estado }}</td>
+                                    {% if ui_mode == 'admin' %}
+                                        <td>{{ cultivo.ubicacion }}</td>
+                                    {% endif %}
+                                    <td>
+                                        <div class="panel-actions">
+                                            <a class="text-blue-600 hover:underline" href="{{ url_for('cultivos.editar_cultivo', cid=cultivo.id_cultivo) }}">Editar</a>
+                                            <form method="post" action="{{ url_for('cultivos.borrar_cultivo', cid=cultivo.id_cultivo) }}">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                <button class="text-red-600 hover:underline" type="submit">Borrar</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No hay cultivos registrados todavia.</p>
+            {% endif %}
+        </div>
+
+        {% if ui_mode == 'admin' and historial_ciclos %}
             <div class="table-card mt-6">
                 <div class="panel-header">
                     <div>
-                        <h3>Historial de ciclos de esta torre</h3>
-                        <p class="mt-2">Te ayuda a saber qué cultivos ya pasaron por esta torre y en qué fase quedaron.</p>
+                        <h3>Historial de esta torre</h3>
+                        <p class="mt-2">Visible solo en modo administrador.</p>
                     </div>
                 </div>
                 <div class="overflow-x-auto">
@@ -63,52 +108,5 @@
                 </div>
             </div>
         {% endif %}
-
-        <div class="table-card mt-6">
-            <div class="panel-header">
-                <div>
-                    <h3>Catálogo de cultivos</h3>
-                    <p class="mt-2">Base reutilizable para abrir nuevas fases en cualquier torre registrada.</p>
-                </div>
-            </div>
-            {% if cultivos %}
-                <div class="overflow-x-auto">
-                    <table class="ecogrow-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Nombre</th>
-                                <th>Variedad</th>
-                                <th>Ubicación</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for cultivo in cultivos %}
-                                <tr>
-                                    <td>{{ cultivo.id_cultivo }}</td>
-                                    <td>{{ cultivo.nombre }}</td>
-                                    <td>{{ cultivo.variedad }}</td>
-                                    <td>{{ cultivo.ubicacion }}</td>
-                                    <td>{{ cultivo.estado }}</td>
-                                    <td>
-                                        <div class="panel-actions">
-                                            <a class="text-blue-600 hover:underline" href="{{ url_for('cultivos.editar_cultivo', cid=cultivo.id_cultivo) }}">Editar</a>
-                                            <form method="post" action="{{ url_for('cultivos.borrar_cultivo', cid=cultivo.id_cultivo) }}">
-                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                                <button class="text-red-600 hover:underline" type="submit">Borrar</button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <p>No hay cultivos registrados todavía.</p>
-            {% endif %}
-        </div>
     </section>
 {% endblock %}

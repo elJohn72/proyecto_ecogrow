@@ -8,32 +8,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
-    <script id="tailwind-config">
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: "#0f766e",
-                        ink: "#0f172a",
-                        mist: "#f4f7f3",
-                        sand: "#eef2e8",
-                        ember: "#f97316",
-                        moss: "#2f5d50"
-                    },
-                    fontFamily: {
-                        display: ["Plus Jakarta Sans", "sans-serif"]
-                    },
-                    boxShadow: {
-                        glow: "0 30px 80px rgba(15, 118, 110, 0.18)"
-                    }
-                }
-            }
-        }
-    </script>
+    <meta name="description" content="EcoGrow - Plataforma inteligente para sistemas hidropónicos">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body class="ecogrow-body font-display text-ink">
+<body class="ecogrow-body">
     <div class="ecogrow-bg"></div>
     <div class="ecogrow-orb ecogrow-orb-left"></div>
     <div class="ecogrow-orb ecogrow-orb-right"></div>
@@ -56,9 +34,13 @@
                 {% if is_authenticated %}
                     <span class="site-pill">{{ current_user_name }}</span>
                     {% if current_torre %}
-                        <span class="site-pill">{{ current_torre.nombre }} · {{ current_torre.codigo_unico }}</span>
+                        <span class="site-pill">Torre: {{ current_torre.nombre }}</span>
                     {% endif %}
-                    <a class="site-button site-button--primary" href="{{ url_for('torres.dashboard') }}">Panel</a>
+                    <div class="mode-switcher">
+                        <a class="mode-switcher__item {% if ui_mode == 'user' %}is-active{% endif %}" href="{{ url_for('main.set_mode', mode='user') }}">Usuario</a>
+                        <a class="mode-switcher__item {% if ui_mode == 'admin' %}is-active{% endif %}" href="{{ url_for('main.set_mode', mode='admin') }}">Admin</a>
+                    </div>
+                    <a class="site-button site-button--primary" href="{{ url_for('torres.dashboard') }}">Mi panel</a>
                 {% else %}
                     <a class="site-pill" href="{{ url_for('main.demo') }}">Demo</a>
                     <a class="site-button site-button--primary" href="{{ url_for('auth.login') }}">Ingresar</a>
@@ -67,12 +49,10 @@
         </div>
         {% if is_authenticated %}
             <div class="site-header__subnav">
-                <a class="site-chip {% if request.endpoint == 'torres.dashboard' %}is-active{% endif %}" href="{{ url_for('torres.dashboard') }}">Dashboard</a>
-                <a class="site-chip {% if request.endpoint in ['torres.torres', 'torres.registrar_torre', 'torres.seleccionar_torre', 'torres.elegir_cultivo_actual'] %}is-active{% endif %}" href="{{ url_for('torres.torres') }}">Mis torres</a>
+                <a class="site-chip {% if request.endpoint == 'torres.dashboard' %}is-active{% endif %}" href="{{ url_for('torres.dashboard') }}">Inicio</a>
+                <a class="site-chip {% if request.endpoint in ['torres.torres', 'torres.registrar_torre', 'torres.seleccionar_torre'] %}is-active{% endif %}" href="{{ url_for('torres.torres') }}">Torres</a>
                 <a class="site-chip {% if request.endpoint in ['cultivos.cultivos', 'cultivos.crear_cultivo', 'cultivos.editar_cultivo', 'torres.elegir_cultivo_actual'] %}is-active{% endif %}" href="{{ url_for('cultivos.cultivos') }}">Cultivos</a>
-                <a class="site-chip {% if request.endpoint == 'sensores.sensores' %}is-active{% endif %}" href="{{ url_for('sensores.sensores') }}">Sensores</a>
-                <a class="site-chip {% if request.endpoint == 'sensores.irrigation' %}is-active{% endif %}" href="{{ url_for('sensores.irrigation') }}">Riego</a>
-                <a class="site-chip {% if request.endpoint == 'sensores.sustainability' %}is-active{% endif %}" href="{{ url_for('sensores.sustainability') }}">Sostenibilidad</a>
+                <a class="site-chip {% if request.endpoint in ['sensores.sensores', 'sensores.irrigation'] %}is-active{% endif %}" href="{{ url_for('sensores.sensores') }}">Monitoreo</a>
                 <a class="site-chip" href="{{ url_for('auth.logout') }}">Salir</a>
             </div>
         {% endif %}
@@ -101,11 +81,11 @@
     <footer class="site-footer">
         <div>
             <p class="site-footer__title">EcoGrow</p>
-            <p class="site-footer__text">Sistema académico para gestión hidropónica, persistencia de datos e integración IoT.</p>
+            <p class="site-footer__text">Sistema avanzado para gestión hidropónica, analítica de datos e integración IoT.</p>
         </div>
         <div class="site-footer__meta">
-            <span>Flask + MySQL + PlatformIO</span>
-            <span>Proyecto académico 2026</span>
+            <span>Desarrollado por AJENZA y AJTecnology</span>
+            <span>EcoGrow Agritech 2026</span>
         </div>
     </footer>
 </body>

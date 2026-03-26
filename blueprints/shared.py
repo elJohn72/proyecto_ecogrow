@@ -5,8 +5,12 @@ from flask import flash, redirect, request, session, url_for
 from flask_login import current_user, login_required as flask_login_required
 from mysql.connector import Error
 
-from Conexión import fetch_torre
-from inventario import Inventario
+try:
+    from Conexión import fetch_torre
+    from inventario import Inventario
+except ModuleNotFoundError:
+    from ..Conexión import fetch_torre
+    from ..inventario import Inventario
 
 inventario = Inventario()
 login_required = flask_login_required
@@ -78,11 +82,13 @@ def register_context_processors(app):
     @app.context_processor
     def inject_layout_state():
         torre = current_torre() if current_user.is_authenticated else None
+        ui_mode = session.get("ui_mode", "user") if current_user.is_authenticated else "user"
         return {
             "is_authenticated": current_user.is_authenticated,
             "current_user_name": current_user.nombre if current_user.is_authenticated else None,
             "current_torre": torre,
             "csrf_token": get_csrf_token,
+            "ui_mode": ui_mode,
         }
 
 

@@ -1,22 +1,40 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from mysql.connector import Error
 
-from Conexión import (
-    create_mysql_tables,
-    delete_mysql_producto,
-    delete_mysql_usuario,
-    fetch_mysql_producto,
-    fetch_mysql_productos,
-    fetch_mysql_usuario,
-    fetch_mysql_usuarios,
-    get_mysql_config_help,
-    get_mysql_status,
-    insert_mysql_producto,
-    insert_mysql_usuario,
-    update_mysql_producto,
-    update_mysql_usuario,
-)
-from form import ProductoFormData, UsuarioFormData
+try:
+    from Conexión import (
+        create_mysql_tables,
+        delete_mysql_producto,
+        delete_mysql_usuario,
+        fetch_mysql_producto,
+        fetch_mysql_productos,
+        fetch_mysql_usuario,
+        fetch_mysql_usuarios,
+        get_mysql_config_help,
+        get_mysql_status,
+        insert_mysql_producto,
+        insert_mysql_usuario,
+        update_mysql_producto,
+        update_mysql_usuario,
+    )
+    from form import ProductoFormData, UsuarioFormData
+except ModuleNotFoundError:
+    from ..Conexión import (
+        create_mysql_tables,
+        delete_mysql_producto,
+        delete_mysql_usuario,
+        fetch_mysql_producto,
+        fetch_mysql_productos,
+        fetch_mysql_usuario,
+        fetch_mysql_usuarios,
+        get_mysql_config_help,
+        get_mysql_status,
+        insert_mysql_producto,
+        insert_mysql_usuario,
+        update_mysql_producto,
+        update_mysql_usuario,
+    )
+    from ..form import ProductoFormData, UsuarioFormData
 
 from .shared import login_required
 

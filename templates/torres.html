@@ -6,25 +6,25 @@
     <section class="content-shell fade-in-up">
         <div class="panel-header">
             <div>
-                <span class="eyebrow">Torres hidropónicas</span>
-                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Tus torres son el activo fijo del sistema.</h1>
-                <p class="page-subtitle mt-3">Cada torre se registra una sola vez con su código único. Luego puedes cambiar el cultivo activo cuantas veces quieras según el ciclo de producción.</p>
+                <span class="eyebrow">Tus torres</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Elige con que torre quieres trabajar.</h1>
+                <p class="page-subtitle mt-3">Primero selecciona una torre. Luego podras ver sensores, cultivo y riego de esa misma torre.</p>
             </div>
             <div class="panel-actions">
                 <a class="site-button site-button--primary" href="{{ url_for('torres.registrar_torre') }}">Registrar torre</a>
                 {% if current_torre %}
-                    <a class="site-button site-button--ghost" href="{{ url_for('torres.elegir_cultivo_actual') }}">Elegir cultivo de hoy</a>
+                    <a class="site-button site-button--ghost" href="{{ url_for('torres.elegir_cultivo_actual') }}">Cambiar cultivo</a>
                 {% endif %}
             </div>
         </div>
 
         <div class="table-card mt-6">
-            <div class="panel-header">
-                <div>
-                    <h3>Listado de torres</h3>
-                    <p class="mt-2">Selecciona la torre con la que vas a trabajar hoy para ver su monitoreo y su fase de cultivo.</p>
+                <div class="panel-header">
+                    <div>
+                        <h3>Listado de torres</h3>
+                        <p class="mt-2">La torre activa es la que se usa en todo el panel.</p>
+                    </div>
                 </div>
-            </div>
             {% if torres %}
                 <div class="overflow-x-auto">
                     <table class="ecogrow-table">
@@ -59,7 +59,7 @@
                     </table>
                 </div>
             {% else %}
-                <p>Todavía no has registrado una torre. Empieza con el código único del equipo que entregas al cliente.</p>
+                <p>Todavia no tienes torres registradas. Crea una para empezar.</p>
             {% endif %}
         </div>
     </section>

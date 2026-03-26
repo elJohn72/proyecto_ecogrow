@@ -2,14 +2,24 @@ from flask import Blueprint, flash, redirect, render_template, request, session,
 from flask_login import login_user, logout_user
 from mysql.connector import Error
 
-from Conexión import (
-    fetch_mysql_user_by_mail,
-    fetch_torres_by_user,
-    insert_mysql_usuario,
-    verify_mysql_user_credentials,
-)
-from form import LoginFormData, UsuarioFormData
-from models import User
+try:
+    from Conexión import (
+        fetch_mysql_user_by_mail,
+        fetch_torres_by_user,
+        insert_mysql_usuario,
+        verify_mysql_user_credentials,
+    )
+    from form import LoginFormData, UsuarioFormData
+    from models import User
+except ModuleNotFoundError:
+    from ..Conexión import (
+        fetch_mysql_user_by_mail,
+        fetch_torres_by_user,
+        insert_mysql_usuario,
+        verify_mysql_user_credentials,
+    )
+    from ..form import LoginFormData, UsuarioFormData
+    from ..models import User
 
 auth_bp = Blueprint("auth", __name__)
 

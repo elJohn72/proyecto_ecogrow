@@ -6,46 +6,73 @@
     <section class="content-shell fade-in-up">
         <div class="panel-header">
             <div>
-                <span class="eyebrow">Automatización</span>
-                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Control de riego y lógica operativa del sistema.</h1>
-                <p class="page-subtitle mt-3">Pantalla conceptual para explicar estado de bombas, umbrales de agua y cronogramas automáticos.</p>
+                <span class="eyebrow">Automatizacion hidrica</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Riego y proteccion de bomba{% if torre %} para {{ torre.nombre }}{% endif %}.</h1>
+                <p class="page-subtitle mt-3">Panel operativo alineado con la estrategia 15 minutos ON / 1 hora OFF para oxigenacion radicular y proteccion en seco.</p>
             </div>
-            <div>
-                <span class="eyebrow bg-amber-100 text-amber-700">Modo simulación</span>
-            </div>
+            {% if programacion %}
+                <span class="ops-badge ops-badge--teal">{{ programacion.minutos_encendido }} min ON / {{ programacion.minutos_apagado }} min OFF</span>
+            {% endif %}
         </div>
 
-        <div class="metric-grid mt-6">
-            <div class="metric-card">
-                <p class="metric-label">Bomba principal</p>
-                <p class="metric-value">Activa</p>
-                <p class="metric-note">Operando con presión estable.</p>
+        {% if configuracion and programacion %}
+            <div class="metric-grid mt-6">
+                <div class="metric-card">
+                    <p class="metric-label">Modo</p>
+                    <p class="metric-value text-[1.75rem]">{{ "Automatico" if programacion.habilitado else "Manual" }}</p>
+                    <p class="metric-note">Estrategia {{ programacion.estrategia.replace('_', ' ') }}.</p>
+                </div>
+                <div class="metric-card">
+                    <p class="metric-label">Nivel minimo</p>
+                    <p class="metric-value text-[1.75rem]">{{ configuracion.nivel_minimo }}%</p>
+                    <p class="metric-note">Debajo de este nivel se protege la bomba.</p>
+                </div>
+                <div class="metric-card">
+                    <p class="metric-label">Recarga objetivo</p>
+                    <p class="metric-value text-[1.75rem]">{{ configuracion.nivel_objetivo }}%</p>
+                    <p class="metric-note">Setpoint de deposito para recuperar margen operativo.</p>
+                </div>
             </div>
-            <div class="metric-card">
-                <p class="metric-label">Nivel mínimo</p>
-                <p class="metric-value">20%</p>
-                <p class="metric-note">Umbral de alerta configurado.</p>
-            </div>
-            <div class="metric-card">
-                <p class="metric-label">Auto-recarga</p>
-                <p class="metric-value">85%</p>
-                <p class="metric-note">Objetivo de relleno automático.</p>
-            </div>
-        </div>
 
-        <div class="section-grid mt-6">
-            <article class="soft-card">
-                <h3>Evento 08:00 AM</h3>
-                <p class="mt-3">Duración 15 min, intensidad alta. Programación activa para días hábiles.</p>
-            </article>
-            <article class="soft-card">
-                <h3>Evento 06:30 PM</h3>
-                <p class="mt-3">Duración 10 min, intensidad baja. Actualmente deshabilitado.</p>
-            </article>
-            <article class="soft-card">
-                <h3>Parada de emergencia</h3>
-                <p class="mt-3">Concepto de protección para exponer control manual y contingencias del sistema.</p>
-            </article>
-        </div>
+            <div class="section-grid mt-6">
+                <article class="soft-card">
+                    <h3>Secuencia automatica</h3>
+                    <p class="mt-3">El sistema programa {{ programacion.minutos_encendido }} minutos de recirculacion y luego {{ programacion.minutos_apagado }} minutos de reposo para mejorar la oxigenacion radicular.</p>
+                </article>
+                <article class="soft-card">
+                    <h3>Proteccion en seco</h3>
+                    <p class="mt-3">Si el nivel cae por debajo de {{ configuracion.nivel_minimo }}%, la bomba principal entra en modo protegido y la app prioriza alertas criticas.</p>
+                </article>
+                <article class="soft-card">
+                    <h3>Bomba recomendada</h3>
+                    <p class="mt-3">{{ configuracion.bomba_modelo }} con head height configurada en {{ configuracion.head_height_m }} m para validar recirculacion en torres verticales.</p>
+                </article>
+            </div>
+
+            <div class="table-card mt-6">
+                <div class="panel-header">
+                    <div>
+                        <h3>Estado de actuadores</h3>
+                        <p>Resumen del tren de riego y dosificacion asociado a la torre activa.</p>
+                    </div>
+                </div>
+                <div class="ops-actuator-list">
+                    {% for actuador in actuadores %}
+                        <div class="ops-actuator-item">
+                            <div>
+                                <strong>{{ actuador.nombre }}</strong>
+                                <p>{{ actuador.modo|capitalize }}</p>
+                            </div>
+                            <div class="ops-actuator-state">
+                                <span class="ops-badge ops-badge--light">{{ actuador.estado }}</span>
+                                <small>{{ actuador.ultimo_comando }}</small>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% else %}
+            <p>No hay una torre activa o la configuracion de riego todavia no esta disponible.</p>
+        {% endif %}
     </section>
 {% endblock %}

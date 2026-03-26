@@ -1,49 +1,29 @@
 {% extends "base.html" %}
 
-{% block title %}EcoGrow Login{% endblock %}
+{% block title %}Ingresar - EcoGrow{% endblock %}
 
 {% block content_wrapper %}
-    <section class="content-shell fade-in-up">
-        <div class="page-hero page-hero--split">
+    <section class="content-shell fade-in-up simple-auth-shell">
+        <div class="simple-auth-layout">
             <div>
-                <span class="eyebrow">Acceso</span>
-                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Un acceso más claro para presentar el sistema sin ruido visual.</h1>
-                <p class="page-subtitle mt-3">
-                    Esta pantalla funciona como acceso real al sistema. Si el cliente todavía no tiene cuenta,
-                    puede crearla y luego registrar la torre que recibió con su código único.
-                </p>
-                <div class="section-grid mt-6">
-                    <div class="soft-card">
-                        <h3>Panel técnico</h3>
-                        <p class="mt-3">Acceso a tus torres, fases de cultivo, sensores y módulos internos del sistema.</p>
-                    </div>
-                    <div class="soft-card">
-                        <h3>Modo demostración</h3>
-                        <p class="mt-3">Ideal para exponer el proyecto sin depender todavía de autenticación real.</p>
-                    </div>
-                </div>
+                <span class="eyebrow">Bienvenido</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Ingresa y empieza a usar tu torre.</h1>
+                <p class="page-subtitle mt-3">Solo necesitas tu correo y tu contrasena. Cuando entres, veras tu panel principal.</p>
             </div>
-            <div class="dashboard-panel">
-                <div class="panel-header">
-                    <div>
-                        <h3>Iniciar sesión</h3>
-                        <p class="mt-2">Demo visual del acceso al ecosistema hidropónico.</p>
-                    </div>
-                    <span class="eyebrow">Demo</span>
-                </div>
-                <form method="post" class="space-y-4">
+
+            <div class="dashboard-panel simple-form-card">
+                <h3>Iniciar sesion</h3>
+                <form method="post" class="simple-form-stack mt-6">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2" for="email">Correo electrónico</label>
-                        <input class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" id="email" name="mail" value="{{ form_data.mail if form_data else '' }}" placeholder="nombre@empresa.com" type="email"/>
-                    </div>
-                    <div>
-                        <div class="mb-2 flex items-center justify-between">
-                            <label class="block text-sm font-semibold text-slate-700" for="password">Contraseña</label>
-                            <a class="text-sm text-primary hover:underline" href="#">¿Olvidaste tu contraseña?</a>
-                        </div>
-                        <input class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3" id="password" name="password" placeholder="••••••••" type="password"/>
-                    </div>
+                    <label>
+                        <span>Correo</span>
+                        <input id="email" name="mail" value="{{ form_data.mail if form_data else '' }}" placeholder="nombre@correo.com" type="email"/>
+                    </label>
+                    <label>
+                        <span>Contrasena</span>
+                        <input id="password" name="password" placeholder="Tu contrasena" type="password"/>
+                    </label>
+
                     {% if errores %}
                         <div class="flash-card flash-card--error">
                             {% for error in errores %}
@@ -51,11 +31,9 @@
                             {% endfor %}
                         </div>
                     {% endif %}
-                    <div class="hero-actions pt-2">
-                        <button class="site-button site-button--primary" type="submit">Iniciar sesión</button>
-                        <a class="site-button site-button--ghost" href="{{ url_for('auth.registro') }}">Crear cuenta</a>
-                        <a class="site-button site-button--ghost" href="{{ url_for('main.demo') }}">Modo demo</a>
-                    </div>
+
+                    <button class="site-button site-button--primary simple-form-button" type="submit">Entrar</button>
+                    <a class="site-button site-button--ghost simple-form-button" href="{{ url_for('auth.registro') }}">Crear cuenta</a>
                 </form>
             </div>
         </div>

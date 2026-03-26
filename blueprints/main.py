@@ -1,4 +1,6 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, redirect, render_template, request, session, url_for
+
+from .shared import login_required
 
 main_bp = Blueprint("main", __name__)
 
@@ -27,3 +29,10 @@ def planta(nombre):
 @main_bp.route("/demo")
 def demo():
     return render_template("demo.html")
+
+
+@main_bp.route("/modo/<mode>")
+@login_required
+def set_mode(mode):
+    session["ui_mode"] = "admin" if mode == "admin" else "user"
+    return redirect(request.referrer or url_for("torres.dashboard"))

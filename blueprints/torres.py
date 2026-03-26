@@ -1,18 +1,32 @@
 from flask import Blueprint, flash, redirect, render_template, request, session, url_for
 from mysql.connector import Error
 
-from Conexión import (
-    close_active_cycle,
-    fetch_active_cycle_by_torre,
-    fetch_cultivos,
-    fetch_cycles_by_torre,
-    fetch_latest_sensor_reading_by_torre,
-    fetch_torre,
-    fetch_torres_by_user,
-    register_torre,
-    start_cultivo_cycle,
-)
-from form import CicloCultivoFormData, TorreFormData
+try:
+    from Conexión import (
+        close_active_cycle,
+        fetch_active_cycle_by_torre,
+        fetch_cultivos,
+        fetch_cycles_by_torre,
+        fetch_latest_sensor_reading_by_torre,
+        fetch_torre,
+        fetch_torres_by_user,
+        register_torre,
+        start_cultivo_cycle,
+    )
+    from form import CicloCultivoFormData, TorreFormData
+except ModuleNotFoundError:
+    from ..Conexión import (
+        close_active_cycle,
+        fetch_active_cycle_by_torre,
+        fetch_cultivos,
+        fetch_cycles_by_torre,
+        fetch_latest_sensor_reading_by_torre,
+        fetch_torre,
+        fetch_torres_by_user,
+        register_torre,
+        start_cultivo_cycle,
+    )
+    from ..form import CicloCultivoFormData, TorreFormData
 
 from .shared import current_torre, current_user_id, login_required, tower_required
 

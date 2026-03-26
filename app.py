@@ -6,11 +6,18 @@ from flask import Flask, flash, redirect, url_for
 from flask_login import LoginManager
 from mysql.connector import Error
 
-from Conexión import MYSQL_CONFIG, create_mysql_tables, fetch_mysql_usuario
-from blueprints import auth_bp, cultivos_bp, inventario_bp, main_bp, mysql_bp, sensores_bp, torres_bp
-from blueprints.shared import inventario, register_app_security, register_context_processors
-from inventario import init_app as init_db
-from models import User
+try:
+    from Conexión import MYSQL_CONFIG, create_mysql_tables, fetch_mysql_usuario
+    from blueprints import ai_bp, auth_bp, cultivos_bp, inventario_bp, main_bp, mysql_bp, sensores_bp, torres_bp
+    from blueprints.shared import inventario, register_app_security, register_context_processors
+    from inventario import init_app as init_db
+    from models import User
+except ModuleNotFoundError:
+    from .Conexión import MYSQL_CONFIG, create_mysql_tables, fetch_mysql_usuario
+    from .blueprints import ai_bp, auth_bp, cultivos_bp, inventario_bp, main_bp, mysql_bp, sensores_bp, torres_bp
+    from .blueprints.shared import inventario, register_app_security, register_context_processors
+    from .inventario import init_app as init_db
+    from .models import User
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", secrets.token_hex(32))
@@ -61,6 +68,7 @@ app.register_blueprint(cultivos_bp)
 app.register_blueprint(sensores_bp)
 app.register_blueprint(mysql_bp)
 app.register_blueprint(inventario_bp)
+app.register_blueprint(ai_bp)
 
 
 @app.cli.command("sincronizar-datos")

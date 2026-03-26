@@ -1,17 +1,30 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from mysql.connector import Error
 
-from Conexión import (
-    delete_cultivo,
-    fetch_active_cycle_by_torre,
-    fetch_cultivo,
-    fetch_cultivos,
-    fetch_cycles_by_torre,
-    fetch_latest_sensor_reading_by_torre,
-    insert_cultivo,
-    update_cultivo,
-)
-from form import CultivoFormData
+try:
+    from Conexión import (
+        delete_cultivo,
+        fetch_active_cycle_by_torre,
+        fetch_cultivo,
+        fetch_cultivos,
+        fetch_cycles_by_torre,
+        fetch_latest_sensor_reading_by_torre,
+        insert_cultivo,
+        update_cultivo,
+    )
+    from form import CultivoFormData
+except ModuleNotFoundError:
+    from ..Conexión import (
+        delete_cultivo,
+        fetch_active_cycle_by_torre,
+        fetch_cultivo,
+        fetch_cultivos,
+        fetch_cycles_by_torre,
+        fetch_latest_sensor_reading_by_torre,
+        insert_cultivo,
+        update_cultivo,
+    )
+    from ..form import CultivoFormData
 
 from .shared import current_torre, login_required, tower_required
 

@@ -1,125 +1,114 @@
 {% extends "base.html" %}
 
-{% block title %}Sensores - EcoGrow{% endblock %}
+{% block title %}Monitoreo - EcoGrow{% endblock %}
 
 {% block content_wrapper %}
-    <section class="content-shell fade-in-up">
+    <section class="content-shell fade-in-up simple-monitor-shell">
         <div class="panel-header">
             <div>
-                <span class="eyebrow">Centro de monitoreo</span>
-                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Sensores de la torre {{ torre.nombre }}.</h1>
-                <p class="page-subtitle mt-3">
-                    El ESP32 reporta por código de torre. La app toma el cultivo activo de esa torre para interpretar la lectura sin amarrarla a un solo cultivo para siempre.
-                </p>
+                <span class="eyebrow">Monitoreo</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Estado actual de {{ torre.nombre }}.</h1>
+                <p class="page-subtitle mt-3">Aqui solo ves lo esencial: valores, alertas y la accion sugerida por el sistema.</p>
             </div>
-            <div class="rounded-[1.5rem] bg-slate-900 px-5 py-4 text-sm text-slate-100 shadow-glow">
-                <p class="font-semibold">Endpoint para PlatformIO</p>
-                <p class="mt-2 break-all">{{ api_url }}</p>
+            <div class="simple-inline-card">
+                <strong>{{ torre.codigo_unico }}</strong>
+                <span>{{ ciclo_activo.cultivo_nombre if ciclo_activo else "Sin cultivo activo" }}</span>
             </div>
         </div>
 
-        <div class="dashboard-panel mt-6">
-            <div class="panel-header">
-                <div>
-                    <h2 class="text-2xl font-extrabold tracking-tight text-ink">Contexto actual de la torre</h2>
-                    <p class="mt-2">Puedes cambiar el cultivo cuando arranque una nueva fase sin modificar el hardware de la torre.</p>
+        {% if configuracion and operations %}
+            <div class="metric-grid mt-6">
+                <div class="metric-card simple-status-card">
+                    <p class="metric-label">pH</p>
+                    <p class="metric-value text-[1.75rem]">{{ "%.2f"|format(ultima_lectura.ph) if ultima_lectura and ultima_lectura.ph is not none else "--" }}</p>
+                    <p class="metric-note">{{ operations.sensor_states.ph.label }} · {{ operations.sensor_states.ph.detail }}</p>
+                </div>
+                <div class="metric-card simple-status-card">
+                    <p class="metric-label">EC</p>
+                    <p class="metric-value text-[1.75rem]">{{ "%.2f"|format(ultima_lectura.ec) if ultima_lectura and ultima_lectura.ec is not none else "--" }}</p>
+                    <p class="metric-note">{{ operations.sensor_states.ec.label }} · {{ operations.sensor_states.ec.detail }}</p>
+                </div>
+                <div class="metric-card simple-status-card">
+                    <p class="metric-label">Temp. agua</p>
+                    <p class="metric-value text-[1.75rem]">{{ "%.2f"|format(ultima_lectura.temperatura_agua) if ultima_lectura and ultima_lectura.temperatura_agua is not none else "--" }}</p>
+                    <p class="metric-note">{{ operations.sensor_states.temperatura_agua.label }} · {{ operations.sensor_states.temperatura_agua.detail }}</p>
+                </div>
+                <div class="metric-card simple-status-card">
+                    <p class="metric-label">Nivel</p>
+                    <p class="metric-value text-[1.75rem]">{{ "%.2f"|format(ultima_lectura.nivel_agua) if ultima_lectura and ultima_lectura.nivel_agua is not none else "--" }}</p>
+                    <p class="metric-note">{{ operations.sensor_states.nivel_agua.label }} · {{ operations.sensor_states.nivel_agua.detail }}</p>
                 </div>
             </div>
-            {% if ciclo_activo %}
-                <div class="section-grid">
-                    <div class="soft-card">
-                        <h3>Torre activa</h3>
-                        <p class="mt-2"><strong>Código:</strong> {{ torre.codigo_unico }}</p>
-                        <p class="mt-2"><strong>Ubicación:</strong> {{ torre.ubicacion }}</p>
+
+            <div class="section-grid mt-6 simple-monitor-grid">
+                <article class="dashboard-panel simple-panel-block">
+                    <h3>Resumen rapido</h3>
+                    <div class="simple-summary-list mt-4">
+                        <div><strong>Torre:</strong> {{ torre.nombre }} · {{ torre.ubicacion }}</div>
+                        <div><strong>Cultivo:</strong> {{ ciclo_activo.cultivo_nombre if ciclo_activo else "Sin cultivo" }}</div>
+                        <div><strong>Dispositivo:</strong> {{ ultima_lectura.dispositivo if ultima_lectura else "Sin datos" }}</div>
+                        <div><strong>Ultima lectura:</strong> {{ ultima_lectura.fecha_registro if ultima_lectura else "Sin datos" }}</div>
+                        <div><strong>Riego:</strong> {{ operations.riego_resumen }}</div>
                     </div>
-                    <div class="soft-card">
-                        <h3>Cultivo actual</h3>
-                        <p class="mt-2"><strong>Nombre:</strong> {{ ciclo_activo.cultivo_nombre }}</p>
-                        <p class="mt-2"><strong>Fase:</strong> {{ ciclo_activo.fase }}</p>
-                    </div>
-                </div>
-            {% else %}
-                <p>Esta torre todavía no tiene un cultivo activo. Configúralo antes de interpretar las lecturas.</p>
-            {% endif %}
-        </div>
+                </article>
 
-        <div class="metric-grid mt-6">
-                <div class="metric-card">
-                    <p class="text-sm text-slate-500">Cultivo activo</p>
-                    <p class="metric-value text-[1.75rem]">
-                        {{ ultima_lectura.cultivo_nombre if ultima_lectura and ultima_lectura.cultivo_nombre else "Sin asignación" }}
-                    </p>
-                </div>
-                <div class="metric-card">
-                    <p class="text-sm text-slate-500">Dispositivo</p>
-                    <p class="metric-value text-[1.75rem]">
-                        {{ ultima_lectura.dispositivo if ultima_lectura else "Sin datos" }}
-                    </p>
-                </div>
-                <div class="metric-card">
-                    <p class="text-sm text-slate-500">Temp. agua</p>
-                    <p class="metric-value text-[1.75rem]">
-                        {% if ultima_lectura and ultima_lectura.temperatura_agua is not none %}
-                            {{ "%.2f"|format(ultima_lectura.temperatura_agua) }} °C
-                        {% else %}
-                            Sin datos
-                        {% endif %}
-                    </p>
-                </div>
-                <div class="metric-card">
-                    <p class="text-sm text-slate-500">pH</p>
-                    <p class="metric-value text-[1.75rem]">
-                        {% if ultima_lectura and ultima_lectura.ph is not none %}
-                            {{ "%.2f"|format(ultima_lectura.ph) }}
-                        {% else %}
-                            Sin datos
-                        {% endif %}
-                    </p>
-                </div>
-                <div class="metric-card">
-                    <p class="text-sm text-slate-500">Nivel de agua</p>
-                    <p class="metric-value text-[1.75rem]">
-                        {% if ultima_lectura and ultima_lectura.nivel_agua is not none %}
-                            {{ "%.2f"|format(ultima_lectura.nivel_agua) }} %
-                        {% else %}
-                            Sin datos
-                        {% endif %}
-                    </p>
-                </div>
-        </div>
+                <article class="dashboard-panel simple-panel-block simple-panel-block--accent">
+                    <h3>Accion sugerida</h3>
+                    <p class="simple-highlight-value">{{ operations.control.accion }}</p>
+                    <p>{{ operations.control.motivo }}</p>
+                </article>
 
-        <div class="dashboard-panel mt-6">
-                <div class="panel-header">
-                    <h3>Última lectura</h3>
-                    {% if ultima_lectura %}
-                        <span class="text-sm text-slate-500">{{ ultima_lectura.fecha_registro }}</span>
+                <article class="dashboard-panel simple-panel-block">
+                    <h3>Alertas</h3>
+                    {% if alertas %}
+                        <div class="simple-alert-stack mt-4">
+                            {% for alerta in alertas %}
+                                <div class="simple-alert-item">
+                                    <strong>{{ alerta.tipo.replace('_', ' ')|title }}</strong>
+                                    <span>{{ alerta.mensaje }}</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="mt-4">No hay alertas activas.</p>
                     {% endif %}
-                </div>
+                </article>
+            </div>
 
-                {% if ultima_lectura %}
-                    <div class="section-grid">
-                        <div class="soft-card"><strong>Temperatura aire:</strong><p class="mt-2">{{ ultima_lectura.temperatura_aire }} °C</p></div>
-                        <div class="soft-card"><strong>Humedad aire:</strong><p class="mt-2">{{ ultima_lectura.humedad_aire }} %</p></div>
-                        <div class="soft-card"><strong>Temperatura agua:</strong><p class="mt-2">{{ ultima_lectura.temperatura_agua }} °C</p></div>
-                        <div class="soft-card"><strong>pH:</strong><p class="mt-2">{{ ultima_lectura.ph }}</p></div>
-                        <div class="soft-card"><strong>EC:</strong><p class="mt-2">{{ ultima_lectura.ec }}</p></div>
-                        <div class="soft-card"><strong>Nivel agua:</strong><p class="mt-2">{{ ultima_lectura.nivel_agua }} %</p></div>
-                        <div class="soft-card"><strong>Luminosidad:</strong><p class="mt-2">{{ ultima_lectura.luminosidad }}</p></div>
-                        <div class="soft-card"><strong>Cultivo:</strong><p class="mt-2">{{ ultima_lectura.cultivo_nombre or "Sin asignación" }}</p></div>
-                        <div class="soft-card"><strong>Torre:</strong><p class="mt-2">{{ ultima_lectura.torre_nombre or torre.nombre }}</p></div>
-                        <div class="soft-card"><strong>Código:</strong><p class="mt-2">{{ ultima_lectura.torre_codigo or torre.codigo_unico }}</p></div>
-                        <div class="soft-card"><strong>Dispositivo:</strong><p class="mt-2">{{ ultima_lectura.dispositivo }}</p></div>
+            {% if ui_mode == 'admin' %}
+                <div class="table-card mt-6">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Vista administrativa</h3>
+                            <p class="mt-2">Detalles tecnicos visibles solo para administracion.</p>
+                        </div>
                     </div>
-                {% else %}
-                    <p>Aun no se han recibido lecturas desde el ESP32.</p>
-                {% endif %}
-        </div>
+                    <div class="ops-info-grid">
+                        <div class="soft-card ops-mini-card">
+                            <strong>Modo de control</strong>
+                            <p>{{ operations.control.algoritmo }}</p>
+                        </div>
+                        <div class="soft-card ops-mini-card">
+                            <strong>Variable</strong>
+                            <p>{{ operations.control.variable }}</p>
+                        </div>
+                        <div class="soft-card ops-mini-card">
+                            <strong>Error</strong>
+                            <p>{{ operations.control.error }}</p>
+                        </div>
+                        <div class="soft-card ops-mini-card">
+                            <strong>Riego</strong>
+                            <p>{{ operations.riego_resumen }}</p>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
 
-        <div class="table-card mt-6">
+            <div class="table-card mt-6">
                 <div class="panel-header">
                     <div>
                         <h3>Historial reciente</h3>
-                        <p class="mt-2">Últimas lecturas registradas para diagnóstico y validación del flujo IoT.</p>
+                        <p class="mt-2">Solo las ultimas mediciones para revisar rapido el comportamiento de la torre.</p>
                     </div>
                 </div>
                 {% if historial %}
@@ -128,32 +117,20 @@
                             <thead>
                                 <tr>
                                     <th>Fecha</th>
-                                    <th>Torre</th>
-                                    <th>Cultivo</th>
-                                    <th>Dispositivo</th>
-                                    <th>Temp. aire</th>
-                                    <th>Humedad</th>
-                                    <th>Temp. agua</th>
                                     <th>pH</th>
                                     <th>EC</th>
+                                    <th>Temp. agua</th>
                                     <th>Nivel</th>
-                                    <th>Luz</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for lectura in historial %}
                                     <tr>
                                         <td>{{ lectura.fecha_registro }}</td>
-                                        <td>{{ lectura.torre_codigo or torre.codigo_unico }}</td>
-                                        <td>{{ lectura.cultivo_nombre or "Sin asignación" }}</td>
-                                        <td>{{ lectura.dispositivo }}</td>
-                                        <td>{{ lectura.temperatura_aire }}</td>
-                                        <td>{{ lectura.humedad_aire }}</td>
-                                        <td>{{ lectura.temperatura_agua }}</td>
                                         <td>{{ lectura.ph }}</td>
                                         <td>{{ lectura.ec }}</td>
+                                        <td>{{ lectura.temperatura_agua }}</td>
                                         <td>{{ lectura.nivel_agua }}</td>
-                                        <td>{{ lectura.luminosidad }}</td>
                                     </tr>
                                 {% endfor %}
                             </tbody>
@@ -162,6 +139,9 @@
                 {% else %}
                     <p>No hay historial de lecturas todavia.</p>
                 {% endif %}
-        </div>
+            </div>
+        {% else %}
+            <p>No fue posible cargar el monitoreo de esta torre.</p>
+        {% endif %}
     </section>
 {% endblock %}

@@ -1,6 +1,9 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
-from form import ProductoFormData
+try:
+    from form import ProductoFormData
+except ModuleNotFoundError:
+    from ..form import ProductoFormData
 
 from .shared import inventario, login_required
 

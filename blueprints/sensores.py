@@ -1,17 +1,102 @@
 from flask import Blueprint, current_app, flash, jsonify, render_template, request, url_for
 from mysql.connector import Error
 
-from Conexión import (
-    fetch_active_cycle_by_torre,
-    fetch_cultivos,
-    fetch_sensor_readings_by_torre,
-    fetch_latest_sensor_reading_by_torre,
-    insert_sensor_reading,
-)
+try:
+    from Conexión import (
+        fetch_active_alerts_by_torre,
+        fetch_active_cycle_by_torre,
+        fetch_actuadores_by_torre,
+        fetch_control_configuration,
+        fetch_cultivos,
+        fetch_irrigation_schedule,
+        fetch_recent_control_events,
+        fetch_sensor_readings_by_torre,
+        fetch_latest_sensor_reading_by_torre,
+        insert_sensor_reading,
+    )
+except ModuleNotFoundError:
+    from ..Conexión import (
+        fetch_active_alerts_by_torre,
+        fetch_active_cycle_by_torre,
+        fetch_actuadores_by_torre,
+        fetch_control_configuration,
+        fetch_cultivos,
+        fetch_irrigation_schedule,
+        fetch_recent_control_events,
+        fetch_sensor_readings_by_torre,
+        fetch_latest_sensor_reading_by_torre,
+        insert_sensor_reading,
+    )
 
 from .shared import current_torre, login_required, parse_optional_float, tower_required
 
 sensores_bp = Blueprint("sensores", __name__)
+
+
+def _value_state(value, minimum, maximum):
+    if value is None:
+        return {"label": "Sin dato", "tone": "muted", "detail": "Esperando telemetria"}
+    numeric_value = float(value)
+    if numeric_value < float(minimum):
+        return {"label": "Bajo", "tone": "warning", "detail": f"Por debajo de {minimum}"}
+    if numeric_value > float(maximum):
+        return {"label": "Alto", "tone": "danger", "detail": f"Por encima de {maximum}"}
+    return {"label": "Estable", "tone": "ok", "detail": f"Dentro de {minimum}-{maximum}"}
+
+
+def _build_operations_context(torre, ultima_lectura, configuracion, alertas, actuadores, programacion, eventos):
+    ph_state = _value_state(
+        ultima_lectura.get("ph") if ultima_lectura else None,
+        configuracion["ph_min"],
+        configuracion["ph_max"],
+    )
+    ec_state = _value_state(
+        ultima_lectura.get("ec") if ultima_lectura else None,
+        configuracion["ec_min"],
+        configuracion["ec_max"],
+    )
+    temperatura_state = _value_state(
+        ultima_lectura.get("temperatura_agua") if ultima_lectura else None,
+        configuracion["temperatura_agua_min"],
+        configuracion["temperatura_agua_max"],
+    )
+    nivel_state = _value_state(
+        ultima_lectura.get("nivel_agua") if ultima_lectura else None,
+        configuracion["nivel_minimo"],
+        100,
+    )
+
+    principal_evento = eventos[0] if eventos else None
+    resumen_control = {
+        "mode": configuracion["control_mode"].replace("_", " ").title(),
+        "algoritmo": principal_evento["algoritmo"].upper() if principal_evento else "CONSENSO",
+        "accion": principal_evento["accion_recomendada"] if principal_evento else "Mantener monitoreo",
+        "motivo": principal_evento["motivo"] if principal_evento else "Sin eventos de control calculados todavia.",
+        "salida_consenso": principal_evento["salida_consenso"] if principal_evento else 0,
+        "variable": principal_evento["variable_control"].upper() if principal_evento else "SIN DATOS",
+        "error": principal_evento["error_valor"] if principal_evento else 0,
+    }
+
+    riesgo_bomba = "Protegida"
+    if ultima_lectura and ultima_lectura.get("nivel_agua") is not None:
+        riesgo_bomba = "Riesgo en seco" if float(ultima_lectura["nivel_agua"]) <= float(configuracion["nivel_minimo"]) else "Caudal estable"
+
+    return {
+        "control": resumen_control,
+        "sensor_states": {
+            "ph": ph_state,
+            "ec": ec_state,
+            "temperatura_agua": temperatura_state,
+            "nivel_agua": nivel_state,
+        },
+        "alert_count": len(alertas),
+        "critical_count": len([alerta for alerta in alertas if alerta["severidad"] == "critica"]),
+        "bomba_estado": next((act["estado"] for act in actuadores if act["tipo"] == "bomba_principal"), riesgo_bomba),
+        "riego_resumen": f"{programacion['minutos_encendido']} min ON / {programacion['minutos_apagado']} min OFF",
+        "consenso_resumen": f"{int(float(configuracion['consenso_pid_weight']) * 100)}/{int(float(configuracion['consenso_fuzzy_weight']) * 100)} PID-Fuzzy",
+        "torre_specs": f"Modulo {configuracion['module_size_mm']} mm · Deposito {configuracion['deposito_litros']} L",
+        "head_height_ok": float(configuracion["head_height_m"]) <= 1.4,
+    }
 
 
 @sensores_bp.route("/sensores")
@@ -27,19 +112,47 @@ def sensores():
         ultima_lectura = fetch_latest_sensor_reading_by_torre(torre["id_torre"])
         historial = fetch_sensor_readings_by_torre(torre["id_torre"], 10)
         cultivos_registrados = fetch_cultivos()
+        configuracion = fetch_control_configuration(torre["id_torre"])
+        alertas = fetch_active_alerts_by_torre(torre["id_torre"])
+        actuadores = fetch_actuadores_by_torre(torre["id_torre"])
+        programacion = fetch_irrigation_schedule(torre["id_torre"])
+        eventos_control = fetch_recent_control_events(torre["id_torre"], 6)
     except Error as exc:
         flash(f"No se pudo consultar las lecturas de sensores: {exc}", "error")
         ciclo_activo = None
         ultima_lectura = None
         historial = []
         cultivos_registrados = []
+        configuracion = None
+        alertas = []
+        actuadores = []
+        programacion = None
+        eventos_control = []
+
+    operations = None
+    if configuracion and programacion:
+        operations = _build_operations_context(
+            torre,
+            ultima_lectura,
+            configuracion,
+            alertas,
+            actuadores,
+            programacion,
+            eventos_control,
+        )
 
     return render_template(
         "sensores.html",
+        actuadores=actuadores,
+        alertas=alertas,
+        configuracion=configuracion,
+        eventos_control=eventos_control,
         ultima_lectura=ultima_lectura,
         historial=historial,
         cultivos=cultivos_registrados,
         ciclo_activo=ciclo_activo,
+        operations=operations,
+        programacion=programacion,
         torre=torre,
         api_url=url_for("sensores.api_sensor_reading"),
     )
@@ -83,7 +196,27 @@ def api_sensor_reading():
 @sensores_bp.route("/irrigation")
 @login_required
 def irrigation():
-    return render_template("irrigation.html")
+    torre = current_torre()
+    if torre is None:
+        return render_template("irrigation.html", torre=None, configuracion=None, programacion=None, actuadores=[])
+
+    try:
+        configuracion = fetch_control_configuration(torre["id_torre"])
+        programacion = fetch_irrigation_schedule(torre["id_torre"])
+        actuadores = fetch_actuadores_by_torre(torre["id_torre"])
+    except Error as exc:
+        flash(f"No se pudo consultar el riego automatico: {exc}", "error")
+        configuracion = None
+        programacion = None
+        actuadores = []
+
+    return render_template(
+        "irrigation.html",
+        torre=torre,
+        configuracion=configuracion,
+        programacion=programacion,
+        actuadores=actuadores,
+    )
 
 
 @sensores_bp.route("/sustainability")
