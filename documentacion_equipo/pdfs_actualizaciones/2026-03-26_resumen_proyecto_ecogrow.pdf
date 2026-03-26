@@ -1,0 +1,613 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 6 /Kids [4 0 R 6 0 R 8 0 R 10 0 R 12 0 R 14 0 R] >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 2220 >>
+stream
+BT
+/F1 11 Tf
+14 TL
+54 738 Td
+(ECOGROW - DOCUMENTO GENERAL DEL PROYECTO) Tj
+T*
+() Tj
+T*
+(1. DESCRIPCION GENERAL) Tj
+T*
+() Tj
+T*
+(EcoGrow es una aplicacion web academica desarrollada con Flask para gestionar un sistema ) Tj
+T*
+(hidropónico con enfoque en monitoreo, operacion y apoyo a la toma de decisiones. El proyecto) Tj
+T*
+( integra autenticacion de usuarios, panel privado, gestion de torres, seguimiento de ) Tj
+T*
+(cultivos, inventario local, telemetria IoT y una capa de asistencia inteligente para el ) Tj
+T*
+(agricultor.) Tj
+T*
+() Tj
+T*
+(El objetivo principal es centralizar en una sola plataforma el estado operativo de una torre) Tj
+T*
+( hidropónica, permitiendo consultar datos en tiempo real, gestionar cultivos, revisar ) Tj
+T*
+(eventos de control y recibir recomendaciones tecnicas basadas en sensores.) Tj
+T*
+() Tj
+T*
+(2. OBJETIVOS DEL SISTEMA) Tj
+T*
+() Tj
+T*
+(- Gestionar usuarios con acceso autenticado.) Tj
+T*
+(- Registrar y administrar torres hidropónicas.) Tj
+T*
+(- Asociar cultivos y fases productivas a cada torre.) Tj
+T*
+(- Recibir y almacenar lecturas de sensores desde un dispositivo IoT.) Tj
+T*
+(- Visualizar pH, EC, temperatura y nivel de agua.) Tj
+T*
+(- Generar eventos de control y alertas operativas.) Tj
+T*
+(- Ofrecer un asistente tipo Agricultor IA para interpretar el estado del cultivo.) Tj
+T*
+(- Permitir acciones asistidas sobre la torre cuando el usuario lo autoriza.) Tj
+T*
+() Tj
+T*
+(3. TECNOLOGIAS UTILIZADAS) Tj
+T*
+() Tj
+T*
+(- Python 3) Tj
+T*
+(- Flask) Tj
+T*
+(- Flask-Login) Tj
+T*
+(- Flask-SQLAlchemy) Tj
+T*
+(- MySQL Connector for Python) Tj
+T*
+(- MySQL / MariaDB) Tj
+T*
+(- SQLite para persistencia local del inventario) Tj
+T*
+(- HTML, CSS y Jinja2) Tj
+T*
+(- ESP32 con PlatformIO para integracion IoT) Tj
+T*
+(- Integracion opcional con Gemini para respuestas enriquecidas del asistente IA) Tj
+T*
+() Tj
+T*
+(4. ARQUITECTURA GENERAL) Tj
+T*
+() Tj
+T*
+(La aplicacion sigue una estructura modular basada en blueprints de Flask. Cada modulo separa) Tj
+T*
+( responsabilidades funcionales y ayuda a mantener la organizacion del proyecto.) Tj
+T*
+() Tj
+T*
+(Componentes principales:) Tj
+T*
+() Tj
+T*
+(- `app.py`: inicializa Flask, seguridad, login, base local y registro de blueprints.) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 1937 >>
+stream
+BT
+/F1 11 Tf
+14 TL
+54 738 Td
+(- `blueprints/auth.py`: registro, login y logout.) Tj
+T*
+(- `blueprints/torres.py`: manejo de torres, seleccion de torre y dashboard principal.) Tj
+T*
+(- `blueprints/cultivos.py`: CRUD de cultivos.) Tj
+T*
+(- `blueprints/sensores.py`: monitoreo, telemetria, alertas y contexto operativo.) Tj
+T*
+(- `blueprints/mysql.py`: gestion CRUD de usuarios y productos en MySQL.) Tj
+T*
+(- `blueprints/inventario.py`: inventario local con SQLite y archivos.) Tj
+T*
+(- `blueprints/ai.py`: Agricultor IA, consultas inteligentes y control asistido de torre.) Tj
+T*
+(- `Conexión/conexion.py`: acceso centralizado a MySQL, creacion de tablas y consultas de ) Tj
+T*
+(negocio.) Tj
+T*
+() Tj
+T*
+(5. BASE DE DATOS Y PERSISTENCIA) Tj
+T*
+() Tj
+T*
+(EcoGrow usa dos tipos de persistencia:) Tj
+T*
+() Tj
+T*
+(1. MySQL / MariaDB:) Tj
+T*
+(- usuarios) Tj
+T*
+(- torres) Tj
+T*
+(- cultivos) Tj
+T*
+(- ciclos de cultivo) Tj
+T*
+(- lecturas de sensores) Tj
+T*
+(- configuracion de control) Tj
+T*
+(- actuadores de torre) Tj
+T*
+(- programaciones de riego) Tj
+T*
+(- alertas del sistema) Tj
+T*
+(- eventos de control) Tj
+T*
+() Tj
+T*
+(2. SQLite / archivos locales:) Tj
+T*
+(- inventario local y sincronizacion de archivos auxiliares) Tj
+T*
+() Tj
+T*
+(La autenticacion se apoya en MySQL y las contrasenas se almacenan con hash.) Tj
+T*
+() Tj
+T*
+(6. MODULOS FUNCIONALES) Tj
+T*
+() Tj
+T*
+(6.1 Autenticacion) Tj
+T*
+() Tj
+T*
+(Permite registro de usuarios, inicio y cierre de sesion. Las rutas privadas quedan ) Tj
+T*
+(protegidas y el sistema carga el usuario autenticado desde MySQL.) Tj
+T*
+() Tj
+T*
+(6.2 Gestion de torres) Tj
+T*
+() Tj
+T*
+(Cada usuario puede registrar una o varias torres. Una torre activa se guarda en sesion para ) Tj
+T*
+(operar el panel principal, el monitoreo y los flujos de cultivo.) Tj
+T*
+() Tj
+T*
+(6.3 Gestion de cultivos) Tj
+T*
+() Tj
+T*
+(El sistema permite registrar cultivos y asociarlos a una torre mediante ciclos de cultivo. ) Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 1791 >>
+stream
+BT
+/F1 11 Tf
+14 TL
+54 738 Td
+(Cada ciclo tiene una fase activa y notas operativas.) Tj
+T*
+() Tj
+T*
+(6.4 Monitoreo y sensores) Tj
+T*
+() Tj
+T*
+(El modulo de sensores recibe datos desde un ESP32 u otro nodo compatible mediante un ) Tj
+T*
+(endpoint protegido por token. Entre las variables monitoreadas se encuentran:) Tj
+T*
+() Tj
+T*
+(- temperatura del aire) Tj
+T*
+(- humedad del aire) Tj
+T*
+(- temperatura del agua) Tj
+T*
+(- pH) Tj
+T*
+(- EC) Tj
+T*
+(- nivel de agua) Tj
+T*
+(- luminosidad) Tj
+T*
+() Tj
+T*
+(Con estas lecturas, el sistema muestra paneles de monitoreo, calcula estados de riesgo y ) Tj
+T*
+(registra sugerencias operativas.) Tj
+T*
+() Tj
+T*
+(6.5 Control y eventos operativos) Tj
+T*
+() Tj
+T*
+(EcoGrow mantiene configuraciones de control por torre y administra actuadores logicos como:) Tj
+T*
+() Tj
+T*
+(- bomba principal) Tj
+T*
+(- valvula de agua) Tj
+T*
+(- valvula de nutrientes AB Mix) Tj
+T*
+(- dosificador de pH) Tj
+T*
+() Tj
+T*
+(Ademas, registra eventos de control con informacion como algoritmo, variable afectada, ) Tj
+T*
+(salida de consenso, accion recomendada y motivo tecnico.) Tj
+T*
+() Tj
+T*
+(6.6 Inventario) Tj
+T*
+() Tj
+T*
+(El sistema incluye un modulo independiente de inventario con persistencia local para ) Tj
+T*
+(productos y movimientos basicos, pensado como apoyo administrativo.) Tj
+T*
+() Tj
+T*
+(7. AGRICULTOR IA) Tj
+T*
+() Tj
+T*
+(Se incorporo un nuevo modulo llamado Agricultor IA con el objetivo de darle al usuario una ) Tj
+T*
+(experiencia de consulta tecnica en lenguaje natural.) Tj
+T*
+() Tj
+T*
+(Capacidades principales:) Tj
+T*
+() Tj
+T*
+(- responder preguntas como "como esta mi planta") Tj
+T*
+(- interpretar datos recientes del cultivo) Tj
+T*
+(- explicar riesgos asociados a pH, EC, temperatura o nivel de agua) Tj
+T*
+(- generar una recomendacion accionable) Tj
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 11 0 R >>
+endobj
+11 0 obj
+<< /Length 1633 >>
+stream
+BT
+/F1 11 Tf
+14 TL
+54 738 Td
+(- ejecutar una sugerencia sobre la torre solo si el usuario da permiso explicito) Tj
+T*
+() Tj
+T*
+(Funcionamiento:) Tj
+T*
+() Tj
+T*
+(- construye contexto con cultivo activo, lecturas recientes, alertas, actuadores y eventos) Tj
+T*
+(- genera una recomendacion deterministica segura) Tj
+T*
+(- si existe `GEMINI_API_KEY`, complementa la respuesta con Gemini) Tj
+T*
+(- si no existe clave, sigue funcionando con analisis local) Tj
+T*
+() Tj
+T*
+(Ejemplos de acciones asistidas:) Tj
+T*
+() Tj
+T*
+(- recargar deposito) Tj
+T*
+(- aplicar pH Up) Tj
+T*
+(- aplicar pH Down) Tj
+T*
+(- dosificar AB Mix) Tj
+T*
+(- diluir con agua) Tj
+T*
+(- aumentar o reducir frecuencia de riego) Tj
+T*
+() Tj
+T*
+(Todas estas acciones quedan registradas como eventos de control asistido por IA.) Tj
+T*
+() Tj
+T*
+(8. FLUJO GENERAL DE USO) Tj
+T*
+() Tj
+T*
+(1. El usuario se registra o inicia sesion.) Tj
+T*
+(2. Registra una torre o selecciona una ya existente.) Tj
+T*
+(3. Asocia un cultivo y define la fase activa.) Tj
+T*
+(4. El nodo IoT envia telemetria al endpoint del sistema.) Tj
+T*
+(5. EcoGrow guarda lecturas, calcula alertas y eventos de control.) Tj
+T*
+(6. El usuario consulta el dashboard, monitoreo o Agricultor IA.) Tj
+T*
+(7. Si el asistente propone una accion y el usuario la autoriza, el sistema actualiza el ) Tj
+T*
+(estado de la torre de forma asistida.) Tj
+T*
+() Tj
+T*
+(9. RUTAS IMPORTANTES) Tj
+T*
+() Tj
+T*
+(Publicas:) Tj
+T*
+() Tj
+T*
+(- `/`) Tj
+T*
+(- `/about`) Tj
+T*
+(- `/contactos`) Tj
+T*
+(- `/demo`) Tj
+T*
+(- `/login`) Tj
+T*
+(- `/registro`) Tj
+T*
+() Tj
+T*
+(Protegidas:) Tj
+T*
+() Tj
+T*
+(- `/dashboard`) Tj
+T*
+(- `/torres`) Tj
+ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 13 0 R >>
+endobj
+13 0 obj
+<< /Length 1514 >>
+stream
+BT
+/F1 11 Tf
+14 TL
+54 738 Td
+(- `/torres/registrar`) Tj
+T*
+(- `/torres/cultivo`) Tj
+T*
+(- `/cultivos`) Tj
+T*
+(- `/sensores`) Tj
+T*
+(- `/inventario`) Tj
+T*
+(- `/mysql`) Tj
+T*
+(- `/agricultor-ia`) Tj
+T*
+() Tj
+T*
+(API destacada:) Tj
+T*
+() Tj
+T*
+(- `/api/sensores/lectura`) Tj
+T*
+(- `/api/agricultor-ia/chat`) Tj
+T*
+(- `/api/ai_advice/<torre_id>`) Tj
+T*
+() Tj
+T*
+(10. SEGURIDAD Y BUENAS PRACTICAS) Tj
+T*
+() Tj
+T*
+(- autenticacion con Flask-Login) Tj
+T*
+(- formularios protegidos con token CSRF) Tj
+T*
+(- endpoint IoT protegido con token de dispositivo) Tj
+T*
+(- hash de contrasenas en usuarios) Tj
+T*
+(- validacion de propiedad de torre por usuario) Tj
+T*
+(- acciones del asistente limitadas a la torre autorizada por el usuario) Tj
+T*
+() Tj
+T*
+(11. ESTRUCTURA DOCUMENTAL PARA EL EQUIPO) Tj
+T*
+() Tj
+T*
+(Se creo la carpeta `documentacion_equipo/` para almacenar material no relacionado con ) Tj
+T*
+(codigo, sin alterar la arquitectura del software.) Tj
+T*
+() Tj
+T*
+(Subcarpetas recomendadas:) Tj
+T*
+() Tj
+T*
+(- `esquematicos/`) Tj
+T*
+(- `pdfs_actualizaciones/`) Tj
+T*
+(- `entregables/`) Tj
+T*
+(- `recursos_multimedia/`) Tj
+T*
+(- `notas_equipo/`) Tj
+T*
+(- `presentaciones/`) Tj
+T*
+() Tj
+T*
+(Esto permite compartir PDFs, exposiciones, diagramas, capturas y documentos del proyecto con) Tj
+T*
+( el equipo de trabajo de forma ordenada.) Tj
+T*
+() Tj
+T*
+(12. ESTADO ACTUAL DEL PROYECTO) Tj
+T*
+() Tj
+T*
+(Actualmente EcoGrow cuenta con:) Tj
+T*
+() Tj
+T*
+(- autenticacion funcional) Tj
+T*
+(- gestion de torres y cultivos) Tj
+ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 15 0 R >>
+endobj
+15 0 obj
+<< /Length 1127 >>
+stream
+BT
+/F1 11 Tf
+14 TL
+54 738 Td
+(- monitoreo de sensores) Tj
+T*
+(- eventos de control y alertas) Tj
+T*
+(- inventario local) Tj
+T*
+(- integracion con MySQL / XAMPP) Tj
+T*
+(- modulo Agricultor IA con permiso de control asistido) Tj
+T*
+(- carpeta de documentacion colaborativa para el equipo) Tj
+T*
+() Tj
+T*
+(13. PROYECCION DE MEJORAS) Tj
+T*
+() Tj
+T*
+(Posibles siguientes pasos:) Tj
+T*
+() Tj
+T*
+(- historial conversacional del Agricultor IA) Tj
+T*
+(- comandos reales hacia hardware fisico) Tj
+T*
+(- reportes PDF automaticos por cultivo o torre) Tj
+T*
+(- paneles graficos historicos de sensores) Tj
+T*
+(- roles avanzados de usuario y administrador) Tj
+T*
+(- integracion mas profunda entre IA y automatizacion IoT) Tj
+T*
+() Tj
+T*
+(14. CONCLUSION) Tj
+T*
+() Tj
+T*
+(EcoGrow es una plataforma academica con una base solida para gestionar sistemas hidropónicos) Tj
+T*
+( inteligentes. Combina software web, persistencia relacional, monitoreo IoT y una capa de ) Tj
+T*
+(apoyo inteligente orientada al agricultor. Su arquitectura modular facilita continuar el ) Tj
+T*
+(proyecto, documentarlo y presentar avances al equipo o a docentes.) Tj
+ET
+endstream
+endobj
+xref
+0 16
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000148 00000 n 
+0000000218 00000 n 
+0000000344 00000 n 
+0000002615 00000 n 
+0000002741 00000 n 
+0000004729 00000 n 
+0000004855 00000 n 
+0000006697 00000 n 
+0000006825 00000 n 
+0000008510 00000 n 
+0000008638 00000 n 
+0000010204 00000 n 
+0000010332 00000 n 
+trailer
+<< /Size 16 /Root 1 0 R >>
+startxref
+11511
+%%EOF

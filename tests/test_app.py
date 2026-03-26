@@ -16,9 +16,10 @@ class AppTestCase(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
 
     def test_protected_route_redirects_to_login(self):
-        response = self.client.get("/dashboard", follow_redirects=False)
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/login", response.headers["Location"])
+        for route in ("/dashboard", "/agricultor-ia"):
+            response = self.client.get(route, follow_redirects=False)
+            self.assertEqual(response.status_code, 302)
+            self.assertIn("/login", response.headers["Location"])
 
     def test_login_page_renders_csrf_token(self):
         response = self.client.get("/login")

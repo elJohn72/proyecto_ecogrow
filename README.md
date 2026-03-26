@@ -200,6 +200,17 @@ Ejecutar:
 python -m unittest discover -s tests -v
 ```
 
+## Documentacion del equipo
+
+Se agrego la carpeta `documentacion_equipo/` para centralizar material no relacionado con codigo sin afectar la arquitectura del proyecto.
+
+- `documentacion_equipo/esquematicos/`: esquematicos, diagramas y conexiones.
+- `documentacion_equipo/pdfs_actualizaciones/`: avances del proyecto en PDF.
+- `documentacion_equipo/entregables/`: documentos formales para compartir.
+- `documentacion_equipo/recursos_multimedia/`: imagenes, capturas y evidencias.
+- `documentacion_equipo/notas_equipo/`: apuntes internos.
+- `documentacion_equipo/presentaciones/`: exposiciones y diapositivas.
+
 ## Entrega sugerida
 
 Para la plataforma se entrega:

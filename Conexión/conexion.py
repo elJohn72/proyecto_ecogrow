@@ -2,10 +2,15 @@ import os
 from pathlib import Path
 
 import mysql.connector
-from mysql.connector import Error
+from mysql.connector import Error, ProgrammingError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 XAMPP_SOCKET_PATH = "/Applications/XAMPP/xamppfiles/var/mysql/mysql.sock"
+COMMON_SOCKET_PATHS = (
+    XAMPP_SOCKET_PATH,
+    "/tmp/mysql.sock",
+    "/opt/homebrew/var/run/mysqld/mysqld.sock",
+)
 
 
 def _get_bool_env(key: str, default: bool) -> bool:
@@ -22,11 +27,18 @@ def _is_render_environment() -> bool:
 def _default_mysql_socket() -> str:
     if _is_render_environment():
         return ""
-    return XAMPP_SOCKET_PATH if Path(XAMPP_SOCKET_PATH).exists() else ""
+    for socket_path in COMMON_SOCKET_PATHS:
+        if Path(socket_path).exists():
+            return socket_path
+    return ""
 
 
 def _default_auto_create_database() -> bool:
     return not _is_render_environment()
+
+
+def _default_local_mysql_user() -> str:
+    return os.getenv("USER", "root")
 
 
 # Variables de entorno recomendadas:
@@ -101,6 +113,17 @@ def _connect(include_database: bool = True):
         config["database"] = MYSQL_CONFIG["database"]
     try:
         return mysql.connector.connect(**config)
+    except ProgrammingError as exc:
+        if os.getenv("MYSQL_USER") or config.get("user") != "root":
+            raise
+
+        fallback_user = _default_local_mysql_user()
+        if fallback_user == "root":
+            raise
+
+        fallback_config = config.copy()
+        fallback_config["user"] = fallback_user
+        return mysql.connector.connect(**fallback_config)
     except Error:
         if "unix_socket" not in config:
             raise
@@ -1093,6 +1116,115 @@ def fetch_recent_control_events(torre_id: int, limit: int = 6) -> list[dict]:
         (torre_id, limit),
         fetchall=True,
     )
+
+
+def apply_assistant_control_action(
+    torre_id: int,
+    variable_control: str,
+    accion_recomendada: str,
+    motivo: str,
+) -> None:
+    create_mysql_tables()
+    _create_control_defaults_for_torre(torre_id)
+    config = fetch_control_configuration(torre_id)
+    ultima_lectura = fetch_latest_sensor_reading_by_torre(torre_id)
+
+    if config is None:
+        raise ValueError("La torre no tiene configuracion de control disponible.")
+
+    connection = _connect(include_database=True)
+    try:
+        with connection.cursor(dictionary=True) as cursor:
+            cursor.execute(
+                """
+                INSERT INTO eventos_control (
+                    torre_id,
+                    lectura_id,
+                    algoritmo,
+                    variable_control,
+                    error_valor,
+                    salida_pid,
+                    salida_fuzzy,
+                    salida_consenso,
+                    accion_recomendada,
+                    motivo
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    torre_id,
+                    ultima_lectura["id_lectura"] if ultima_lectura else None,
+                    "ia_asistida",
+                    variable_control,
+                    0,
+                    0,
+                    0,
+                    0,
+                    accion_recomendada,
+                    motivo,
+                ),
+            )
+
+            valve_action = "cerrada"
+            nutrient_action = "cerrada"
+            ph_action = "en espera"
+            pump_action = "activa"
+
+            if accion_recomendada in {"Diluir con agua", "Recargar deposito"}:
+                valve_action = "abierta"
+            elif accion_recomendada == "Dosificar AB Mix":
+                nutrient_action = "activa"
+            elif accion_recomendada in {"Aplicar pH Up", "Aplicar pH Down"}:
+                ph_action = accion_recomendada
+            elif accion_recomendada == "Aumentar frecuencia de riego":
+                cursor.execute(
+                    """
+                    UPDATE programaciones_riego
+                    SET minutos_apagado = GREATEST(minutos_apagado - 10, 20),
+                        estrategia = 'ajuste_ia_asistida',
+                        siguiente_ciclo = 'adelantado'
+                    WHERE torre_id = %s
+                    """,
+                    (torre_id,),
+                )
+            elif accion_recomendada == "Reducir frecuencia de riego":
+                cursor.execute(
+                    """
+                    UPDATE programaciones_riego
+                    SET minutos_apagado = LEAST(minutos_apagado + 10, 120),
+                        estrategia = 'ajuste_ia_asistida',
+                        siguiente_ciclo = 'diferido'
+                    WHERE torre_id = %s
+                    """,
+                    (torre_id,),
+                )
+
+            if (
+                ultima_lectura
+                and ultima_lectura.get("nivel_agua") is not None
+                and float(ultima_lectura["nivel_agua"]) <= float(config["nivel_minimo"])
+            ):
+                pump_action = "protegida"
+
+            for actuator_type, actuator_state in (
+                ("valvula_agua", valve_action),
+                ("valvula_ab_mix", nutrient_action),
+                ("dosificador_ph", ph_action),
+                ("bomba_principal", pump_action),
+            ):
+                cursor.execute(
+                    """
+                    UPDATE actuadores_torre
+                    SET estado = %s,
+                        modo = 'asistido_ia',
+                        ultimo_comando = %s
+                    WHERE torre_id = %s AND tipo = %s
+                    """,
+                    (actuator_state, accion_recomendada, torre_id, actuator_type),
+                )
+        connection.commit()
+    finally:
+        connection.close()
 
 
 def fetch_active_cycle_by_torre(torre_id: int) -> dict | None:

@@ -53,6 +53,7 @@
                 <a class="site-chip {% if request.endpoint in ['torres.torres', 'torres.registrar_torre', 'torres.seleccionar_torre'] %}is-active{% endif %}" href="{{ url_for('torres.torres') }}">Torres</a>
                 <a class="site-chip {% if request.endpoint in ['cultivos.cultivos', 'cultivos.crear_cultivo', 'cultivos.editar_cultivo', 'torres.elegir_cultivo_actual'] %}is-active{% endif %}" href="{{ url_for('cultivos.cultivos') }}">Cultivos</a>
                 <a class="site-chip {% if request.endpoint in ['sensores.sensores', 'sensores.irrigation'] %}is-active{% endif %}" href="{{ url_for('sensores.sensores') }}">Monitoreo</a>
+                <a class="site-chip {% if request.endpoint in ['ai.agricultor_ia'] %}is-active{% endif %}" href="{{ url_for('ai.agricultor_ia') }}">Agricultor IA</a>
                 <a class="site-chip" href="{{ url_for('auth.logout') }}">Salir</a>
             </div>
         {% endif %}

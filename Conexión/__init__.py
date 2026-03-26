@@ -1,6 +1,7 @@
 from .conexion import (
     MYSQL_CONFIG,
     fetch_active_alerts_by_torre,
+    apply_assistant_control_action,
     create_mysql_tables,
     delete_cultivo,
     close_active_cycle,
@@ -44,6 +45,7 @@ from .conexion import (
 __all__ = [
     "MYSQL_CONFIG",
     "fetch_active_alerts_by_torre",
+    "apply_assistant_control_action",
     "create_mysql_tables",
     "delete_cultivo",
     "close_active_cycle",

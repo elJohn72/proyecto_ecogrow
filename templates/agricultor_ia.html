@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Agricultor IA - EcoGrow{% endblock %}
+
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up ai-shell">
+        <div class="panel-header ai-hero">
+            <div>
+                <span class="eyebrow">Agricultor IA</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Consulta tu cultivo y deja que la torre actue solo si tu lo autorizas.</h1>
+                <p class="page-subtitle mt-3">Este asistente combina telemetria, alertas y control asistido para responder preguntas sobre tu planta y ejecutar sugerencias puntuales.</p>
+            </div>
+            <div class="ai-status-card">
+                <strong>{{ torre.nombre if torre else "Sin torre" }}</strong>
+                <span>{{ snapshot.cultivo if snapshot else "Sin cultivo activo" }}</span>
+                <small>Motor IA: {{ "Gemini" if ai_enabled else "Analisis local" }}</small>
+            </div>
+        </div>
+
+        {% if load_error %}
+            <div class="flash-card flash-card--error mt-6">{{ load_error }}</div>
+        {% endif %}
+
+        <div class="ai-layout mt-6">
+            <aside class="ai-sidebar soft-card">
+                <h3>Resumen vivo</h3>
+                {% if snapshot %}
+                    <div class="ai-metric-stack mt-4">
+                        <div class="ai-metric-item"><span>Cultivo</span><strong>{{ snapshot.cultivo }}</strong></div>
+                        <div class="ai-metric-item"><span>Fase</span><strong>{{ snapshot.fase }}</strong></div>
+                        <div class="ai-metric-item"><span>Ultima lectura</span><strong>{{ snapshot.ultima_lectura }}</strong></div>
+                        <div class="ai-metric-item"><span>pH</span><strong>{{ snapshot.ph }}</strong></div>
+                        <div class="ai-metric-item"><span>EC</span><strong>{{ snapshot.ec }}</strong></div>
+                        <div class="ai-metric-item"><span>Temp. agua</span><strong>{{ snapshot.temperatura_agua }}</strong></div>
+                        <div class="ai-metric-item"><span>Nivel</span><strong>{{ snapshot.nivel_agua }}</strong></div>
+                        <div class="ai-metric-item"><span>Alertas activas</span><strong>{{ snapshot.alertas_activas }}</strong></div>
+                    </div>
+
+                    {% if recommendation %}
+                        <div class="ai-recommendation mt-6">
+                            <p class="ai-recommendation__eyebrow">Sugerencia actual</p>
+                            <strong>{{ recommendation.action }}</strong>
+                            <p>{{ recommendation.reason }}</p>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <p class="mt-4">No hay suficiente informacion de la torre para iniciar el asistente.</p>
+                {% endif %}
+            </aside>
+
+            <div class="ai-chat-panel soft-card">
+                <div class="ai-chat-toolbar">
+                    <div>
+                        <h3>Chat del agricultor</h3>
+                        <p>Preguntale por el estado de la planta, riesgos, nutricion, pH, EC o riego.</p>
+                    </div>
+                    <label class="ai-consent-toggle">
+                        <input id="authorizeControl" type="checkbox">
+                        <span>Permitir que aplique la sugerencia</span>
+                    </label>
+                </div>
+
+                <div id="chatFeed" class="ai-chat-feed mt-6">
+                    <article class="ai-message ai-message--assistant">
+                        <span class="ai-message__role">Agricultor IA</span>
+                        <p>Hola. Puedo decirte como va tu cultivo, interpretar tus datos y ejecutar una sugerencia si activas el permiso.</p>
+                    </article>
+                </div>
+
+                <form id="chatForm" class="ai-chat-form mt-6">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <textarea id="chatInput" name="message" rows="3" placeholder="Ejemplo: como esta mi lechuga, que riesgo ves hoy o puedes corregir la torre?"></textarea>
+                    <div class="ai-chat-actions">
+                        <div class="ai-quick-prompts">
+                            <button type="button" class="site-pill ai-prompt" data-prompt="Como esta mi planta hoy?">Estado general</button>
+                            <button type="button" class="site-pill ai-prompt" data-prompt="Que datos de nutricion te preocupan?">Nutricion</button>
+                            <button type="button" class="site-pill ai-prompt" data-prompt="Si hace falta, controla la torre con tu mejor sugerencia.">Controlar torre</button>
+                        </div>
+                        <button class="site-button site-button--primary" type="submit">Preguntar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        const chatFeed = document.getElementById("chatFeed");
+        const chatForm = document.getElementById("chatForm");
+        const chatInput = document.getElementById("chatInput");
+        const authorizeControl = document.getElementById("authorizeControl");
+        const csrfToken = "{{ csrf_token() }}";
+
+        function appendMessage(role, message) {
+            const article = document.createElement("article");
+            article.className = `ai-message ${role === "user" ? "ai-message--user" : "ai-message--assistant"}`;
+
+            const roleLabel = document.createElement("span");
+            roleLabel.className = "ai-message__role";
+            roleLabel.textContent = role === "user" ? "Tu" : "Agricultor IA";
+
+            const text = document.createElement("p");
+            text.textContent = message;
+
+            article.appendChild(roleLabel);
+            article.appendChild(text);
+            chatFeed.appendChild(article);
+            chatFeed.scrollTop = chatFeed.scrollHeight;
+        }
+
+        async function sendMessage(message) {
+            appendMessage("user", message);
+            chatInput.value = "";
+
+            try {
+                const response = await fetch("{{ url_for('ai.agricultor_ia_chat') }}", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRF-Token": csrfToken,
+                    },
+                    body: JSON.stringify({
+                        message,
+                        authorize_control: authorizeControl.checked,
+                    }),
+                });
+                const payload = await response.json();
+
+                if (!response.ok || !payload.success) {
+                    appendMessage("assistant", payload.error || "No pude procesar la consulta.");
+                    return;
+                }
+
+                let reply = payload.reply;
+                if (payload.execution && payload.execution.message) {
+                    reply += ` ${payload.execution.message}`;
+                }
+                appendMessage("assistant", reply);
+            } catch (error) {
+                appendMessage("assistant", "Ocurrio un error al contactar el asistente.");
+            }
+        }
+
+        chatForm.addEventListener("submit", function (event) {
+            event.preventDefault();
+            const message = chatInput.value.trim();
+            if (!message) {
+                return;
+            }
+            sendMessage(message);
+        });
+
+        document.querySelectorAll(".ai-prompt").forEach(function (button) {
+            button.addEventListener("click", function () {
+                const prompt = button.dataset.prompt || "";
+                if (prompt) {
+                    chatInput.value = prompt;
+                    chatInput.focus();
+                }
+            });
+        });
+    </script>
+{% endblock %}
