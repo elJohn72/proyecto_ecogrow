@@ -26,13 +26,14 @@ except ModuleNotFoundError:
     )
     from ..forms import UsuarioFormData
 
-from .shared import login_required
+from .shared import admin_required, login_required
 
 mysql_bp = Blueprint("mysql", __name__)
 
 
 @mysql_bp.route("/mysql")
 @login_required
+@admin_required
 def mysql_dashboard():
     status = get_mysql_status()
     usuarios = []
@@ -49,6 +50,7 @@ def mysql_dashboard():
 
 @mysql_bp.route("/mysql/inicializar")
 @login_required
+@admin_required
 def inicializar_mysql():
     try:
         create_mysql_tables()
@@ -60,6 +62,7 @@ def inicializar_mysql():
 
 @mysql_bp.route("/mysql/usuarios")
 @login_required
+@admin_required
 def listar_usuarios_mysql():
     try:
         usuarios = fetch_mysql_usuarios()
@@ -73,6 +76,7 @@ def listar_usuarios_mysql():
 
 @mysql_bp.route("/mysql/usuarios/crear", methods=("GET", "POST"))
 @login_required
+@admin_required
 def crear_usuario_mysql():
     form_data = UsuarioFormData()
     if request.method == "POST":
@@ -102,6 +106,7 @@ def crear_usuario_mysql():
 
 @mysql_bp.route("/mysql/usuarios/editar/<int:uid>", methods=("GET", "POST"))
 @login_required
+@admin_required
 def editar_usuario_mysql(uid):
     try:
         usuario_mysql = fetch_mysql_usuario(uid)
@@ -143,6 +148,7 @@ def editar_usuario_mysql(uid):
 
 @mysql_bp.route("/mysql/usuarios/borrar/<int:uid>", methods=("POST",))
 @login_required
+@admin_required
 def borrar_usuario_mysql(uid):
     try:
         delete_mysql_usuario(uid)

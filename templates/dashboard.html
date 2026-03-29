@@ -33,9 +33,13 @@
         <div class="section-grid mt-6">
             <article class="soft-card simple-action-card">
                 <h3>1. Elegir cultivo</h3>
-                <p class="mt-3">Selecciona el cultivo y la fase actual de esta torre.</p>
+                <p class="mt-3">{% if can_manage %}Selecciona el cultivo y la fase actual de esta torre.{% else %}Consulta el cultivo activo de la torre en modo solo lectura.{% endif %}</p>
                 <div class="hero-actions">
-                    <a class="site-button site-button--primary" href="{{ url_for('torres.elegir_cultivo_actual') }}">Configurar cultivo</a>
+                    {% if can_manage %}
+                        <a class="site-button site-button--primary" href="{{ url_for('torres.elegir_cultivo_actual') }}">Configurar cultivo</a>
+                    {% else %}
+                        <a class="site-button site-button--ghost" href="{{ url_for('cultivos.cultivos') }}">Ver cultivos</a>
+                    {% endif %}
                 </div>
             </article>
             <article class="soft-card simple-action-card">

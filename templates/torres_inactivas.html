@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Torres inactivas - EcoGrow{% endblock %}
+
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Tus torres</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Torres inactivas</h1>
+                <p class="page-subtitle mt-3">Estas torres no aparecen en el panel principal hasta que vuelvas a activarlas.</p>
+            </div>
+            <div class="panel-actions">
+                <a class="site-button site-button--ghost" href="{{ url_for('torres.torres') }}">Volver a torres</a>
+            </div>
+        </div>
+
+        <div class="table-card mt-6">
+            {% if torres %}
+                <div class="overflow-x-auto">
+                    <table class="ecogrow-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Ubicación</th>
+                                <th>Cultivo activo</th>
+                                <th>Fase</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for torre in torres %}
+                                <tr>
+                                    <td>{{ torre.codigo_unico }}</td>
+                                    <td>{{ torre.nombre }}</td>
+                                    <td>{{ torre.ubicacion }}</td>
+                                    <td>{{ torre.cultivo_activo_nombre or "Sin cultivo activo" }}</td>
+                                    <td>{{ torre.fase_activa or "Sin fase" }}</td>
+                                    <td>
+                                        <form method="post" action="{{ url_for('torres.activar_torre', torre_id=torre.id_torre) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button class="site-button site-button--sm" type="submit">Activar</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No tienes torres inactivas.</p>
+            {% endif %}
+        </div>
+    </section>
+{% endblock %}

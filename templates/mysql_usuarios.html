@@ -40,11 +40,11 @@
                                     <td>{{ usuario.mail }}</td>
                                     <td>Protegida</td>
                                     <td>
-                                        <div class="panel-actions">
-                                            <a class="text-blue-600 hover:underline" href="{{ url_for('mysql.editar_usuario_mysql', uid=usuario.id_usuario) }}">Editar</a>
+                                        <div class="table-actions">
+                                            <a class="site-button site-button--ghost site-button--sm" href="{{ url_for('mysql.editar_usuario_mysql', uid=usuario.id_usuario) }}">Editar</a>
                                             <form method="post" action="{{ url_for('mysql.borrar_usuario_mysql', uid=usuario.id_usuario) }}">
                                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                                <button class="text-red-600 hover:underline" type="submit">Borrar</button>
+                                                <button class="site-button site-button--sm" type="submit">Borrar</button>
                                             </form>
                                         </div>
                                     </td>

@@ -163,12 +163,16 @@ def create_mysql_tables() -> None:
                 """
                 CREATE TABLE IF NOT EXISTS cultivos (
                     id_cultivo INT AUTO_INCREMENT PRIMARY KEY,
+                    usuario_id INT NULL,
                     nombre VARCHAR(120) NOT NULL,
                     variedad VARCHAR(120) NOT NULL,
                     ubicacion VARCHAR(120) NOT NULL,
                     estado VARCHAR(80) NOT NULL,
                     descripcion VARCHAR(255) NOT NULL,
-                    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT fk_cultivos_usuario
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id_usuario)
+                        ON DELETE CASCADE
                 )
                 """
             )
@@ -338,10 +342,47 @@ def create_mysql_tables() -> None:
                 )
                 """
             )
+            _ensure_cultivos_schema(cursor)
             _ensure_lecturas_schema(cursor)
         database_connection.commit()
     finally:
         database_connection.close()
+
+
+def _ensure_cultivos_schema(cursor) -> None:
+    cursor.execute("SHOW COLUMNS FROM cultivos LIKE 'usuario_id'")
+    usuario_column = cursor.fetchone()
+    if not usuario_column:
+        cursor.execute("ALTER TABLE cultivos ADD COLUMN usuario_id INT NULL AFTER id_cultivo")
+
+    cursor.execute(
+        """
+        UPDATE cultivos
+        LEFT JOIN (
+            SELECT ciclos_cultivo.cultivo_id, MIN(torres.usuario_id) AS usuario_id
+            FROM ciclos_cultivo
+            INNER JOIN torres ON torres.id_torre = ciclos_cultivo.torre_id
+            GROUP BY ciclos_cultivo.cultivo_id
+        ) AS ownership ON ownership.cultivo_id = cultivos.id_cultivo
+        SET cultivos.usuario_id = ownership.usuario_id
+        WHERE cultivos.usuario_id IS NULL
+        """
+    )
+
+    cursor.execute("SHOW INDEX FROM cultivos WHERE Key_name = 'fk_cultivos_usuario'")
+    usuario_fk_exists = cursor.fetchone()
+    if not usuario_fk_exists:
+        try:
+            cursor.execute(
+                """
+                ALTER TABLE cultivos
+                ADD CONSTRAINT fk_cultivos_usuario
+                FOREIGN KEY (usuario_id) REFERENCES usuarios(id_usuario)
+                ON DELETE CASCADE
+                """
+            )
+        except Error:
+            pass
 
 
 def _ensure_lecturas_schema(cursor) -> None:
@@ -871,33 +912,61 @@ def delete_mysql_usuario(usuario_id: int) -> None:
     _execute("DELETE FROM usuarios WHERE id_usuario = %s", (usuario_id,))
 
 
-def fetch_cultivos() -> list[dict]:
-    create_mysql_tables()
-    return _execute("SELECT * FROM cultivos ORDER BY creado_en DESC, id_cultivo DESC", fetchall=True)
-
-
-def fetch_cultivo(cultivo_id: int) -> dict | None:
+def fetch_cultivos(usuario_id: int) -> list[dict]:
     create_mysql_tables()
     return _execute(
-        "SELECT * FROM cultivos WHERE id_cultivo = %s",
-        (cultivo_id,),
+        """
+        SELECT cultivos.*, COUNT(ciclos_cultivo.id_ciclo) AS total_ciclos
+        FROM cultivos
+        LEFT JOIN ciclos_cultivo ON ciclos_cultivo.cultivo_id = cultivos.id_cultivo
+        WHERE cultivos.estado <> 'inactivo' AND cultivos.usuario_id = %s
+        GROUP BY cultivos.id_cultivo
+        ORDER BY cultivos.creado_en DESC, cultivos.id_cultivo DESC
+        """,
+        (usuario_id,),
+        fetchall=True,
+    )
+
+
+def fetch_archived_cultivos(usuario_id: int) -> list[dict]:
+    create_mysql_tables()
+    return _execute(
+        """
+        SELECT cultivos.*, COUNT(ciclos_cultivo.id_ciclo) AS total_ciclos
+        FROM cultivos
+        LEFT JOIN ciclos_cultivo ON ciclos_cultivo.cultivo_id = cultivos.id_cultivo
+        WHERE cultivos.estado = 'inactivo' AND cultivos.usuario_id = %s
+        GROUP BY cultivos.id_cultivo
+        ORDER BY cultivos.creado_en DESC, cultivos.id_cultivo DESC
+        """,
+        (usuario_id,),
+        fetchall=True,
+    )
+
+
+def fetch_cultivo(cultivo_id: int, usuario_id: int) -> dict | None:
+    create_mysql_tables()
+    return _execute(
+        "SELECT * FROM cultivos WHERE id_cultivo = %s AND usuario_id = %s",
+        (cultivo_id, usuario_id),
         fetchone=True,
     )
 
 
-def insert_cultivo(nombre: str, variedad: str, ubicacion: str, estado: str, descripcion: str) -> int:
+def insert_cultivo(usuario_id: int, nombre: str, variedad: str, ubicacion: str, estado: str, descripcion: str) -> int:
     create_mysql_tables()
     return _execute(
         """
-        INSERT INTO cultivos (nombre, variedad, ubicacion, estado, descripcion)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO cultivos (usuario_id, nombre, variedad, ubicacion, estado, descripcion)
+        VALUES (%s, %s, %s, %s, %s, %s)
         """,
-        (nombre, variedad, ubicacion, estado, descripcion),
+        (usuario_id, nombre, variedad, ubicacion, estado, descripcion),
     )
 
 
 def update_cultivo(
     cultivo_id: int,
+    usuario_id: int,
     nombre: str,
     variedad: str,
     ubicacion: str,
@@ -909,15 +978,38 @@ def update_cultivo(
         """
         UPDATE cultivos
         SET nombre = %s, variedad = %s, ubicacion = %s, estado = %s, descripcion = %s
-        WHERE id_cultivo = %s
+        WHERE id_cultivo = %s AND usuario_id = %s
         """,
-        (nombre, variedad, ubicacion, estado, descripcion, cultivo_id),
+        (nombre, variedad, ubicacion, estado, descripcion, cultivo_id, usuario_id),
     )
 
 
-def delete_cultivo(cultivo_id: int) -> None:
+def update_cultivo_estado(cultivo_id: int, usuario_id: int, estado: str) -> None:
     create_mysql_tables()
-    _execute("DELETE FROM cultivos WHERE id_cultivo = %s", (cultivo_id,))
+    _execute(
+        "UPDATE cultivos SET estado = %s WHERE id_cultivo = %s AND usuario_id = %s",
+        (estado, cultivo_id, usuario_id),
+    )
+
+
+def delete_cultivo(cultivo_id: int, usuario_id: int) -> None:
+    create_mysql_tables()
+    _execute("DELETE FROM cultivos WHERE id_cultivo = %s AND usuario_id = %s", (cultivo_id, usuario_id))
+
+
+def count_cycles_by_cultivo(cultivo_id: int, usuario_id: int) -> int:
+    create_mysql_tables()
+    result = _execute(
+        """
+        SELECT COUNT(*) AS total
+        FROM ciclos_cultivo
+        INNER JOIN torres ON torres.id_torre = ciclos_cultivo.torre_id
+        WHERE ciclos_cultivo.cultivo_id = %s AND torres.usuario_id = %s
+        """,
+        (cultivo_id, usuario_id),
+        fetchone=True,
+    )
+    return int(result["total"]) if result else 0
 
 
 def fetch_torres_by_user(usuario_id: int) -> list[dict]:
@@ -930,7 +1022,25 @@ def fetch_torres_by_user(usuario_id: int) -> list[dict]:
             ON ciclos_cultivo.torre_id = torres.id_torre
             AND ciclos_cultivo.estado = 'activo'
         LEFT JOIN cultivos ON cultivos.id_cultivo = ciclos_cultivo.cultivo_id
-        WHERE torres.usuario_id = %s
+        WHERE torres.usuario_id = %s AND torres.estado <> 'inactivo'
+        ORDER BY torres.creado_en DESC, torres.id_torre DESC
+        """,
+        (usuario_id,),
+        fetchall=True,
+    )
+
+
+def fetch_archived_torres_by_user(usuario_id: int) -> list[dict]:
+    create_mysql_tables()
+    return _execute(
+        """
+        SELECT torres.*, cultivos.nombre AS cultivo_activo_nombre, ciclos_cultivo.fase AS fase_activa
+        FROM torres
+        LEFT JOIN ciclos_cultivo
+            ON ciclos_cultivo.torre_id = torres.id_torre
+            AND ciclos_cultivo.estado = 'activo'
+        LEFT JOIN cultivos ON cultivos.id_cultivo = ciclos_cultivo.cultivo_id
+        WHERE torres.usuario_id = %s AND torres.estado = 'inactivo'
         ORDER BY torres.creado_en DESC, torres.id_torre DESC
         """,
         (usuario_id,),
@@ -988,7 +1098,7 @@ def register_torre(codigo_unico: str, nombre: str, ubicacion: str, usuario_id: i
         _execute(
             """
             UPDATE torres
-            SET nombre = %s, ubicacion = %s
+            SET nombre = %s, ubicacion = %s, estado = 'registrada'
             WHERE id_torre = %s
             """,
             (nombre, ubicacion, existente["id_torre"]),
@@ -996,6 +1106,14 @@ def register_torre(codigo_unico: str, nombre: str, ubicacion: str, usuario_id: i
         _create_control_defaults_for_torre(existente["id_torre"])
         return existente["id_torre"]
     return insert_torre(codigo_normalizado, nombre, ubicacion, usuario_id)
+
+
+def update_torre_estado(torre_id: int, estado: str) -> None:
+    create_mysql_tables()
+    _execute(
+        "UPDATE torres SET estado = %s WHERE id_torre = %s",
+        (estado, torre_id),
+    )
 
 
 def fetch_control_configuration(torre_id: int) -> dict | None:

@@ -13,6 +13,10 @@ except ModuleNotFoundError:
 login_required = flask_login_required
 
 
+def is_admin_mode() -> bool:
+    return session.get("ui_mode", "user") == "admin"
+
+
 def current_user_id() -> int | None:
     if not current_user.is_authenticated:
         return None
@@ -24,7 +28,11 @@ def current_torre():
     if not torre_id:
         return None
     try:
-        return fetch_torre(int(torre_id))
+        torre = fetch_torre(int(torre_id))
+        if torre and str(torre.get("estado", "")).lower() == "inactivo":
+            session.pop("torre_id", None)
+            return None
+        return torre
     except Error:
         return None
 
@@ -40,6 +48,22 @@ def tower_required(view):
         if not torre:
             flash("Primero registra o selecciona tu torre hidropónica.", "error")
             return redirect(url_for("torres.torres"))
+
+        return view(*args, **kwargs)
+
+    return wrapped_view
+
+
+def admin_required(view):
+    @wraps(view)
+    def wrapped_view(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash("Inicia sesion para acceder al panel de gestion.", "error")
+            return redirect(url_for("auth.login"))
+
+        if not is_admin_mode():
+            flash("Cambia al modo administrador para realizar esta accion.", "error")
+            return redirect(request.referrer or url_for("torres.dashboard"))
 
         return view(*args, **kwargs)
 
@@ -85,6 +109,7 @@ def register_context_processors(app):
             "current_user_name": current_user.nombre if current_user.is_authenticated else None,
             "current_torre": torre,
             "csrf_token": get_csrf_token,
+            "can_manage": ui_mode == "admin",
             "ui_mode": ui_mode,
         }
 

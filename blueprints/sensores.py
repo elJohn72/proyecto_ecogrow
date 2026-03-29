@@ -7,28 +7,28 @@ try:
         fetch_active_cycle_by_torre,
         fetch_actuadores_by_torre,
         fetch_control_configuration,
-        fetch_cultivos,
         fetch_irrigation_schedule,
         fetch_recent_control_events,
         fetch_sensor_readings_by_torre,
         fetch_latest_sensor_reading_by_torre,
         insert_sensor_reading,
     )
+    from services import fetch_cultivos
 except ModuleNotFoundError:
     from ..Conexión import (
         fetch_active_alerts_by_torre,
         fetch_active_cycle_by_torre,
         fetch_actuadores_by_torre,
         fetch_control_configuration,
-        fetch_cultivos,
         fetch_irrigation_schedule,
         fetch_recent_control_events,
         fetch_sensor_readings_by_torre,
         fetch_latest_sensor_reading_by_torre,
         insert_sensor_reading,
     )
+    from ..services import fetch_cultivos
 
-from .shared import current_torre, login_required, parse_optional_float, tower_required
+from .shared import current_torre, current_user_id, login_required, parse_optional_float, tower_required
 
 sensores_bp = Blueprint("sensores", __name__)
 
@@ -103,15 +103,16 @@ def _build_operations_context(torre, ultima_lectura, configuracion, alertas, act
 @login_required
 @tower_required
 def sensores():
+    user_id = current_user_id()
     torre = current_torre()
-    if torre is None:
+    if torre is None or user_id is None:
         return render_template("sensores.html", historial=[], cultivos=[], ciclo_activo=None, torre=None, ultima_lectura=None, api_url=url_for("sensores.api_sensor_reading"))
 
     try:
         ciclo_activo = fetch_active_cycle_by_torre(torre["id_torre"])
         ultima_lectura = fetch_latest_sensor_reading_by_torre(torre["id_torre"])
         historial = fetch_sensor_readings_by_torre(torre["id_torre"], 10)
-        cultivos_registrados = fetch_cultivos()
+        cultivos_registrados = fetch_cultivos(user_id)
         configuracion = fetch_control_configuration(torre["id_torre"])
         alertas = fetch_active_alerts_by_torre(torre["id_torre"])
         actuadores = fetch_actuadores_by_torre(torre["id_torre"])

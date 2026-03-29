@@ -13,12 +13,16 @@ CREATE TABLE IF NOT EXISTS usuarios (
 
 CREATE TABLE IF NOT EXISTS cultivos (
     id_cultivo INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
     nombre VARCHAR(120) NOT NULL,
     variedad VARCHAR(120) NOT NULL,
     ubicacion VARCHAR(120) NOT NULL,
     estado VARCHAR(80) NOT NULL,
     descripcion VARCHAR(255) NOT NULL,
-    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_cultivos_usuario
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id_usuario)
+        ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS torres (

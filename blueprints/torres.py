@@ -4,31 +4,35 @@ from mysql.connector import Error
 try:
     from Conexión import (
         close_active_cycle,
+        fetch_archived_torres_by_user,
         fetch_active_cycle_by_torre,
-        fetch_cultivos,
         fetch_cycles_by_torre,
         fetch_latest_sensor_reading_by_torre,
         fetch_torre,
         fetch_torres_by_user,
         register_torre,
         start_cultivo_cycle,
+        update_torre_estado,
     )
     from forms import CicloCultivoFormData, TorreFormData
+    from services import fetch_cultivo, fetch_cultivos
 except ModuleNotFoundError:
     from ..Conexión import (
         close_active_cycle,
+        fetch_archived_torres_by_user,
         fetch_active_cycle_by_torre,
-        fetch_cultivos,
         fetch_cycles_by_torre,
         fetch_latest_sensor_reading_by_torre,
         fetch_torre,
         fetch_torres_by_user,
         register_torre,
         start_cultivo_cycle,
+        update_torre_estado,
     )
     from ..forms import CicloCultivoFormData, TorreFormData
+    from ..services import fetch_cultivo, fetch_cultivos
 
-from .shared import current_torre, current_user_id, login_required, tower_required
+from .shared import admin_required, current_torre, current_user_id, login_required, tower_required
 
 torres_bp = Blueprint("torres", __name__)
 
@@ -49,8 +53,26 @@ def torres():
     return render_template("torres.html", torres=torres_usuario)
 
 
+@torres_bp.route("/torres/inactivas")
+@login_required
+@admin_required
+def torres_inactivas():
+    user_id = current_user_id()
+    if user_id is None:
+        return redirect(url_for("auth.login"))
+
+    try:
+        torres_usuario = fetch_archived_torres_by_user(user_id)
+    except Error as exc:
+        flash(f"No se pudieron consultar tus torres inactivas: {exc}", "error")
+        torres_usuario = []
+
+    return render_template("torres_inactivas.html", torres=torres_usuario)
+
+
 @torres_bp.route("/torres/registrar", methods=("GET", "POST"))
 @login_required
+@admin_required
 def registrar_torre():
     form_data = TorreFormData()
     if request.method == "POST":
@@ -100,6 +122,10 @@ def seleccionar_torre(torre_id):
         flash("La torre solicitada no pertenece a tu cuenta.", "error")
         return redirect(url_for("torres.torres"))
 
+    if str(torre.get("estado", "")).lower() == "inactivo":
+        flash("No puedes seleccionar una torre inactiva. Actívala primero.", "error")
+        return redirect(url_for("torres.torres_inactivas"))
+
     session["torre_id"] = torre_id
     flash(f"Torre activa: {torre['nombre']}.", "success")
     return redirect(url_for("torres.dashboard"))
@@ -108,13 +134,15 @@ def seleccionar_torre(torre_id):
 @torres_bp.route("/torres/cultivo", methods=("GET", "POST"))
 @login_required
 @tower_required
+@admin_required
 def elegir_cultivo_actual():
+    user_id = current_user_id()
     torre = current_torre()
-    if torre is None:
+    if torre is None or user_id is None:
         return redirect(url_for("torres.torres"))
 
     try:
-        catalogo = fetch_cultivos()
+        catalogo = fetch_cultivos(user_id)
         ciclo_activo = fetch_active_cycle_by_torre(torre["id_torre"])
         historial_ciclos = fetch_cycles_by_torre(torre["id_torre"])
     except Error as exc:
@@ -127,6 +155,9 @@ def elegir_cultivo_actual():
         form_data = CicloCultivoFormData.from_request(request.form)
         if form_data.is_valid() and form_data.cultivo_id is not None:
             try:
+                if not fetch_cultivo(form_data.cultivo_id, user_id):
+                    flash("Solo puedes asignar cultivos registrados en tu cuenta.", "error")
+                    return redirect(url_for("torres.elegir_cultivo_actual"))
                 start_cultivo_cycle(
                     torre_id=torre["id_torre"],
                     cultivo_id=form_data.cultivo_id,
@@ -156,6 +187,7 @@ def elegir_cultivo_actual():
 @torres_bp.route("/torres/cultivo/finalizar", methods=("POST",))
 @login_required
 @tower_required
+@admin_required
 def finalizar_ciclo_torre():
     torre = current_torre()
     if torre is None:
@@ -169,16 +201,61 @@ def finalizar_ciclo_torre():
     return redirect(url_for("torres.elegir_cultivo_actual"))
 
 
+@torres_bp.route("/torres/inactivar/<int:torre_id>", methods=("POST",))
+@login_required
+@admin_required
+def inactivar_torre(torre_id):
+    user_id = current_user_id()
+    if user_id is None:
+        return redirect(url_for("auth.login"))
+
+    try:
+        torre = fetch_torre(torre_id)
+        if not torre or torre["usuario_id"] != user_id:
+            flash("La torre solicitada no pertenece a tu cuenta.", "error")
+            return redirect(url_for("torres.torres"))
+
+        update_torre_estado(torre_id, "inactivo")
+        if session.get("torre_id") == torre_id:
+            session.pop("torre_id", None)
+        flash("Torre inactivada correctamente.", "success")
+    except Error as exc:
+        flash(f"No se pudo inactivar la torre: {exc}", "error")
+    return redirect(url_for("torres.torres"))
+
+
+@torres_bp.route("/torres/activar/<int:torre_id>", methods=("POST",))
+@login_required
+@admin_required
+def activar_torre(torre_id):
+    user_id = current_user_id()
+    if user_id is None:
+        return redirect(url_for("auth.login"))
+
+    try:
+        torre = fetch_torre(torre_id)
+        if not torre or torre["usuario_id"] != user_id:
+            flash("La torre solicitada no pertenece a tu cuenta.", "error")
+            return redirect(url_for("torres.torres_inactivas"))
+
+        update_torre_estado(torre_id, "registrada")
+        flash("Torre activada correctamente.", "success")
+    except Error as exc:
+        flash(f"No se pudo activar la torre: {exc}", "error")
+    return redirect(url_for("torres.torres_inactivas"))
+
+
 @torres_bp.route("/dashboard")
 @login_required
 @tower_required
 def dashboard():
+    user_id = current_user_id()
     torre = current_torre()
-    if torre is None:
+    if torre is None or user_id is None:
         return redirect(url_for("torres.torres"))
 
     try:
-        cultivos = fetch_cultivos()
+        cultivos = fetch_cultivos(user_id)
         ciclo_activo = fetch_active_cycle_by_torre(torre["id_torre"])
         ultima_lectura = fetch_latest_sensor_reading_by_torre(torre["id_torre"])
     except Error as exc:

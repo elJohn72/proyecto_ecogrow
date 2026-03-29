@@ -68,7 +68,7 @@ MYSQL_UNIX_SOCKET={{ mysql_status.config.unix_socket }}</pre>
                             <h3>Usuarios</h3>
                             <p class="mt-2">Acceso rapido al CRUD relacional de cuentas del sistema.</p>
                         </div>
-                        <a class="text-blue-600 hover:underline" href="{{ url_for('mysql.crear_usuario_mysql') }}">Crear usuario</a>
+                        <a class="site-button site-button--sm" href="{{ url_for('mysql.crear_usuario_mysql') }}">Crear usuario</a>
                     </div>
                     {% if usuarios %}
                         <ul class="space-y-2 text-sm">

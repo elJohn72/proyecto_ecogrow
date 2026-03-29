@@ -11,11 +11,14 @@ try:
     )
     from forms import CultivoFormData
     from services import (
+        activate_cultivo,
         create_cultivo,
         delete_cultivo,
         fetch_cultivo,
         fetch_cultivos,
+        fetch_inactive_cultivos,
         generate_cultivos_pdf,
+        inactivate_cultivo,
         update_cultivo,
     )
 except ModuleNotFoundError:
@@ -26,15 +29,18 @@ except ModuleNotFoundError:
     )
     from ..forms import CultivoFormData
     from ..services import (
+        activate_cultivo,
         create_cultivo,
         delete_cultivo,
         fetch_cultivo,
         fetch_cultivos,
+        fetch_inactive_cultivos,
         generate_cultivos_pdf,
+        inactivate_cultivo,
         update_cultivo,
     )
 
-from .shared import current_torre, login_required, tower_required
+from .shared import admin_required, current_torre, current_user_id, login_required, tower_required
 
 cultivos_bp = Blueprint("cultivos", __name__)
 
@@ -43,12 +49,13 @@ cultivos_bp = Blueprint("cultivos", __name__)
 @login_required
 @tower_required
 def cultivos():
+    user_id = current_user_id()
     torre = current_torre()
-    if torre is None:
+    if torre is None or user_id is None:
         return redirect(url_for("torres.torres"))
 
     try:
-        cultivos_registrados = fetch_cultivos()
+        cultivos_registrados = fetch_cultivos(user_id)
         ciclo_activo = fetch_active_cycle_by_torre(torre["id_torre"])
         historial_ciclos = fetch_cycles_by_torre(torre["id_torre"])
         ultima_lectura = fetch_latest_sensor_reading_by_torre(torre["id_torre"])
@@ -69,15 +76,36 @@ def cultivos():
     )
 
 
+@cultivos_bp.route("/cultivos/inactivos")
+@login_required
+@admin_required
+def cultivos_inactivos():
+    user_id = current_user_id()
+    if user_id is None:
+        return redirect(url_for("auth.login"))
+    try:
+        cultivos_registrados = fetch_inactive_cultivos(user_id)
+    except Error as exc:
+        flash(f"No se pudieron consultar los cultivos inactivos: {exc}", "error")
+        cultivos_registrados = []
+
+    return render_template("cultivos/inactivos.html", cultivos=cultivos_registrados)
+
+
 @cultivos_bp.route("/cultivos/nuevo", methods=("GET", "POST"))
 @login_required
+@admin_required
 def crear_cultivo():
+    user_id = current_user_id()
+    if user_id is None:
+        return redirect(url_for("auth.login"))
     form_data = CultivoFormData()
     if request.method == "POST":
         form_data = CultivoFormData.from_request(request.form)
         if form_data.is_valid():
             try:
                 create_cultivo(
+                    usuario_id=user_id,
                     nombre=form_data.nombre,
                     variedad=form_data.variedad,
                     ubicacion=form_data.ubicacion,
@@ -102,9 +130,13 @@ def crear_cultivo():
 
 @cultivos_bp.route("/cultivos/editar/<int:cid>", methods=("GET", "POST"))
 @login_required
+@admin_required
 def editar_cultivo(cid):
+    user_id = current_user_id()
+    if user_id is None:
+        return redirect(url_for("auth.login"))
     try:
-        cultivo = fetch_cultivo(cid)
+        cultivo = fetch_cultivo(cid, user_id)
     except Error as exc:
         flash(f"No se pudo consultar el cultivo: {exc}", "error")
         return redirect(url_for("cultivos.cultivos"))
@@ -119,6 +151,7 @@ def editar_cultivo(cid):
             try:
                 update_cultivo(
                     cid,
+                    usuario_id=user_id,
                     nombre=form_data.nombre,
                     variedad=form_data.variedad,
                     ubicacion=form_data.ubicacion,
@@ -153,20 +186,63 @@ def editar_cultivo(cid):
 
 @cultivos_bp.route("/cultivos/borrar/<int:cid>", methods=("POST",))
 @login_required
+@admin_required
 def borrar_cultivo(cid):
+    user_id = current_user_id()
+    if user_id is None:
+        return redirect(url_for("auth.login"))
     try:
-        delete_cultivo(cid)
+        delete_cultivo(cid, user_id)
         flash("Cultivo eliminado correctamente.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
     except Error as exc:
         flash(f"No se pudo eliminar el cultivo: {exc}", "error")
     return redirect(url_for("cultivos.cultivos"))
 
 
+@cultivos_bp.route("/cultivos/inactivar/<int:cid>", methods=("POST",))
+@login_required
+@admin_required
+def inactivar_cultivo(cid):
+    user_id = current_user_id()
+    if user_id is None:
+        return redirect(url_for("auth.login"))
+    try:
+        inactivate_cultivo(cid, user_id)
+        flash("Cultivo inactivado correctamente.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    except Error as exc:
+        flash(f"No se pudo inactivar el cultivo: {exc}", "error")
+    return redirect(url_for("cultivos.cultivos"))
+
+
+@cultivos_bp.route("/cultivos/activar/<int:cid>", methods=("POST",))
+@login_required
+@admin_required
+def activar_cultivo(cid):
+    user_id = current_user_id()
+    if user_id is None:
+        return redirect(url_for("auth.login"))
+    try:
+        activate_cultivo(cid, user_id)
+        flash("Cultivo activado correctamente.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    except Error as exc:
+        flash(f"No se pudo activar el cultivo: {exc}", "error")
+    return redirect(url_for("cultivos.cultivos_inactivos"))
+
+
 @cultivos_bp.route("/cultivos/reporte/pdf")
 @login_required
 def reporte_cultivos_pdf():
+    user_id = current_user_id()
+    if user_id is None:
+        return redirect(url_for("auth.login"))
     try:
-        pdf_bytes = generate_cultivos_pdf()
+        pdf_bytes = generate_cultivos_pdf(user_id)
     except Error as exc:
         flash(f"No se pudo generar el reporte de cultivos: {exc}", "error")
         return redirect(url_for("cultivos.cultivos"))

@@ -228,12 +228,26 @@ body {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    border-radius: 1.2rem;
-    padding: 0.85rem 1.5rem;
+    border-radius: 1rem;
+    padding: 0.7rem 1.1rem;
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
+    line-height: 1.1;
     border: none;
     cursor: pointer;
+}
+
+.site-button--sm {
+    padding: 0.48rem 0.82rem;
+    font-size: 0.8rem;
+    border-radius: 0.85rem;
+}
+
+.site-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .site-button--primary {
@@ -259,6 +273,17 @@ body {
     transform: translateY(-2px);
     border-color: var(--primary);
     color: var(--primary);
+}
+
+.table-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.table-actions form {
+    margin: 0;
 }
 
 .site-header__subnav {

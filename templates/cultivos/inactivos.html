@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Cultivos inactivos - EcoGrow{% endblock %}
+
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Cultivos</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Cultivos inactivos</h1>
+                <p class="page-subtitle mt-3">Desde aqui puedes revisar cultivos ocultos del panel principal y activarlos nuevamente.</p>
+            </div>
+            <div class="panel-actions">
+                <a class="site-button site-button--ghost" href="{{ url_for('cultivos.cultivos') }}">Volver a cultivos</a>
+            </div>
+        </div>
+
+        <div class="table-card mt-6">
+            {% if cultivos %}
+                <div class="overflow-x-auto">
+                    <table class="ecogrow-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Variedad</th>
+                                <th>Estado</th>
+                                <th>Ubicacion</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cultivo in cultivos %}
+                                <tr>
+                                    <td>{{ cultivo.nombre }}</td>
+                                    <td>{{ cultivo.variedad }}</td>
+                                    <td>{{ cultivo.estado }}</td>
+                                    <td>{{ cultivo.ubicacion }}</td>
+                                    <td>
+                                        <form method="post" action="{{ url_for('cultivos.activar_cultivo', cid=cultivo.id_cultivo) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button class="site-button site-button--sm" type="submit">Activar</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>No hay cultivos inactivos.</p>
+            {% endif %}
+        </div>
+    </section>
+{% endblock %}

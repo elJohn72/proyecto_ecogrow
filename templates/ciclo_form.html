@@ -10,7 +10,7 @@
                 <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">{{ titulo }}</h1>
                 <p class="page-subtitle mt-3">Elige el cultivo y la etapa que usara esta torre ahora.</p>
             </div>
-            {% if ciclo_activo %}
+            {% if ciclo_activo and can_manage %}
                 <form method="post" action="{{ url_for('torres.finalizar_ciclo_torre') }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <button class="site-button site-button--ghost" type="submit">Finalizar cultivo actual</button>

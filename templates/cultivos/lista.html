@@ -12,8 +12,11 @@
             </div>
             <div class="panel-actions">
                 <a class="site-button" href="{{ url_for('cultivos.reporte_cultivos_pdf') }}">Descargar PDF</a>
-                <a class="site-button site-button--primary" href="{{ url_for('cultivos.crear_cultivo') }}">Nuevo cultivo</a>
-                <a class="site-button site-button--ghost" href="{{ url_for('torres.elegir_cultivo_actual') }}">Cambiar cultivo actual</a>
+                {% if can_manage %}
+                    <a class="site-button site-button--ghost" href="{{ url_for('cultivos.cultivos_inactivos') }}">Ver inactivos</a>
+                    <a class="site-button site-button--primary" href="{{ url_for('cultivos.crear_cultivo') }}">Nuevo cultivo</a>
+                    <a class="site-button site-button--ghost" href="{{ url_for('torres.elegir_cultivo_actual') }}">Cambiar cultivo actual</a>
+                {% endif %}
             </div>
         </div>
 
@@ -59,13 +62,26 @@
                                         <td>{{ cultivo.ubicacion }}</td>
                                     {% endif %}
                                     <td>
-                                        <div class="panel-actions">
-                                            <a class="text-blue-600 hover:underline" href="{{ url_for('cultivos.editar_cultivo', cid=cultivo.id_cultivo) }}">Editar</a>
-                                            <form method="post" action="{{ url_for('cultivos.borrar_cultivo', cid=cultivo.id_cultivo) }}">
-                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                                <button class="text-red-600 hover:underline" type="submit">Borrar</button>
-                                            </form>
-                                        </div>
+                                        {% if can_manage %}
+                                            <div class="table-actions">
+                                                <a class="site-button site-button--ghost site-button--sm" href="{{ url_for('cultivos.editar_cultivo', cid=cultivo.id_cultivo) }}">Editar</a>
+                                                {% if not cultivo.can_delete %}
+                                                    <form method="post" action="{{ url_for('cultivos.inactivar_cultivo', cid=cultivo.id_cultivo) }}">
+                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                        <button class="site-button site-button--sm" type="submit" {% if cultivo.estado|lower == 'inactivo' %}disabled title="Este cultivo ya esta inactivo"{% endif %}>Inactivar</button>
+                                                    </form>
+                                                {% endif %}
+                                                <form method="post" action="{{ url_for('cultivos.borrar_cultivo', cid=cultivo.id_cultivo) }}">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                    <button class="site-button site-button--ghost site-button--sm" type="submit" {% if not cultivo.can_delete %}disabled title="No se puede borrar porque tiene ciclos asociados"{% endif %}>Borrar</button>
+                                                </form>
+                                                {% if not cultivo.can_delete %}
+                                                    <span class="text-xs text-slate-500">Con historial</span>
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <span class="text-sm text-slate-500">Solo lectura</span>
+                                        {% endif %}
                                     </td>
                                 </tr>
                             {% endfor %}

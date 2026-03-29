@@ -54,10 +54,14 @@
                         <h3>Chat del agricultor</h3>
                         <p>Preguntale por el estado de la planta, riesgos, nutricion, pH, EC o riego.</p>
                     </div>
-                    <label class="ai-consent-toggle">
-                        <input id="authorizeControl" type="checkbox">
-                        <span>Permitir que aplique la sugerencia</span>
-                    </label>
+                    {% if can_manage %}
+                        <label class="ai-consent-toggle">
+                            <input id="authorizeControl" type="checkbox">
+                            <span>Permitir que aplique la sugerencia</span>
+                        </label>
+                    {% else %}
+                        <span class="site-pill">Modo usuario: solo consulta</span>
+                    {% endif %}
                 </div>
 
                 <div id="chatFeed" class="ai-chat-feed mt-6">
@@ -120,7 +124,7 @@
                     },
                     body: JSON.stringify({
                         message,
-                        authorize_control: authorizeControl.checked,
+                        authorize_control: authorizeControl ? authorizeControl.checked : false,
                     }),
                 });
                 const payload = await response.json();

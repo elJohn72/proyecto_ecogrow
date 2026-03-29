@@ -2,49 +2,71 @@ from datetime import datetime
 
 try:
     from conexion.conexion import (
+        count_cycles_by_cultivo,
         delete_cultivo as delete_cultivo_db,
+        fetch_archived_cultivos as fetch_archived_cultivos_db,
         fetch_cultivo as fetch_cultivo_db,
         fetch_cultivos as fetch_cultivos_db,
         insert_cultivo,
         update_cultivo as update_cultivo_db,
+        update_cultivo_estado as update_cultivo_estado_db,
     )
     from models import Cultivo
 except ModuleNotFoundError:
     from ..conexion.conexion import (
+        count_cycles_by_cultivo,
         delete_cultivo as delete_cultivo_db,
+        fetch_archived_cultivos as fetch_archived_cultivos_db,
         fetch_cultivo as fetch_cultivo_db,
         fetch_cultivos as fetch_cultivos_db,
         insert_cultivo,
         update_cultivo as update_cultivo_db,
+        update_cultivo_estado as update_cultivo_estado_db,
     )
     from ..models import Cultivo
 
 
-def fetch_cultivos() -> list[Cultivo]:
-    return [Cultivo.from_mysql_row(row) for row in fetch_cultivos_db()]
+def fetch_cultivos(usuario_id: int) -> list[Cultivo]:
+    return [Cultivo.from_mysql_row(row) for row in fetch_cultivos_db(usuario_id)]
 
 
-def fetch_cultivo(cultivo_id: int) -> Cultivo | None:
-    row = fetch_cultivo_db(cultivo_id)
+def fetch_inactive_cultivos(usuario_id: int) -> list[Cultivo]:
+    return [Cultivo.from_mysql_row(row) for row in fetch_archived_cultivos_db(usuario_id)]
+
+
+def fetch_cultivo(cultivo_id: int, usuario_id: int) -> Cultivo | None:
+    row = fetch_cultivo_db(cultivo_id, usuario_id)
     return Cultivo.from_mysql_row(row) if row else None
 
 
-def create_cultivo(nombre: str, variedad: str, ubicacion: str, estado: str, descripcion: str) -> int:
-    return insert_cultivo(nombre=nombre, variedad=variedad, ubicacion=ubicacion, estado=estado, descripcion=descripcion)
+def create_cultivo(usuario_id: int, nombre: str, variedad: str, ubicacion: str, estado: str, descripcion: str) -> int:
+    return insert_cultivo(usuario_id=usuario_id, nombre=nombre, variedad=variedad, ubicacion=ubicacion, estado=estado, descripcion=descripcion)
 
 
-def update_cultivo(cultivo_id: int, nombre: str, variedad: str, ubicacion: str, estado: str, descripcion: str) -> None:
-    update_cultivo_db(cultivo_id, nombre=nombre, variedad=variedad, ubicacion=ubicacion, estado=estado, descripcion=descripcion)
+def update_cultivo(cultivo_id: int, usuario_id: int, nombre: str, variedad: str, ubicacion: str, estado: str, descripcion: str) -> None:
+    update_cultivo_db(cultivo_id, usuario_id=usuario_id, nombre=nombre, variedad=variedad, ubicacion=ubicacion, estado=estado, descripcion=descripcion)
 
 
-def delete_cultivo(cultivo_id: int) -> None:
-    delete_cultivo_db(cultivo_id)
+def delete_cultivo(cultivo_id: int, usuario_id: int) -> None:
+    if count_cycles_by_cultivo(cultivo_id, usuario_id) > 0:
+        raise ValueError("No se puede eliminar este cultivo porque ya tiene ciclos de cultivo asociados.")
+    delete_cultivo_db(cultivo_id, usuario_id)
 
 
-def generate_cultivos_pdf() -> bytes:
+def inactivate_cultivo(cultivo_id: int, usuario_id: int) -> None:
+    if count_cycles_by_cultivo(cultivo_id, usuario_id) == 0:
+        raise ValueError("Solo se pueden inactivar cultivos que ya tienen historial asociado.")
+    update_cultivo_estado_db(cultivo_id, usuario_id, "inactivo")
+
+
+def activate_cultivo(cultivo_id: int, usuario_id: int) -> None:
+    update_cultivo_estado_db(cultivo_id, usuario_id, "activo")
+
+
+def generate_cultivos_pdf(usuario_id: int) -> bytes:
     from fpdf import FPDF
 
-    cultivos = fetch_cultivos()
+    cultivos = fetch_cultivos(usuario_id)
 
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
