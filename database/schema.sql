@@ -11,14 +11,6 @@ CREATE TABLE IF NOT EXISTS usuarios (
     password VARCHAR(255) NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS productos (
-    id_producto INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(120) NOT NULL UNIQUE,
-    cantidad INT NOT NULL,
-    precio DECIMAL(10,2) NOT NULL,
-    descripcion VARCHAR(255) NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS cultivos (
     id_cultivo INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(120) NOT NULL,

@@ -161,17 +161,6 @@ def create_mysql_tables() -> None:
             )
             cursor.execute(
                 """
-                CREATE TABLE IF NOT EXISTS productos (
-                    id_producto INT AUTO_INCREMENT PRIMARY KEY,
-                    nombre VARCHAR(120) NOT NULL UNIQUE,
-                    cantidad INT NOT NULL,
-                    precio DECIMAL(10,2) NOT NULL,
-                    descripcion VARCHAR(255) NOT NULL
-                )
-                """
-            )
-            cursor.execute(
-                """
                 CREATE TABLE IF NOT EXISTS cultivos (
                     id_cultivo INT AUTO_INCREMENT PRIMARY KEY,
                     nombre VARCHAR(120) NOT NULL,
@@ -880,54 +869,6 @@ def update_mysql_usuario(
 def delete_mysql_usuario(usuario_id: int) -> None:
     create_mysql_tables()
     _execute("DELETE FROM usuarios WHERE id_usuario = %s", (usuario_id,))
-
-
-def fetch_mysql_productos() -> list[dict]:
-    create_mysql_tables()
-    return _execute("SELECT * FROM productos ORDER BY id_producto ASC", fetchall=True)
-
-
-def fetch_mysql_producto(producto_id: int) -> dict | None:
-    create_mysql_tables()
-    return _execute(
-        "SELECT * FROM productos WHERE id_producto = %s",
-        (producto_id,),
-        fetchone=True,
-    )
-
-
-def insert_mysql_producto(nombre: str, cantidad: int, precio: float, descripcion: str) -> int:
-    create_mysql_tables()
-    return _execute(
-        """
-        INSERT INTO productos (nombre, cantidad, precio, descripcion)
-        VALUES (%s, %s, %s, %s)
-        """,
-        (nombre, cantidad, precio, descripcion),
-    )
-
-
-def update_mysql_producto(
-    producto_id: int,
-    nombre: str,
-    cantidad: int,
-    precio: float,
-    descripcion: str,
-) -> None:
-    create_mysql_tables()
-    _execute(
-        """
-        UPDATE productos
-        SET nombre = %s, cantidad = %s, precio = %s, descripcion = %s
-        WHERE id_producto = %s
-        """,
-        (nombre, cantidad, precio, descripcion, producto_id),
-    )
-
-
-def delete_mysql_producto(producto_id: int) -> None:
-    create_mysql_tables()
-    _execute("DELETE FROM productos WHERE id_producto = %s", (producto_id,))
 
 
 def fetch_cultivos() -> list[dict]:

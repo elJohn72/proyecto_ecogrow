@@ -8,9 +8,10 @@
             <div>
                 <span class="eyebrow">Cultivos</span>
                 <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Administra tus cultivos sin complicarte.</h1>
-                <p class="page-subtitle mt-3">Crea cultivos nuevos o cambia el que esta usando la torre activa.</p>
+                <p class="page-subtitle mt-3">CRUD completo sobre cultivos almacenados en MySQL/MariaDB.</p>
             </div>
             <div class="panel-actions">
+                <a class="site-button" href="{{ url_for('cultivos.reporte_cultivos_pdf') }}">Descargar PDF</a>
                 <a class="site-button site-button--primary" href="{{ url_for('cultivos.crear_cultivo') }}">Nuevo cultivo</a>
                 <a class="site-button site-button--ghost" href="{{ url_for('torres.elegir_cultivo_actual') }}">Cambiar cultivo actual</a>
             </div>
@@ -31,7 +32,7 @@
             <div class="panel-header">
                 <div>
                     <h3>Lista de cultivos</h3>
-                    <p class="mt-2">Aqui puedes editar o borrar cultivos guardados.</p>
+                    <p class="mt-2">Aqui puedes crear, editar y borrar cultivos guardados.</p>
                 </div>
             </div>
             {% if cultivos %}

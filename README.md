@@ -1,29 +1,31 @@
 # EcoGrow
 
-Aplicacion web academica desarrollada con Flask para gestionar un sistema hidropónico. El proyecto integra sitio publico, autenticacion de usuarios, panel protegido, gestion de torres y cultivos, CRUD de inventario, persistencia local y conexion con MySQL.
+Aplicacion web academica desarrollada con Flask para gestionar un sistema hidropónico con enfoque en monitoreo, telemetria IoT, gestion de torres y CRUD de cultivos sobre MySQL/MariaDB.
 
 ## Estado actual
 
-Esta version cumple con la etapa de autenticacion solicitada:
+Esta version del proyecto cumple con:
 
-- registro de usuarios en MySQL
-- inicio y cierre de sesion
-- proteccion de rutas con `Flask-Login`
-- carga de usuario autenticado desde base de datos
-- formularios HTML para registro y login
-- persistencia relacional en MySQL y persistencia local en SQLite/archivos
+- autenticacion de usuarios con `Flask-Login`
+- CRUD completo de `cultivos`
+- gestion de usuarios en MySQL/MariaDB
+- monitoreo de sensores por torre
+- plantillas con Jinja2
+- estilos con Bootstrap y CSS propio
+- generacion de reportes PDF de cultivos
+- estructura organizada en capas: `models`, `services`, `forms`, `conexion`
 
 ## Tecnologias
 
 - Python 3
 - Flask
 - Flask-Login
-- Flask-SQLAlchemy
-- SQLite
 - MySQL Connector for Python
 - MySQL / MariaDB
 - Jinja2
+- Bootstrap 5
 - HTML + CSS
+- fpdf2
 - PlatformIO + ESP32
 
 ## Estructura principal
@@ -31,32 +33,46 @@ Esta version cumple con la etapa de autenticacion solicitada:
 ```text
 proyecto_ecogrow/
 ├── app.py
-├── models.py
 ├── form.py
 ├── requirements.txt
-├── .env.example
 ├── render.yaml
 ├── README.md
 ├── blueprints/
 │   ├── auth.py
 │   ├── cultivos.py
-│   ├── inventario.py
 │   ├── main.py
 │   ├── mysql.py
 │   ├── sensores.py
 │   ├── shared.py
-│   └── torres.py
+│   ├── torres.py
+│   └── ai.py
+├── conexion/
+│   ├── __init__.py
+│   └── conexion.py
 ├── Conexión/
 │   ├── __init__.py
 │   └── conexion.py
-├── inventario/
-│   ├── bd.py
-│   ├── inventario.py
-│   ├── productos.py
-│   └── data/
+├── models/
+│   ├── __init__.py
+│   ├── cultivo.py
+│   └── user.py
+├── services/
+│   ├── __init__.py
+│   └── cultivo_service.py
+├── forms/
+│   ├── __init__.py
+│   ├── cultivo_form.py
+│   ├── login_form.py
+│   ├── torre_form.py
+│   └── usuario_form.py
 ├── database/
 │   └── schema.sql
 ├── templates/
+│   ├── base.html
+│   ├── cultivos/
+│   │   ├── form.html
+│   │   └── lista.html
+│   └── ...
 ├── static/
 ├── tests/
 │   └── test_app.py
@@ -66,47 +82,59 @@ proyecto_ecogrow/
 ## Arquitectura
 
 - `app.py`: crea la aplicacion Flask, inicializa `Flask-Login`, registra blueprints y comandos CLI.
-- `models.py`: define la clase `User` compatible con `Flask-Login`.
-- `blueprints/auth.py`: registro, login y logout.
-- `blueprints/torres.py`: panel principal, torres y fases de cultivo.
-- `blueprints/cultivos.py`: CRUD de cultivos.
-- `blueprints/inventario.py`: CRUD local con SQLite y archivos.
-- `blueprints/mysql.py`: vistas CRUD de usuarios y productos en MySQL.
-- `blueprints/sensores.py`: monitoreo y endpoint de lecturas IoT.
-- `Conexión/conexion.py`: acceso a MySQL, creacion de tablas y consultas.
-- `form.py`: validacion basica de formularios.
+- `conexion/conexion.py`: capa de compatibilidad para la conexion principal a MySQL/MariaDB.
+- `models/`: modelos del sistema usados por la aplicacion.
+- `services/`: servicios con logica de negocio y generacion de reportes.
+- `forms/`: acceso organizado a los formularios del sistema.
+- `blueprints/auth.py`: login, registro y logout.
+- `blueprints/torres.py`: gestion de torres y panel principal.
+- `blueprints/cultivos.py`: CRUD completo de cultivos y reporte PDF.
+- `blueprints/sensores.py`: monitoreo y recepcion de lecturas IoT.
+- `blueprints/mysql.py`: gestion de usuarios en MySQL/MariaDB.
+- `Conexión/conexion.py`: consultas SQL, creacion de tablas y acceso a datos.
 
-## Autenticacion con Flask-Login
+## CRUD principal
 
-Se implemento autenticacion de usuarios usando `Flask-Login`.
+La entidad principal adaptada a la consigna es `cultivos`.
 
-### Funcionalidades
+Operaciones implementadas:
 
-- Registro de usuario en `/registro`
-- Inicio de sesion en `/login`
-- Cierre de sesion en `/logout`
-- Rutas protegidas con `@login_required`
-- Redireccion automatica a login si el usuario no esta autenticado
-- Carga del usuario desde MySQL con `user_loader`
+- Crear: `/cultivos/nuevo`
+- Leer: `/cultivos`
+- Actualizar: `/cultivos/editar/<id>`
+- Eliminar: `/cultivos/borrar/<id>`
+- Reporte PDF: `/cultivos/reporte/pdf`
 
-### Tabla de usuarios
+## Base de datos
 
-La autenticacion usa la tabla `usuarios` en MySQL:
+El proyecto trabaja con MySQL/MariaDB.
 
-```sql
-CREATE TABLE usuarios (
-    id_usuario INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    mail VARCHAR(120) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL
-);
+Tablas principales relacionadas:
+
+- `usuarios`
+- `torres`
+- `cultivos`
+- `ciclos_cultivo`
+- `lecturas_sensores`
+- `configuracion_control`
+- `actuadores_torre`
+- `programaciones_riego`
+- `alertas_sistema`
+- `eventos_control`
+
+El script SQL del proyecto esta en:
+
+- `database/schema.sql`
+
+Tambien puedes inicializar las tablas con:
+
+```bash
+flask mysql-init
 ```
-
-Nota: en esta version las contrasenas se almacenan con hash por seguridad, aunque la consigna solo exigia almacenamiento para autenticacion. Esto mejora la implementacion y no rompe el requisito funcional.
 
 ## Variables de entorno
 
-Copia `.env.example` como `.env` o configura estas variables en tu entorno:
+Configura estas variables en tu entorno local o despliegue:
 
 ```env
 SECRET_KEY=cambia-esta-clave-secreta
@@ -129,23 +157,9 @@ ECOGROW_SENSOR_API_TOKEN=cambia-este-token-del-dispositivo
 ## Instalacion
 
 ```bash
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-```
-
-## Base de datos
-
-Puedes crear la estructura de MySQL de dos formas:
-
-### Opcion 1: script SQL
-
-Ejecuta `database/schema.sql` en tu servidor MySQL.
-
-### Opcion 2: comando Flask
-
-```bash
-flask mysql-init
 ```
 
 ## Ejecucion
@@ -157,7 +171,7 @@ flask run
 O tambien:
 
 ```bash
-python app.py
+python3 app.py
 ```
 
 ## Rutas principales
@@ -178,38 +192,29 @@ python app.py
 - `/torres/registrar`
 - `/torres/cultivo`
 - `/cultivos`
+- `/cultivos/nuevo`
+- `/cultivos/reporte/pdf`
 - `/sensores`
-- `/inventario`
-- `/productos`
 - `/mysql`
+- `/mysql/usuarios`
+
+## Reporte PDF
+
+Se incluye generacion de PDF usando `fpdf2`.
+
+Contenido del reporte:
+
+- listado de cultivos registrados
+- campos principales del cultivo
+- fecha de generacion
 
 ## Pruebas
-
-Se agregaron pruebas basicas para:
-
-- carga de rutas publicas
-- proteccion de rutas privadas
-- presencia de token CSRF
-- rechazo de formularios sin CSRF
-- login con credenciales validas simuladas
-- validacion del endpoint IoT
 
 Ejecutar:
 
 ```bash
-python -m unittest discover -s tests -v
+venv/bin/python -m unittest discover -s tests -v
 ```
-
-## Documentacion del equipo
-
-Se agrego la carpeta `documentacion_equipo/` para centralizar material no relacionado con codigo sin afectar la arquitectura del proyecto.
-
-- `documentacion_equipo/esquematicos/`: esquematicos, diagramas y conexiones.
-- `documentacion_equipo/pdfs_actualizaciones/`: avances del proyecto en PDF.
-- `documentacion_equipo/entregables/`: documentos formales para compartir.
-- `documentacion_equipo/recursos_multimedia/`: imagenes, capturas y evidencias.
-- `documentacion_equipo/notas_equipo/`: apuntes internos.
-- `documentacion_equipo/presentaciones/`: exposiciones y diapositivas.
 
 ## Entrega sugerida
 
@@ -218,10 +223,9 @@ Para la plataforma se entrega:
 - enlace del repositorio GitHub
 - proyecto Flask actualizado
 - script SQL en `database/schema.sql`
-- evidencia de autenticacion con `Flask-Login`
+- evidencia del CRUD de cultivos
+- evidencia del reporte PDF
 
 ## Repositorio
-
-Repositorio GitHub:
 
 `https://github.com/elJohn72/proyecto_ecogrow`

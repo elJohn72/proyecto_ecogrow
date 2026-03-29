@@ -7,13 +7,12 @@
             <div class="panel-header">
                 <div>
                     <span class="eyebrow">Gestión relacional</span>
-                    <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Panel MySQL con foco en conexión, tablas y flujo CRUD.</h1>
-                    <p class="page-subtitle mt-3">Este módulo agrupa la configuración de la base relacional, el estado actual de la conexión y el acceso rápido a usuarios y productos.</p>
+                    <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Panel MySQL con foco en conexión y usuarios del sistema.</h1>
+                    <p class="page-subtitle mt-3">Este módulo agrupa la configuración de la base relacional, el estado actual de la conexión y el acceso al CRUD de usuarios.</p>
                 </div>
                 <div class="panel-actions">
                     <a class="site-button site-button--primary" href="{{ url_for('mysql.inicializar_mysql') }}">Inicializar tablas</a>
                     <a class="site-button site-button--ghost" href="{{ url_for('mysql.listar_usuarios_mysql') }}">Usuarios</a>
-                    <a class="site-button site-button--ghost" href="{{ url_for('mysql.listar_productos_mysql') }}">Productos</a>
                 </div>
             </div>
 
@@ -67,7 +66,7 @@ MYSQL_UNIX_SOCKET={{ mysql_status.config.unix_socket }}</pre>
                     <div class="panel-header mb-0">
                         <div>
                             <h3>Usuarios</h3>
-                            <p class="mt-2">Acceso rápido al CRUD relacional de cuentas del sistema.</p>
+                            <p class="mt-2">Acceso rapido al CRUD relacional de cuentas del sistema.</p>
                         </div>
                         <a class="text-blue-600 hover:underline" href="{{ url_for('mysql.crear_usuario_mysql') }}">Crear usuario</a>
                     </div>
@@ -81,27 +80,6 @@ MYSQL_UNIX_SOCKET={{ mysql_status.config.unix_socket }}</pre>
                         </ul>
                     {% else %}
                         <p>No hay usuarios cargados en MySQL.</p>
-                    {% endif %}
-                </section>
-
-                <section class="soft-card">
-                    <div class="panel-header mb-0">
-                        <div>
-                            <h3>Productos</h3>
-                            <p class="mt-2">Vista resumida del inventario relacional y acceso a operaciones CRUD.</p>
-                        </div>
-                        <a class="text-blue-600 hover:underline" href="{{ url_for('mysql.crear_producto_mysql') }}">Crear producto</a>
-                    </div>
-                    {% if productos_mysql %}
-                        <ul class="space-y-2 text-sm">
-                            {% for producto in productos_mysql %}
-                                <li class="rounded bg-slate-50 px-3 py-2">
-                                    {{ producto.id_producto }} | {{ producto.nombre }} | {{ producto.cantidad }} | ${{ producto.precio }}
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p>No hay productos cargados en MySQL.</p>
                     {% endif %}
                 </section>
             </div>

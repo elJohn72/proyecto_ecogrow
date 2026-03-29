@@ -9,7 +9,7 @@ try:
         insert_mysql_usuario,
         verify_mysql_user_credentials,
     )
-    from form import LoginFormData, UsuarioFormData
+    from forms import LoginFormData, UsuarioFormData
     from models import User
 except ModuleNotFoundError:
     from ..Conexión import (
@@ -18,7 +18,7 @@ except ModuleNotFoundError:
         insert_mysql_usuario,
         verify_mysql_user_credentials,
     )
-    from ..form import LoginFormData, UsuarioFormData
+    from ..forms import LoginFormData, UsuarioFormData
     from ..models import User
 
 auth_bp = Blueprint("auth", __name__)

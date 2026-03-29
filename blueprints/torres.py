@@ -13,7 +13,7 @@ try:
         register_torre,
         start_cultivo_cycle,
     )
-    from form import CicloCultivoFormData, TorreFormData
+    from forms import CicloCultivoFormData, TorreFormData
 except ModuleNotFoundError:
     from ..Conexión import (
         close_active_cycle,
@@ -26,7 +26,7 @@ except ModuleNotFoundError:
         register_torre,
         start_cultivo_cycle,
     )
-    from ..form import CicloCultivoFormData, TorreFormData
+    from ..forms import CicloCultivoFormData, TorreFormData
 
 from .shared import current_torre, current_user_id, login_required, tower_required
 

@@ -7,12 +7,9 @@ from mysql.connector import Error
 
 try:
     from Conexión import fetch_torre
-    from inventario import Inventario
 except ModuleNotFoundError:
     from ..Conexión import fetch_torre
-    from ..inventario import Inventario
 
-inventario = Inventario()
 login_required = flask_login_required
 
 

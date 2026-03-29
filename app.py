@@ -1,6 +1,5 @@
 import os
 import secrets
-from pathlib import Path
 
 from flask import Flask, flash, redirect, url_for
 from flask_login import LoginManager
@@ -8,21 +7,17 @@ from mysql.connector import Error
 
 try:
     from Conexión import MYSQL_CONFIG, create_mysql_tables, fetch_mysql_usuario
-    from blueprints import ai_bp, auth_bp, cultivos_bp, inventario_bp, main_bp, mysql_bp, sensores_bp, torres_bp
-    from blueprints.shared import inventario, register_app_security, register_context_processors
-    from inventario import init_app as init_db
+    from blueprints import ai_bp, auth_bp, cultivos_bp, main_bp, mysql_bp, sensores_bp, torres_bp
+    from blueprints.shared import register_app_security, register_context_processors
     from models import User
 except ModuleNotFoundError:
     from .Conexión import MYSQL_CONFIG, create_mysql_tables, fetch_mysql_usuario
-    from .blueprints import ai_bp, auth_bp, cultivos_bp, inventario_bp, main_bp, mysql_bp, sensores_bp, torres_bp
-    from .blueprints.shared import inventario, register_app_security, register_context_processors
-    from .inventario import init_app as init_db
+    from .blueprints import ai_bp, auth_bp, cultivos_bp, main_bp, mysql_bp, sensores_bp, torres_bp
+    from .blueprints.shared import register_app_security, register_context_processors
     from .models import User
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", secrets.token_hex(32))
-app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{Path(app.root_path) / 'inventario.db'}"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = os.environ.get("SESSION_COOKIE_SAMESITE", "Lax")
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSION_COOKIE_SECURE", "false").lower() in {
@@ -32,10 +27,6 @@ app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSION_COOKIE_SECURE", "f
     "on",
 }
 app.config["SENSOR_API_TOKEN"] = os.environ.get("ECOGROW_SENSOR_API_TOKEN", "ecogrow-sensor-dev")
-
-init_db(app)
-with app.app_context():
-    inventario.sync_files()
 
 login_manager = LoginManager()
 login_manager.login_view = "auth.login"
@@ -67,14 +58,7 @@ app.register_blueprint(torres_bp)
 app.register_blueprint(cultivos_bp)
 app.register_blueprint(sensores_bp)
 app.register_blueprint(mysql_bp)
-app.register_blueprint(inventario_bp)
 app.register_blueprint(ai_bp)
-
-
-@app.cli.command("sincronizar-datos")
-def sincronizar_datos():
-    inventario.sync_files()
-    print("Archivos TXT, JSON y CSV sincronizados desde SQLite.")
 
 
 @app.cli.command("mysql-init")
