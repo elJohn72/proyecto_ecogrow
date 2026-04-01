@@ -132,6 +132,24 @@ Tambien puedes inicializar las tablas con:
 flask mysql-init
 ```
 
+## Trabajo en dos PCs
+
+Para mantener el proyecto sincronizado entre dos computadoras hay dos niveles:
+
+- codigo: usar el mismo repositorio de GitHub
+- datos: usar la misma base MySQL remota o mover respaldos entre equipos
+
+La opcion recomendada es usar una sola base MySQL compartida y configurar las mismas variables `MYSQL_*` en ambas PCs.
+
+Si todavia trabajas con MySQL local, este repo incluye scripts para exportar e importar la base sin subir dumps al repositorio:
+
+```bash
+bash scripts/db_backup.sh
+bash scripts/db_restore.sh
+```
+
+El respaldo se genera en `backups/mysql/latest.sql`, que puedes copiar a la otra PC por un medio privado. Ese directorio esta ignorado por Git para no publicar datos reales.
+
 ## Variables de entorno
 
 Configura estas variables en tu entorno local o despliegue:

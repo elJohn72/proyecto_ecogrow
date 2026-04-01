@@ -5,3 +5,5 @@ __pycache__/
 instance/
 .env
 inventario.db
+backups/
+ecogrow_server_*.log
