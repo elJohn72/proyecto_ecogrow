@@ -1,5 +1,7 @@
 # Guía rápida: ESP32 + relé con EcoGrow
 
+> **Guía completa Fase 1 (bomba + cableado + PlatformIO):** [`FASE1-ESP32-BOMBA-RELE.md`](FASE1-ESP32-BOMBA-RELE.md)
+
 Empieza con **un relé** (bomba, lámpara, ventilador) y agrega sensores después con el firmware completo en `platformio/esp32_hidroponico/`.
 
 ## Qué necesitas

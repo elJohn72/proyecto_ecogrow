@@ -88,13 +88,16 @@ proyecto_ecogrow/
 | [**Documentación completa**](docs/DOCUMENTACION-PROYECTO-ECOGROW.md) | Tecnologías, arquitectura, APIs, BD, despliegue |
 | [**Presentación**](documentacion_equipo/presentaciones/ECOGROW-TECNOLOGIAS-Y-ARQUITECTURA.md) | Diapositivas para sustentación |
 | [**Manual hidropónico**](docs/hidroponia/MANUAL-DOMINIO-TORRE-VERTICAL.md) | Dominio torre vertical |
-| [**Guía ESP32**](docs/iot/GUIA-ESP32-RELE.md) | Firmware e IoT |
+| [**Fase 1 ESP32 + bomba**](docs/iot/FASE1-ESP32-BOMBA-RELE.md) | Cableado, PlatformIO, puesta en marcha |
+| [**Fase 1 ESP32 + bomba**](docs/iot/FASE1-ESP32-BOMBA-RELE.md) | Cableado, PlatformIO, bomba + relé |
+| [**Guía ESP32**](docs/iot/GUIA-ESP32-RELE.md) | Resumen API e IoT |
 
 Perfiles pH/EC por fase: `domain/hidroponia_torre.py`
 
 ## IoT (ESP32)
 
-Guía paso a paso para empezar con **ESP32 + relé**: [`docs/iot/GUIA-ESP32-RELE.md`](docs/iot/GUIA-ESP32-RELE.md)
+**Fase 1 (recomendada):** ESP32 DevKit + relé + bomba → [`docs/iot/FASE1-ESP32-BOMBA-RELE.md`](docs/iot/FASE1-ESP32-BOMBA-RELE.md)  
+Resumen rápido: [`docs/iot/GUIA-ESP32-RELE.md`](docs/iot/GUIA-ESP32-RELE.md)
 
 - API de sincronización: `POST /api/iot/sync` (token `X-API-Token`)
 - Control manual desde **Monitoreo** en el panel web

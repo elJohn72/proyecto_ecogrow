@@ -1,22 +1,47 @@
 #pragma once
 
-// Copia este archivo como config.h y ajusta tus datos.
+// =============================================================================
+// Copia este archivo como include/config.h (no se sube a Git)
+//   cp include/config.h.example include/config.h
+// =============================================================================
 
+// --- WiFi (misma red que el PC con Flask o servidor Render) ---
 constexpr char WIFI_SSID[] = "TU_WIFI";
 constexpr char WIFI_PASSWORD[] = "TU_CLAVE_WIFI";
 
-// IP de tu PC o servidor Flask (no uses localhost desde el ESP32).
+// --- EcoGrow API ---
+// Desde el ESP32 NO uses localhost: usa la IP LAN del PC o la URL publica.
+// Ejemplo PC en la misma red: http://192.168.1.13:5000/api/iot/sync
+// Ejemplo Render: https://tu-app.onrender.com/api/iot/sync
 constexpr char API_SYNC_URL[] = "http://192.168.1.13:5000/api/iot/sync";
+
+// Mismo valor que ECOGROW_SENSOR_API_TOKEN en Flask / Render
 constexpr char API_TOKEN[] = "cambia-este-token-del-dispositivo";
 
+// ID del dispositivo (libre, para logs)
 constexpr char DEVICE_ID[] = "esp32_rele_01";
+
+// Codigo unico de la torre en EcoGrow (registro web)
 constexpr char TORRE_CODIGO[] = "ECO-TORRE-001";
 
-// GPIO del rele (ESP32 DevKit: GPIO 26 es seguro para salida).
+// --- Hardware ---
+// GPIO del pin IN del modulo rele (1 canal). GPIO 26 es seguro en ESP32 DevKit.
 constexpr int RELAY_PIN = 26;
 
-// La mayoria de modulos de 1 canal activan con LOW.
+// La mayoria de modulos chinos activan el rele con LOW en IN
 constexpr bool RELAY_ACTIVE_LOW = true;
 
-// Cada cuantos ms el ESP32 consulta EcoGrow y reporta estado.
+// LED integrado en muchas placas ESP32 DevKit (GPIO 2). -1 para desactivar
+#define STATUS_LED_PIN 2
+
+// Boton BOOT (GPIO 0): toggle local del rele para pruebas sin panel web. -1 para desactivar
+constexpr int LOCAL_BUTTON_PIN = 0;
+
+// --- Tiempos ---
 constexpr unsigned long SYNC_INTERVAL_MS = 10000UL;
+constexpr unsigned long WIFI_CONNECT_TIMEOUT_MS = 20000UL;
+
+// Failsafe: apaga bomba si se pierde WiFi o la API demasiado tiempo
+constexpr bool PUMP_FAILSAFE_ENABLED = true;
+constexpr unsigned long WIFI_FAILSAFE_MS = 120000UL;  // 2 min sin WiFi
+constexpr unsigned long API_FAILSAFE_MS = 90000UL;     // 90 s sin HTTP 200
