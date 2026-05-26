@@ -7,3 +7,4 @@ instance/
 inventario.db
 backups/
 ecogrow_server_*.log
+platformio/**/include/config.h

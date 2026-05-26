@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}Crear cuenta - EcoGrow{% endblock %}
+{% block title %}Crear cuenta EcoGrow | Registro de agricultor{% endblock %}
+{% block meta_description %}Regístrate en EcoGrow para vincular tu torre hidropónica, registrar cultivos y recibir telemetría de sensores desde el panel web seguro.{% endblock %}
 
 {% block content_wrapper %}
     <section class="content-shell fade-in-up simple-auth-shell">
@@ -12,7 +13,7 @@
             </div>
 
             <div class="dashboard-panel simple-form-card">
-                <h3>Crear cuenta</h3>
+                <h2 class="text-xl font-bold">Crear cuenta</h2>
                 <form method="post" class="simple-form-stack mt-6">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <label>

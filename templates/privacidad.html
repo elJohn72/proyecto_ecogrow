@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Política de privacidad | EcoGrow{% endblock %}
+{% block meta_description %}Política de privacidad de EcoGrow: cómo tratamos datos de cuenta, telemetría de torres hidropónicas y uso de la plataforma académica.{% endblock %}
+
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Legal</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Política de privacidad</h1>
+                <p class="page-subtitle mt-3">
+                    EcoGrow es un proyecto académico de gestión hidropónica. Esta política describe qué datos
+                    recopilamos y con qué finalidad.
+                </p>
+            </div>
+        </div>
+        <div class="section-grid mt-6">
+            <article class="soft-card">
+                <h2>Datos de cuenta</h2>
+                <p class="mt-3">Al registrarte almacenamos nombre, correo electrónico y contraseña cifrada para autenticación y acceso al panel.</p>
+            </article>
+            <article class="soft-card">
+                <h2>Telemetría e IoT</h2>
+                <p class="mt-3">Las lecturas de sensores (pH, EC, temperatura, nivel de agua, etc.) se asocian a tu torre y cultivo activo para monitoreo y alertas.</p>
+            </article>
+            <article class="soft-card">
+                <h2>Conservación y contacto</h2>
+                <p class="mt-3">Los datos se conservan mientras mantengas una cuenta activa. Para consultas usa la página de <a href="{{ url_for('main.contactos') }}">contacto</a>.</p>
+            </article>
+        </div>
+    </section>
+{% endblock %}

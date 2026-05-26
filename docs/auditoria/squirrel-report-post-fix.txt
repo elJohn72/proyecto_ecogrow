@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<audit version="0.0.38">
+<site url="http://127.0.0.1:5050" crawled="1" date="2026-05-26T05:44:34.383Z"/>
+<score overall="31" grade="F">
+ <cat name="Performance" score="75"/>
+ <cat name="Security" score="52"/>
+ <cat name="Crawlability" score="63"/>
+ <cat name="Core SEO" score="77"/>
+ <cat name="E-E-A-T" score="53"/>
+ <cat name="Legal Compliance" score="64"/>
+ <cat name="Content" score="91"/>
+ <cat name="Images" score="92"/>
+ <cat name="Accessibility" score="100"/>
+ <cat name="Internationalization" score="100"/>
+ <cat name="Links" score="100"/>
+ <cat name="Mobile" score="100"/>
+ <cat name="URL Structure" score="100"/>
+</score>
+<summary passed="83" warnings="25" failed="3"/>
+<issues>
+ <category name="Crawlability" errors="1" warnings="1">
+  <rule id="crawl/sitemap-exists" severity="error" status="fail" docs="https://docs.squirrelscan.com/rules/crawl/sitemap-exists">
+   No XML sitemap found
+  </rule>
+  <rule id="crawl/robots-txt" severity="error" status="warn" docs="https://docs.squirrelscan.com/rules/crawl/robots-txt">
+   No robots.txt found
+  </rule>
+ </category>
+ <category name="Core SEO" errors="0" warnings="7">
+  <rule id="core/meta-description" severity="error" status="warn" docs="https://docs.squirrelscan.com/rules/core/meta-description">
+   Description too short
+   Pages (1): /
+   Items (1):
+    - / (EcoGrow - Plataforma inteligente para sistemas hid (59 chars))
+  </rule>
+  <rule id="core/canonical" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/core/canonical">
+   Missing canonical URL
+   Pages (1): /
+  </rule>
+  <rule id="core/og-tags" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/core/og-tags">
+   Missing og:title; Missing og:description; Missing og:image - social shares will lack imagery
+   Pages (1): /
+  </rule>
+  <rule id="core/favicon" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/core/favicon">
+   No favicon found
+   Pages (1): /
+  </rule>
+  <rule id="core/twitter-cards" severity="info" status="warn" docs="https://docs.squirrelscan.com/rules/core/twitter-cards">
+   No Twitter card or Open Graph tags for Twitter sharing
+   Pages (1): /
+  </rule>
+ </category>
+ <category name="Security" errors="1" warnings="2">
+  <rule id="security/https" severity="error" status="fail" docs="https://docs.squirrelscan.com/rules/security/https">
+   Page not served over HTTPS
+   Pages (1): /
+  </rule>
+  <rule id="security/csp" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/security/csp">
+   No Content-Security-Policy header
+  </rule>
+  <rule id="security/x-frame-options" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/security/x-frame-options">
+   No clickjacking protection
+  </rule>
+ </category>
+ <category name="Content" errors="0" warnings="1">
+  <rule id="content/word-count" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/content/word-count">
+   Thin content: 252 words (min 300)
+   Pages (1): /
+   Items (1):
+    - / (Thin content: 252 words (min 300))
+  </rule>
+ </category>
+ <category name="Images" errors="0" warnings="1">
+  <rule id="images/dimensions" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/images/dimensions">
+   1 image(s) missing width/height (causes CLS)
+   Pages (1): /
+   Items (1):
+    - /static/images/hero.png | &lt;img src=&quot;http://127.0.0.1:5050/static/images/hero.png&quot; alt=&quot;EcoGrow Vertical Hydroponic Tower&quot;&gt;
+  </rule>
+ </category>
+ <category name="Performance" errors="1" warnings="7">
+  <rule id="perf/lcp-hints" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/perf/lcp-hints">
+   1 potential LCP image(s) without preload
+   Pages (1): /
+   Items (1):
+    - /static/images/hero.png
+  </rule>
+  <rule id="perf/cls-hints" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/perf/cls-hints">
+   1 image(s) without width/height (CLS risk)
+   Pages (1): /
+   Items (1):
+    - /static/images/hero.png
+  </rule>
+  <rule id="perf/compression" severity="warning" status="fail" docs="https://docs.squirrelscan.com/rules/perf/compression">
+   No compression detected (7KB uncompressed)
+   Pages (1): /
+   Items (1):
+    - / (No compression detected (7KB uncompressed))
+  </rule>
+  <rule id="perf/render-blocking" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/perf/render-blocking">
+   4 render-blocking resources
+   Pages (1): /
+   Items (4):
+    - https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap
+    - https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap
+    - https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css
+    - /static/style.css
+  </rule>
+  <rule id="perf/critical-request-chains" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/perf/critical-request-chains">
+   4 critical request chain(s) found
+   Pages (1): /
+   Items (4):
+    - CSS: https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap
+    - CSS: https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap
+    - CSS: https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css
+    - CSS: /static/style.css
+  </rule>
+  <rule id="perf/cache-headers" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/perf/cache-headers">
+   No caching headers found
+   Pages (1): /
+  </rule>
+  <rule id="perf/preconnect" severity="info" status="warn" docs="https://docs.squirrelscan.com/rules/perf/preconnect">
+   Missing preconnect for 1 CDN(s)
+   Pages (1): /
+   Items (1):
+    - cdn.jsdelivr.net
+  </rule>
+  <rule id="perf/http2" severity="info" status="warn" docs="https://docs.squirrelscan.com/rules/perf/http2">
+   HTTP/2 requires HTTPS
+   Pages (1): /
+   Items (1):
+    - / (HTTP/2 requires HTTPS)
+  </rule>
+ </category>
+ <category name="E-E-A-T" errors="0" warnings="5">
+  <rule id="eeat/about-page" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/eeat/about-page">
+   No About page found
+  </rule>
+  <rule id="eeat/author-byline" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/eeat/author-byline">
+   No content pages have author attribution
+  </rule>
+  <rule id="eeat/contact-page" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/eeat/contact-page">
+   No Contact page found
+  </rule>
+  <rule id="eeat/privacy-policy" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/eeat/privacy-policy">
+   No Privacy Policy page found
+  </rule>
+  <rule id="eeat/content-dates" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/eeat/content-dates">
+   No content pages have datePublished
+  </rule>
+ </category>
+ <category name="Legal Compliance" errors="0" warnings="1">
+  <rule id="legal/privacy-policy" severity="warning" status="warn" docs="https://docs.squirrelscan.com/rules/legal/privacy-policy">
+   No privacy policy link found across site
+  </rule>
+ </category>
+</issues>
+</audit>

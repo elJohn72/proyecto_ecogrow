@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}Acerca de - EcoGrow{% endblock %}
+{% block title %}Proyecto EcoGrow | Hidroponía, IoT y analítica{% endblock %}
+{% block meta_description %}Conoce EcoGrow: arquitectura modular, telemetría IoT, cultivos hidropónicos y panel web para monitoreo sostenible desarrollado como proyecto académico.{% endblock %}
 
 {% block content_wrapper %}
     <section class="content-shell fade-in-up">
@@ -16,17 +17,35 @@
         </div>
         <div class="section-grid mt-6">
             <article class="soft-card">
-                <h3>Enfoque tecnológico</h3>
+                <h2 class="text-xl font-bold">Enfoque tecnológico</h2>
                 <p class="mt-3">Nuestra arquitectura modular garantiza escalabilidad extrema, combinando análisis en tiempo real con seguridad integral.</p>
             </article>
             <article class="soft-card">
-                <h3>Infraestructura técnica</h3>
+                <h2 class="text-xl font-bold">Infraestructura técnica</h2>
                 <p class="mt-3">La plataforma utiliza una infraestructura en la nube de alto rendimiento con sensorización IoT de precisión para control ambiental.</p>
             </article>
             <article class="soft-card">
-                <h3>Enfoque sostenible</h3>
+                <h2 class="text-xl font-bold">Enfoque sostenible</h2>
                 <p class="mt-3">La propuesta gira alrededor del cultivo hidropónico, la reutilización de materiales y el monitoreo eficiente de recursos.</p>
             </article>
+        </div>
+        <div class="dashboard-panel mt-6">
+            <h2 class="text-2xl font-bold">Objetivos y alcance académico</h2>
+            <p class="mt-3">
+                EcoGrow nace como proyecto de grado orientado a demostrar cómo una torre hidropónica puede integrarse
+                con software de gestión, persistencia en MySQL y dispositivos ESP32. El sistema permite registrar usuarios,
+                vincular torres mediante códigos únicos, documentar cultivos por variedad y fase, y visualizar lecturas de
+                sensores como pH, conductividad eléctrica, temperatura del agua y nivel del depósito.
+            </p>
+            <p class="mt-3">
+                La capa de control combina reglas de negocio, alertas y recomendaciones del módulo Agricultor IA para apoyar
+                decisiones operativas sin reemplazar el criterio humano. Los administradores del proyecto pueden auditar
+                usuarios y verificar el estado de la base de datos desde un panel restringido por correo autorizado.
+            </p>
+            <p class="mt-3">
+                Este sitio público presenta la propuesta; el panel de gestión requiere autenticación y está pensado para
+                agricultores, tutores y equipos técnicos que monitorean el laboratorio o invernadero donde se instala cada torre.
+            </p>
         </div>
     </section>
 {% endblock %}

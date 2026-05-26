@@ -15,7 +15,6 @@
                 {% if can_manage %}
                     <a class="site-button site-button--ghost" href="{{ url_for('cultivos.cultivos_inactivos') }}">Ver inactivos</a>
                     <a class="site-button site-button--primary" href="{{ url_for('cultivos.crear_cultivo') }}">Nuevo cultivo</a>
-                    <a class="site-button site-button--ghost" href="{{ url_for('torres.elegir_cultivo_actual') }}">Cambiar cultivo actual</a>
                 {% endif %}
             </div>
         </div>
@@ -43,10 +42,11 @@
                     <table class="ecogrow-table">
                         <thead>
                             <tr>
-                                <th>Nombre</th>
+                                <th>Tipo de cultivo</th>
+                                <th>Torre</th>
                                 <th>Variedad</th>
                                 <th>Etapa</th>
-                                {% if ui_mode == 'admin' %}
+                                {% if is_admin_mode %}
                                     <th>Ubicacion</th>
                                 {% endif %}
                                 <th>Acciones</th>
@@ -56,9 +56,10 @@
                             {% for cultivo in cultivos %}
                                 <tr>
                                     <td>{{ cultivo.nombre }}</td>
+                                    <td>{{ cultivo.torre_nombre or "Sin torre" }}</td>
                                     <td>{{ cultivo.variedad }}</td>
                                     <td>{{ cultivo.estado }}</td>
-                                    {% if ui_mode == 'admin' %}
+                                    {% if is_admin_mode %}
                                         <td>{{ cultivo.ubicacion }}</td>
                                     {% endif %}
                                     <td>
@@ -93,7 +94,7 @@
             {% endif %}
         </div>
 
-        {% if ui_mode == 'admin' and historial_ciclos %}
+        {% if is_admin_mode and historial_ciclos %}
             <div class="table-card mt-6">
                 <div class="panel-header">
                     <div>

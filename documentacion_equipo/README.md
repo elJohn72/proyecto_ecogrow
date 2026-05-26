@@ -10,6 +10,8 @@ Subcarpetas sugeridas:
 - `recursos_multimedia/`: imagenes, mockups, evidencias y material visual.
 - `notas_equipo/`: apuntes, acuerdos y referencias de trabajo.
 - `presentaciones/`: diapositivas, exposiciones y material para sustentar avances.
+  - Principal: `presentaciones/ECOGROW-TECNOLOGIAS-Y-ARQUITECTURA.md` (20 diapositivas).
+  - Documentación técnica extendida: `../docs/DOCUMENTACION-PROYECTO-ECOGROW.md`.
 
 Recomendaciones:
 

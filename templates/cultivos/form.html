@@ -8,7 +8,7 @@
             <div>
                 <span class="eyebrow">Cultivo</span>
                 <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">{{ titulo }}</h1>
-                <p class="page-subtitle mt-3">Formulario conectado al CRUD de cultivos en MySQL/MariaDB.</p>
+                <p class="page-subtitle mt-3">Registra el cultivo y vincúlalo a una torre especifica para dejar su monitoreo listo.</p>
             </div>
         </div>
 
@@ -16,20 +16,38 @@
             <form method="post" class="simple-form-stack">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <label>
-                    <span>Nombre</span>
-                    <input type="text" name="nombre" value="{{ cultivo.nombre }}" required placeholder="Lechuga" />
+                    <span>Torre vinculada</span>
+                    <select name="torre_id" required>
+                        <option value="">Selecciona una torre</option>
+                        {% for torre in torres %}
+                            <option value="{{ torre.id_torre }}" {% if cultivo.torre_id == torre.id_torre %}selected{% endif %}>{{ torre.nombre }} · {{ torre.codigo_unico }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>
+                    <span>Tipo de cultivo</span>
+                    <select name="nombre" id="nombre" required>
+                        <option value="">Selecciona un tipo de cultivo</option>
+                        {% for nombre in nombre_options %}
+                            <option value="{{ nombre }}" {% if cultivo.nombre == nombre %}selected{% endif %}>{{ nombre }}</option>
+                        {% endfor %}
+                    </select>
                 </label>
                 <label>
                     <span>Variedad</span>
-                    <input type="text" name="variedad" value="{{ cultivo.variedad }}" required placeholder="Crespa, romana, etc." />
+                    <select name="variedad" id="variedad" required>
+                        <option value="">Selecciona una variedad</option>
+                    </select>
                 </label>
                 <label>
                     <span>Lugar</span>
                     <input type="text" name="ubicacion" value="{{ cultivo.ubicacion }}" required placeholder="Torre 1 o semillero" />
                 </label>
                 <label>
-                    <span>Etapa</span>
-                    <input type="text" name="estado" value="{{ cultivo.estado }}" required placeholder="Germinacion, crecimiento o cosecha" />
+                    <span>Etapa del cultivo</span>
+                    <select name="estado" id="estado" required data-current-estado="{{ cultivo.estado }}">
+                        <option value="">Selecciona una etapa</option>
+                    </select>
                 </label>
                 <label>
                     <span>Notas</span>
@@ -51,4 +69,82 @@
             </form>
         </div>
     </section>
+
+    <script>
+        (() => {
+            const nombreSelect = document.getElementById("nombre");
+            const variedadSelect = document.getElementById("variedad");
+            const estadoSelect = document.getElementById("estado");
+            const variedadOptionsByNombre = {{ variedad_options_by_nombre | tojson }};
+            const phaseOptionsByVariety = {{ phase_options_by_variety | tojson }};
+            const currentVariedad = (variedadSelect?.value || "").trim();
+            const currentEstado = (estadoSelect?.dataset.currentEstado || "").trim().toLowerCase();
+
+            if (!nombreSelect || !variedadSelect || !estadoSelect) {
+                return;
+            }
+
+            const rebuildVarietyOptions = () => {
+                const nombre = nombreSelect.value;
+                const options = variedadOptionsByNombre[nombre] || [];
+                const previousValue = variedadSelect.value || currentVariedad;
+
+                variedadSelect.innerHTML = "";
+
+                const placeholder = document.createElement("option");
+                placeholder.value = "";
+                placeholder.textContent = "Selecciona una variedad";
+                variedadSelect.appendChild(placeholder);
+
+                options.forEach((variedad) => {
+                    const option = document.createElement("option");
+                    option.value = variedad;
+                    option.textContent = variedad;
+                    if (variedad === previousValue) {
+                        option.selected = true;
+                    }
+                    variedadSelect.appendChild(option);
+                });
+
+                if (!options.includes(previousValue)) {
+                    variedadSelect.value = "";
+                }
+            };
+
+            const rebuildPhaseOptions = () => {
+                const variedad = variedadSelect.value;
+                const options = phaseOptionsByVariety[variedad] || [];
+                const previousValue = (estadoSelect.value || currentEstado).trim().toLowerCase();
+
+                estadoSelect.innerHTML = "";
+
+                const placeholder = document.createElement("option");
+                placeholder.value = "";
+                placeholder.textContent = "Selecciona una etapa";
+                estadoSelect.appendChild(placeholder);
+
+                options.forEach((fase) => {
+                    const option = document.createElement("option");
+                    option.value = fase;
+                    option.textContent = fase.charAt(0).toUpperCase() + fase.slice(1);
+                    if (fase.toLowerCase() === previousValue) {
+                        option.selected = true;
+                    }
+                    estadoSelect.appendChild(option);
+                });
+
+                if (!options.some((fase) => fase.toLowerCase() === previousValue)) {
+                    estadoSelect.value = "";
+                }
+            };
+
+            nombreSelect.addEventListener("change", () => {
+                rebuildVarietyOptions();
+                rebuildPhaseOptions();
+            });
+            variedadSelect.addEventListener("change", rebuildPhaseOptions);
+            rebuildVarietyOptions();
+            rebuildPhaseOptions();
+        })();
+    </script>
 {% endblock %}

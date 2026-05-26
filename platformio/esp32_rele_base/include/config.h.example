@@ -1,0 +1,22 @@
+#pragma once
+
+// Copia este archivo como config.h y ajusta tus datos.
+
+constexpr char WIFI_SSID[] = "TU_WIFI";
+constexpr char WIFI_PASSWORD[] = "TU_CLAVE_WIFI";
+
+// IP de tu PC o servidor Flask (no uses localhost desde el ESP32).
+constexpr char API_SYNC_URL[] = "http://192.168.1.13:5000/api/iot/sync";
+constexpr char API_TOKEN[] = "cambia-este-token-del-dispositivo";
+
+constexpr char DEVICE_ID[] = "esp32_rele_01";
+constexpr char TORRE_CODIGO[] = "ECO-TORRE-001";
+
+// GPIO del rele (ESP32 DevKit: GPIO 26 es seguro para salida).
+constexpr int RELAY_PIN = 26;
+
+// La mayoria de modulos de 1 canal activan con LOW.
+constexpr bool RELAY_ACTIVE_LOW = true;
+
+// Cada cuantos ms el ESP32 consulta EcoGrow y reporta estado.
+constexpr unsigned long SYNC_INTERVAL_MS = 10000UL;

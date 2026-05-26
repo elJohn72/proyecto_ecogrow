@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Configuracion de torre - EcoGrow{% endblock %}
+
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Setpoints operativos</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Configuracion de {{ torre.nombre }}</h1>
+                <p class="page-subtitle mt-3">
+                    Ajusta limites de pH, EC, nivel y programa de riego. Con ciclo activo, el perfil de fase puede refinar los objetivos mostrados en monitoreo.
+                </p>
+            </div>
+        </div>
+
+        {% if config_efectiva and ciclo_activo %}
+            <div class="dashboard-panel mt-6">
+                <h2 class="text-xl font-bold">Objetivos efectivos ahora</h2>
+                <p class="mt-3">
+                    pH {{ config_efectiva.ph_min }}–{{ config_efectiva.ph_max }} ·
+                    EC {{ config_efectiva.ec_min }}–{{ config_efectiva.ec_max }} mS/cm ·
+                    fase {{ ciclo_activo.fase }}
+                </p>
+            </div>
+        {% endif %}
+
+        <div class="dashboard-panel mt-6 simple-form-card">
+            <form method="post" class="simple-form-stack">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                <h3 class="text-lg font-bold">Torre y bomba</h3>
+                <label>
+                    <span>Modulo (mm)</span>
+                    <input type="number" name="module_size_mm" min="40" value="{{ form_data.module_size_mm }}" required/>
+                </label>
+                <label>
+                    <span>Deposito (L)</span>
+                    <input type="text" name="deposito_litros" value="{{ form_data.deposito_litros }}" required/>
+                </label>
+                <label>
+                    <span>Modelo de bomba</span>
+                    <input type="text" name="bomba_modelo" value="{{ form_data.bomba_modelo }}" required/>
+                </label>
+                <label>
+                    <span>Altura de bombeo (m)</span>
+                    <input type="text" name="head_height_m" value="{{ form_data.head_height_m }}" required/>
+                </label>
+
+                <h3 class="text-lg font-bold mt-4">Calidad de solucion</h3>
+                <div class="simple-form-grid">
+                    <label>
+                        <span>pH minimo</span>
+                        <input type="text" name="ph_min" value="{{ form_data.ph_min }}" required/>
+                    </label>
+                    <label>
+                        <span>pH maximo</span>
+                        <input type="text" name="ph_max" value="{{ form_data.ph_max }}" required/>
+                    </label>
+                    <label>
+                        <span>EC minima (mS/cm)</span>
+                        <input type="text" name="ec_min" value="{{ form_data.ec_min }}" required/>
+                    </label>
+                    <label>
+                        <span>EC maxima (mS/cm)</span>
+                        <input type="text" name="ec_max" value="{{ form_data.ec_max }}" required/>
+                    </label>
+                    <label>
+                        <span>Temp. agua min (°C)</span>
+                        <input type="text" name="temperatura_agua_min" value="{{ form_data.temperatura_agua_min }}" required/>
+                    </label>
+                    <label>
+                        <span>Temp. agua max (°C)</span>
+                        <input type="text" name="temperatura_agua_max" value="{{ form_data.temperatura_agua_max }}" required/>
+                    </label>
+                </div>
+
+                <h3 class="text-lg font-bold mt-4">Nivel y riego</h3>
+                <div class="simple-form-grid">
+                    <label>
+                        <span>Nivel minimo (%)</span>
+                        <input type="text" name="nivel_minimo" value="{{ form_data.nivel_minimo }}" required/>
+                    </label>
+                    <label>
+                        <span>Nivel objetivo (%)</span>
+                        <input type="text" name="nivel_objetivo" value="{{ form_data.nivel_objetivo }}" required/>
+                    </label>
+                    <label>
+                        <span>Minutos ON</span>
+                        <input type="number" name="irrigation_on_minutes" min="1" value="{{ form_data.irrigation_on_minutes }}" required/>
+                    </label>
+                    <label>
+                        <span>Minutos OFF</span>
+                        <input type="number" name="irrigation_off_minutes" min="1" value="{{ form_data.irrigation_off_minutes }}" required/>
+                    </label>
+                </div>
+                <label class="checkbox-row">
+                    <input type="checkbox" name="riego_habilitado" {% if form_data.riego_habilitado %}checked{% endif %}/>
+                    <span>Riego automatico habilitado</span>
+                </label>
+                <label>
+                    <span>Estrategia de riego</span>
+                    <select name="estrategia_riego">
+                        <option value="oxigenacion_radicular" {% if form_data.estrategia_riego == 'oxigenacion_radicular' %}selected{% endif %}>Oxigenacion radicular</option>
+                        <option value="mantenimiento" {% if form_data.estrategia_riego == 'mantenimiento' %}selected{% endif %}>Mantenimiento</option>
+                    </select>
+                </label>
+
+                {% if errores %}
+                    <div class="flash-card flash-card--error">
+                        {% for error in errores %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="hero-actions">
+                    <button type="submit" class="site-button site-button--primary simple-form-button">Guardar configuracion</button>
+                    <a href="{{ url_for('sensores.irrigation') }}" class="site-button site-button--ghost simple-form-button">Ver panel de riego</a>
+                </div>
+            </form>
+        </div>
+    </section>
+{% endblock %}

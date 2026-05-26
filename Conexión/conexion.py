@@ -5,6 +5,11 @@ import mysql.connector
 from mysql.connector import Error, ProgrammingError
 from werkzeug.security import check_password_hash, generate_password_hash
 
+try:
+    from domain.hidroponia_torre import merge_control_with_phase_profile
+except ModuleNotFoundError:
+    from ..domain.hidroponia_torre import merge_control_with_phase_profile
+
 XAMPP_SOCKET_PATH = "/Applications/XAMPP/xamppfiles/var/mysql/mysql.sock"
 COMMON_SOCKET_PATHS = (
     XAMPP_SOCKET_PATH,
@@ -66,8 +71,8 @@ CONTROL_DEFAULTS = {
     "deposito_litros": 5.0,
     "bomba_modelo": "Aqua One Maxi 103",
     "head_height_m": 1.4,
-    "ph_min": 6.5,
-    "ph_max": 8.5,
+    "ph_min": 5.5,
+    "ph_max": 6.5,
     "ec_min": 1.4,
     "ec_max": 2.4,
     "temperatura_agua_min": 18.0,
@@ -83,6 +88,131 @@ CONTROL_DEFAULTS = {
     "consenso_pid_weight": 0.8,
     "consenso_fuzzy_weight": 0.2,
 }
+
+DEFAULT_CULTIVOS = (
+    {
+        "nombre": "Lechuga",
+        "variedad": "Salanova Verde",
+        "ubicacion": "Catalogo base",
+        "estado": "Disponible",
+        "descripcion": "Lechuga compacta y uniforme, ideal para torres verticales por su buen aprovechamiento del espacio.",
+        "fases": ("germinacion", "plantula", "formacion de bola", "cosecha"),
+    },
+    {
+        "nombre": "Lechuga",
+        "variedad": "Salanova Roja",
+        "ubicacion": "Catalogo base",
+        "estado": "Disponible",
+        "descripcion": "Version roja de Salanova, compacta y adecuada para sistemas verticales con cosecha uniforme.",
+        "fases": ("germinacion", "plantula", "formacion de bola", "cosecha"),
+    },
+    {
+        "nombre": "Lechuga",
+        "variedad": "Hoja de Roble",
+        "ubicacion": "Catalogo base",
+        "estado": "Disponible",
+        "descripcion": "Variedad de crecimiento rapido y porte abierto; permite cosechar hojas exteriores mientras el centro sigue creciendo.",
+        "fases": ("germinacion", "plantula", "desarrollo foliar", "cosecha continua"),
+    },
+    {
+        "nombre": "Lechuga",
+        "variedad": "Little Gem",
+        "ubicacion": "Catalogo base",
+        "estado": "Disponible",
+        "descripcion": "Romana enana pequena y firme, pensada para verticalidad sin que el peso haga caer la planta.",
+        "fases": ("germinacion", "plantula", "formacion de cogollo", "cosecha"),
+    },
+    {
+        "nombre": "Lechuga",
+        "variedad": "Lollo Rossa",
+        "ubicacion": "Catalogo base",
+        "estado": "Disponible",
+        "descripcion": "Hojas muy rizadas y buena aireacion, utiles para reducir riesgo de hongos en paredes de cultivo.",
+        "fases": ("germinacion", "plantula", "desarrollo foliar", "cosecha"),
+    },
+    {
+        "nombre": "Lechuga",
+        "variedad": "Lollo Bionda",
+        "ubicacion": "Catalogo base",
+        "estado": "Disponible",
+        "descripcion": "Variante de hojas rizadas, decorativa y con estructura abierta para mejorar circulacion de aire.",
+        "fases": ("germinacion", "plantula", "desarrollo foliar", "cosecha"),
+    },
+    {
+        "nombre": "Lechuga",
+        "variedad": "Kristin",
+        "ubicacion": "Catalogo base",
+        "estado": "Disponible",
+        "descripcion": "Variedad resistente al espigamiento, recomendada para exposicion a sol directo o temperaturas elevadas.",
+        "fases": ("germinacion", "plantula", "desarrollo resistente", "cosecha"),
+    },
+    {
+        "nombre": "Acelga",
+        "variedad": "Fordhook Giant",
+        "ubicacion": "Catalogo base",
+        "estado": "Disponible",
+        "descripcion": "Acelga de hoja amplia y alta productividad, adecuada para sistemas verticales por su rebrote constante.",
+        "fases": ("germinacion", "plantula", "desarrollo foliar", "cosecha continua"),
+    },
+    {
+        "nombre": "Acelga",
+        "variedad": "Bright Lights",
+        "ubicacion": "Catalogo base",
+        "estado": "Disponible",
+        "descripcion": "Acelga multicolor que mantiene buen rendimiento en NFT y torres de hidroponia vertical.",
+        "fases": ("germinacion", "plantula", "desarrollo foliar", "cosecha continua"),
+    },
+    {
+        "nombre": "Espinaca",
+        "variedad": "Baby Leaf",
+        "ubicacion": "Catalogo base",
+        "estado": "Disponible",
+        "descripcion": "Espinaca de ciclo corto pensada para cosecha tierna y alta densidad de siembra.",
+        "fases": ("germinacion", "plantula", "desarrollo foliar", "cosecha"),
+    },
+    {
+        "nombre": "Espinaca",
+        "variedad": "Viroflay",
+        "ubicacion": "Catalogo base",
+        "estado": "Disponible",
+        "descripcion": "Espinaca de hoja grande con buen desarrollo en ambientes frescos y controlados.",
+        "fases": ("germinacion", "plantula", "desarrollo foliar", "cosecha"),
+    },
+    {
+        "nombre": "Rucula",
+        "variedad": "Cultivada",
+        "ubicacion": "Catalogo base",
+        "estado": "Disponible",
+        "descripcion": "Rucula de sabor balanceado y crecimiento rapido para cosechas sucesivas en vertical.",
+        "fases": ("germinacion", "plantula", "desarrollo foliar", "cosecha continua"),
+    },
+    {
+        "nombre": "Rucula",
+        "variedad": "Silvestre",
+        "ubicacion": "Catalogo base",
+        "estado": "Disponible",
+        "descripcion": "Variante mas aromatica y rustica, util para mezclar con otros verdes de hoja.",
+        "fases": ("germinacion", "plantula", "desarrollo foliar", "cosecha continua"),
+    },
+    {
+        "nombre": "Albahaca",
+        "variedad": "Genovesa",
+        "ubicacion": "Catalogo base",
+        "estado": "Disponible",
+        "descripcion": "Albahaca clasica de hojas anchas y alta demanda, compatible con canales y torres verticales.",
+        "fases": ("germinacion", "plantula", "ramificacion", "cosecha continua"),
+    },
+    {
+        "nombre": "Albahaca",
+        "variedad": "Morada",
+        "ubicacion": "Catalogo base",
+        "estado": "Disponible",
+        "descripcion": "Albahaca de pigmentacion intensa y buen valor comercial para produccion diferenciada.",
+        "fases": ("germinacion", "plantula", "ramificacion", "cosecha continua"),
+    },
+)
+
+DEFAULT_PHASE_OPTIONS = ("germinacion", "plantula", "desarrollo foliar", "cosecha")
 
 
 def get_mysql_config_help() -> list[str]:
@@ -164,6 +294,7 @@ def create_mysql_tables() -> None:
                 CREATE TABLE IF NOT EXISTS cultivos (
                     id_cultivo INT AUTO_INCREMENT PRIMARY KEY,
                     usuario_id INT NULL,
+                    torre_id INT NULL,
                     nombre VARCHAR(120) NOT NULL,
                     variedad VARCHAR(120) NOT NULL,
                     ubicacion VARCHAR(120) NOT NULL,
@@ -172,6 +303,20 @@ def create_mysql_tables() -> None:
                     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     CONSTRAINT fk_cultivos_usuario
                         FOREIGN KEY (usuario_id) REFERENCES usuarios(id_usuario)
+                        ON DELETE CASCADE
+                )
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS fases_cultivo (
+                    id_fase INT AUTO_INCREMENT PRIMARY KEY,
+                    cultivo_id INT NOT NULL,
+                    nombre VARCHAR(80) NOT NULL,
+                    orden INT NOT NULL DEFAULT 1,
+                    UNIQUE KEY uq_fase_cultivo_nombre (cultivo_id, nombre),
+                    CONSTRAINT fk_fases_cultivo
+                        FOREIGN KEY (cultivo_id) REFERENCES cultivos(id_cultivo)
                         ON DELETE CASCADE
                 )
                 """
@@ -342,8 +487,36 @@ def create_mysql_tables() -> None:
                 )
                 """
             )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS eventos_cosecha (
+                    id_cosecha INT AUTO_INCREMENT PRIMARY KEY,
+                    ciclo_id INT NOT NULL,
+                    torre_id INT NOT NULL,
+                    cultivo_id INT NOT NULL,
+                    usuario_id INT NOT NULL,
+                    peso_kg DECIMAL(8,2) NULL,
+                    plantas_cosechadas INT NULL,
+                    notas VARCHAR(500) NOT NULL DEFAULT '',
+                    cosechado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT fk_cosecha_ciclo
+                        FOREIGN KEY (ciclo_id) REFERENCES ciclos_cultivo(id_ciclo)
+                        ON DELETE RESTRICT,
+                    CONSTRAINT fk_cosecha_torre
+                        FOREIGN KEY (torre_id) REFERENCES torres(id_torre)
+                        ON DELETE CASCADE,
+                    CONSTRAINT fk_cosecha_cultivo
+                        FOREIGN KEY (cultivo_id) REFERENCES cultivos(id_cultivo)
+                        ON DELETE RESTRICT,
+                    CONSTRAINT fk_cosecha_usuario
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id_usuario)
+                        ON DELETE CASCADE
+                )
+                """
+            )
             _ensure_cultivos_schema(cursor)
             _ensure_lecturas_schema(cursor)
+            _ensure_cosechas_schema(cursor)
         database_connection.commit()
     finally:
         database_connection.close()
@@ -354,6 +527,11 @@ def _ensure_cultivos_schema(cursor) -> None:
     usuario_column = cursor.fetchone()
     if not usuario_column:
         cursor.execute("ALTER TABLE cultivos ADD COLUMN usuario_id INT NULL AFTER id_cultivo")
+
+    cursor.execute("SHOW COLUMNS FROM cultivos LIKE 'torre_id'")
+    torre_column = cursor.fetchone()
+    if not torre_column:
+        cursor.execute("ALTER TABLE cultivos ADD COLUMN torre_id INT NULL AFTER usuario_id")
 
     cursor.execute(
         """
@@ -366,6 +544,19 @@ def _ensure_cultivos_schema(cursor) -> None:
         ) AS ownership ON ownership.cultivo_id = cultivos.id_cultivo
         SET cultivos.usuario_id = ownership.usuario_id
         WHERE cultivos.usuario_id IS NULL
+        """
+    )
+
+    cursor.execute(
+        """
+        UPDATE cultivos
+        LEFT JOIN (
+            SELECT ciclos_cultivo.cultivo_id, MIN(ciclos_cultivo.torre_id) AS torre_id
+            FROM ciclos_cultivo
+            GROUP BY ciclos_cultivo.cultivo_id
+        ) AS ownership ON ownership.cultivo_id = cultivos.id_cultivo
+        SET cultivos.torre_id = ownership.torre_id
+        WHERE cultivos.torre_id IS NULL
         """
     )
 
@@ -383,6 +574,54 @@ def _ensure_cultivos_schema(cursor) -> None:
             )
         except Error:
             pass
+
+    cursor.execute("SHOW INDEX FROM cultivos WHERE Key_name = 'fk_cultivos_torre'")
+    torre_fk_exists = cursor.fetchone()
+    if not torre_fk_exists:
+        try:
+            cursor.execute(
+                """
+                ALTER TABLE cultivos
+                ADD CONSTRAINT fk_cultivos_torre
+                FOREIGN KEY (torre_id) REFERENCES torres(id_torre)
+                ON DELETE CASCADE
+                """
+            )
+        except Error:
+            pass
+
+
+def _ensure_cosechas_schema(cursor) -> None:
+    cursor.execute("SHOW TABLES LIKE 'eventos_cosecha'")
+    if cursor.fetchone():
+        return
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS eventos_cosecha (
+            id_cosecha INT AUTO_INCREMENT PRIMARY KEY,
+            ciclo_id INT NOT NULL,
+            torre_id INT NOT NULL,
+            cultivo_id INT NOT NULL,
+            usuario_id INT NOT NULL,
+            peso_kg DECIMAL(8,2) NULL,
+            plantas_cosechadas INT NULL,
+            notas VARCHAR(500) NOT NULL DEFAULT '',
+            cosechado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_cosecha_ciclo
+                FOREIGN KEY (ciclo_id) REFERENCES ciclos_cultivo(id_ciclo)
+                ON DELETE RESTRICT,
+            CONSTRAINT fk_cosecha_torre
+                FOREIGN KEY (torre_id) REFERENCES torres(id_torre)
+                ON DELETE CASCADE,
+            CONSTRAINT fk_cosecha_cultivo
+                FOREIGN KEY (cultivo_id) REFERENCES cultivos(id_cultivo)
+                ON DELETE RESTRICT,
+            CONSTRAINT fk_cosecha_usuario
+                FOREIGN KEY (usuario_id) REFERENCES usuarios(id_usuario)
+                ON DELETE CASCADE
+        )
+        """
+    )
 
 
 def _ensure_lecturas_schema(cursor) -> None:
@@ -656,7 +895,7 @@ def _close_alert(cursor, torre_id: int, tipo: str) -> None:
 
 def _record_control_state(torre_id: int, lectura_id: int, lectura: dict) -> None:
     _create_control_defaults_for_torre(torre_id)
-    config = fetch_control_configuration(torre_id)
+    config = fetch_effective_control_configuration(torre_id)
     if not config:
         return
 
@@ -676,6 +915,22 @@ def _record_control_state(torre_id: int, lectura_id: int, lectura: dict) -> None
                 )
             else:
                 _close_alert(cursor, torre_id, "ph_fuera_rango")
+
+            ec_value = lectura.get("ec")
+            if ec_value is not None and (
+                float(ec_value) < float(config["ec_min"]) or float(ec_value) > float(config["ec_max"])
+            ):
+                _upsert_alert(
+                    cursor,
+                    torre_id,
+                    "ec_fuera_rango",
+                    "critica",
+                    "EC fuera del rango de la fase activa. Riesgo de bloqueo o deficiencia nutricional.",
+                    ec_value,
+                    f"{config['ec_min']}-{config['ec_max']}",
+                )
+            else:
+                _close_alert(cursor, torre_id, "ec_fuera_rango")
 
             nivel_value = lectura.get("nivel_agua")
             if nivel_value is not None and float(nivel_value) <= float(config["nivel_minimo"]):
@@ -879,6 +1134,150 @@ def insert_mysql_usuario(nombre: str, mail: str, password: str) -> int:
     )
 
 
+def seed_default_cultivos_for_user(usuario_id: int) -> None:
+    create_mysql_tables()
+    existing = _execute(
+        "SELECT COUNT(*) AS total FROM cultivos WHERE usuario_id = %s",
+        (usuario_id,),
+        fetchone=True,
+    )
+    if existing and existing["total"]:
+        seed_default_phase_catalog_for_user(usuario_id)
+        return
+
+    connection = _connect(include_database=True)
+    try:
+        with connection.cursor() as cursor:
+            cursor.executemany(
+                """
+                INSERT INTO cultivos (usuario_id, nombre, variedad, ubicacion, estado, descripcion)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                [
+                    (
+                        usuario_id,
+                        cultivo["nombre"],
+                        cultivo["variedad"],
+                        cultivo["ubicacion"],
+                        cultivo["estado"],
+                        cultivo["descripcion"],
+                    )
+                    for cultivo in DEFAULT_CULTIVOS
+                ],
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    seed_default_phase_catalog_for_user(usuario_id)
+
+
+def fetch_cultivo_phase_options(cultivo_id: int) -> list[str]:
+    create_mysql_tables()
+    rows = _execute(
+        """
+        SELECT nombre
+        FROM fases_cultivo
+        WHERE cultivo_id = %s
+        ORDER BY orden ASC, id_fase ASC
+        """,
+        (cultivo_id,),
+        fetchall=True,
+    )
+    return [str(row["nombre"]).strip().lower() for row in rows]
+
+
+def sync_cultivo_phase_options(cultivo_id: int, variedad: str) -> None:
+    create_mysql_tables()
+    fases = DEFAULT_PHASE_OPTIONS
+    variedad_normalizada = variedad.strip().lower()
+    for item in DEFAULT_CULTIVOS:
+        if item["variedad"].strip().lower() == variedad_normalizada:
+            fases = item["fases"]
+            break
+
+    connection = _connect(include_database=True)
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM fases_cultivo WHERE cultivo_id = %s", (cultivo_id,))
+            cursor.executemany(
+                """
+                INSERT INTO fases_cultivo (cultivo_id, nombre, orden)
+                VALUES (%s, %s, %s)
+                """,
+                [
+                    (cultivo_id, fase, index)
+                    for index, fase in enumerate(fases, start=1)
+                ],
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def fetch_phase_options_map_for_user(usuario_id: int) -> dict[str, list[str]]:
+    create_mysql_tables()
+    rows = _execute(
+        """
+        SELECT fases_cultivo.cultivo_id, fases_cultivo.nombre
+        FROM fases_cultivo
+        INNER JOIN cultivos ON cultivos.id_cultivo = fases_cultivo.cultivo_id
+        WHERE cultivos.usuario_id = %s AND cultivos.estado <> 'inactivo'
+        ORDER BY fases_cultivo.cultivo_id ASC, fases_cultivo.orden ASC, fases_cultivo.id_fase ASC
+        """,
+        (usuario_id,),
+        fetchall=True,
+    )
+    options: dict[str, list[str]] = {}
+    for row in rows:
+        options.setdefault(str(row["cultivo_id"]), []).append(str(row["nombre"]).strip().lower())
+    return options
+
+
+def seed_default_phase_catalog_for_user(usuario_id: int) -> None:
+    create_mysql_tables()
+    cultivos = _execute(
+        "SELECT id_cultivo, variedad FROM cultivos WHERE usuario_id = %s",
+        (usuario_id,),
+        fetchall=True,
+    )
+    if not cultivos:
+        return
+
+    connection = _connect(include_database=True)
+    try:
+        with connection.cursor(dictionary=True) as cursor:
+            for cultivo in cultivos:
+                cursor.execute(
+                    "SELECT COUNT(*) AS total FROM fases_cultivo WHERE cultivo_id = %s",
+                    (cultivo["id_cultivo"],),
+                )
+                existing = cursor.fetchone()
+                if existing and existing["total"]:
+                    continue
+
+                fases = DEFAULT_PHASE_OPTIONS
+                variedad = str(cultivo.get("variedad", "")).strip().lower()
+                for item in DEFAULT_CULTIVOS:
+                    if item["variedad"].strip().lower() == variedad:
+                        fases = item["fases"]
+                        break
+
+                cursor.executemany(
+                    """
+                    INSERT INTO fases_cultivo (cultivo_id, nombre, orden)
+                    VALUES (%s, %s, %s)
+                    """,
+                    [
+                        (cultivo["id_cultivo"], fase, index)
+                        for index, fase in enumerate(fases, start=1)
+                    ],
+                )
+        connection.commit()
+    finally:
+        connection.close()
+
+
 def update_mysql_usuario(
     usuario_id: int,
     nombre: str,
@@ -916,8 +1315,9 @@ def fetch_cultivos(usuario_id: int) -> list[dict]:
     create_mysql_tables()
     return _execute(
         """
-        SELECT cultivos.*, COUNT(ciclos_cultivo.id_ciclo) AS total_ciclos
+        SELECT cultivos.*, torres.nombre AS torre_nombre, COUNT(ciclos_cultivo.id_ciclo) AS total_ciclos
         FROM cultivos
+        LEFT JOIN torres ON torres.id_torre = cultivos.torre_id
         LEFT JOIN ciclos_cultivo ON ciclos_cultivo.cultivo_id = cultivos.id_cultivo
         WHERE cultivos.estado <> 'inactivo' AND cultivos.usuario_id = %s
         GROUP BY cultivos.id_cultivo
@@ -932,8 +1332,9 @@ def fetch_archived_cultivos(usuario_id: int) -> list[dict]:
     create_mysql_tables()
     return _execute(
         """
-        SELECT cultivos.*, COUNT(ciclos_cultivo.id_ciclo) AS total_ciclos
+        SELECT cultivos.*, torres.nombre AS torre_nombre, COUNT(ciclos_cultivo.id_ciclo) AS total_ciclos
         FROM cultivos
+        LEFT JOIN torres ON torres.id_torre = cultivos.torre_id
         LEFT JOIN ciclos_cultivo ON ciclos_cultivo.cultivo_id = cultivos.id_cultivo
         WHERE cultivos.estado = 'inactivo' AND cultivos.usuario_id = %s
         GROUP BY cultivos.id_cultivo
@@ -947,26 +1348,32 @@ def fetch_archived_cultivos(usuario_id: int) -> list[dict]:
 def fetch_cultivo(cultivo_id: int, usuario_id: int) -> dict | None:
     create_mysql_tables()
     return _execute(
-        "SELECT * FROM cultivos WHERE id_cultivo = %s AND usuario_id = %s",
+        """
+        SELECT cultivos.*, torres.nombre AS torre_nombre
+        FROM cultivos
+        LEFT JOIN torres ON torres.id_torre = cultivos.torre_id
+        WHERE cultivos.id_cultivo = %s AND cultivos.usuario_id = %s
+        """,
         (cultivo_id, usuario_id),
         fetchone=True,
     )
 
 
-def insert_cultivo(usuario_id: int, nombre: str, variedad: str, ubicacion: str, estado: str, descripcion: str) -> int:
+def insert_cultivo(usuario_id: int, torre_id: int, nombre: str, variedad: str, ubicacion: str, estado: str, descripcion: str) -> int:
     create_mysql_tables()
     return _execute(
         """
-        INSERT INTO cultivos (usuario_id, nombre, variedad, ubicacion, estado, descripcion)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO cultivos (usuario_id, torre_id, nombre, variedad, ubicacion, estado, descripcion)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         """,
-        (usuario_id, nombre, variedad, ubicacion, estado, descripcion),
+        (usuario_id, torre_id, nombre, variedad, ubicacion, estado, descripcion),
     )
 
 
 def update_cultivo(
     cultivo_id: int,
     usuario_id: int,
+    torre_id: int,
     nombre: str,
     variedad: str,
     ubicacion: str,
@@ -977,10 +1384,10 @@ def update_cultivo(
     _execute(
         """
         UPDATE cultivos
-        SET nombre = %s, variedad = %s, ubicacion = %s, estado = %s, descripcion = %s
+        SET torre_id = %s, nombre = %s, variedad = %s, ubicacion = %s, estado = %s, descripcion = %s
         WHERE id_cultivo = %s AND usuario_id = %s
         """,
-        (nombre, variedad, ubicacion, estado, descripcion, cultivo_id, usuario_id),
+        (torre_id, nombre, variedad, ubicacion, estado, descripcion, cultivo_id, usuario_id),
     )
 
 
@@ -1007,6 +1414,21 @@ def count_cycles_by_cultivo(cultivo_id: int, usuario_id: int) -> int:
         WHERE ciclos_cultivo.cultivo_id = %s AND torres.usuario_id = %s
         """,
         (cultivo_id, usuario_id),
+        fetchone=True,
+    )
+    return int(result["total"]) if result else 0
+
+
+def count_cycles_by_torre(torre_id: int, usuario_id: int) -> int:
+    create_mysql_tables()
+    result = _execute(
+        """
+        SELECT COUNT(*) AS total
+        FROM ciclos_cultivo
+        INNER JOIN torres ON torres.id_torre = ciclos_cultivo.torre_id
+        WHERE ciclos_cultivo.torre_id = %s AND torres.usuario_id = %s
+        """,
+        (torre_id, usuario_id),
         fetchone=True,
     )
     return int(result["total"]) if result else 0
@@ -1123,6 +1545,20 @@ def fetch_control_configuration(torre_id: int) -> dict | None:
         "SELECT * FROM configuracion_control WHERE torre_id = %s LIMIT 1",
         (torre_id,),
         fetchone=True,
+    )
+
+
+def fetch_effective_control_configuration(torre_id: int) -> dict | None:
+    config = fetch_control_configuration(torre_id)
+    if not config:
+        return None
+    ciclo = fetch_active_cycle_by_torre(torre_id)
+    if not ciclo:
+        return config
+    return merge_control_with_phase_profile(
+        config,
+        str(ciclo.get("fase", "")),
+        str(ciclo.get("cultivo_nombre", "")),
     )
 
 
@@ -1350,6 +1786,227 @@ def close_active_cycle(torre_id: int) -> None:
     )
 
 
+def register_harvest(
+    torre_id: int,
+    usuario_id: int,
+    *,
+    peso_kg: float | None,
+    plantas_cosechadas: int | None,
+    notas: str = "",
+) -> int:
+    create_mysql_tables()
+    ciclo = fetch_active_cycle_by_torre(torre_id)
+    if not ciclo:
+        raise ValueError("No hay un ciclo activo para registrar la cosecha.")
+
+    torre = fetch_torre(torre_id)
+    if not torre or int(torre["usuario_id"]) != usuario_id:
+        raise ValueError("No tienes permiso para registrar cosecha en esta torre.")
+
+    cosecha_id = _execute(
+        """
+        INSERT INTO eventos_cosecha (
+            ciclo_id, torre_id, cultivo_id, usuario_id, peso_kg, plantas_cosechadas, notas
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            ciclo["id_ciclo"],
+            torre_id,
+            ciclo["cultivo_id"],
+            usuario_id,
+            peso_kg,
+            plantas_cosechadas,
+            notas,
+        ),
+    )
+    close_active_cycle(torre_id)
+    set_actuador_estado(
+        torre_id,
+        "bomba_principal",
+        "apagada",
+        modo="manual",
+        ultimo_comando="cosecha_registrada",
+    )
+    return cosecha_id
+
+
+def fetch_harvests_by_torre(torre_id: int, limit: int = 10) -> list[dict]:
+    create_mysql_tables()
+    return _execute(
+        """
+        SELECT
+            eventos_cosecha.*,
+            cultivos.nombre AS cultivo_nombre,
+            cultivos.variedad AS cultivo_variedad,
+            ciclos_cultivo.fase AS fase_ciclo
+        FROM eventos_cosecha
+        INNER JOIN cultivos ON cultivos.id_cultivo = eventos_cosecha.cultivo_id
+        INNER JOIN ciclos_cultivo ON ciclos_cultivo.id_ciclo = eventos_cosecha.ciclo_id
+        WHERE eventos_cosecha.torre_id = %s
+        ORDER BY eventos_cosecha.cosechado_en DESC, eventos_cosecha.id_cosecha DESC
+        LIMIT %s
+        """,
+        (torre_id, limit),
+        fetchall=True,
+    )
+
+
+def fetch_harvests_by_user(usuario_id: int, limit: int = 20) -> list[dict]:
+    create_mysql_tables()
+    return _execute(
+        """
+        SELECT
+            eventos_cosecha.*,
+            cultivos.nombre AS cultivo_nombre,
+            cultivos.variedad AS cultivo_variedad,
+            torres.nombre AS torre_nombre,
+            torres.codigo_unico AS torre_codigo,
+            ciclos_cultivo.fase AS fase_ciclo
+        FROM eventos_cosecha
+        INNER JOIN cultivos ON cultivos.id_cultivo = eventos_cosecha.cultivo_id
+        INNER JOIN torres ON torres.id_torre = eventos_cosecha.torre_id
+        INNER JOIN ciclos_cultivo ON ciclos_cultivo.id_ciclo = eventos_cosecha.ciclo_id
+        WHERE eventos_cosecha.usuario_id = %s
+        ORDER BY eventos_cosecha.cosechado_en DESC, eventos_cosecha.id_cosecha DESC
+        LIMIT %s
+        """,
+        (usuario_id, limit),
+        fetchall=True,
+    )
+
+
+def update_torre_control_configuration(
+    torre_id: int,
+    *,
+    module_size_mm: int,
+    deposito_litros: float,
+    bomba_modelo: str,
+    head_height_m: float,
+    ph_min: float,
+    ph_max: float,
+    ec_min: float,
+    ec_max: float,
+    temperatura_agua_min: float,
+    temperatura_agua_max: float,
+    nivel_minimo: float,
+    nivel_objetivo: float,
+    irrigation_on_minutes: int,
+    irrigation_off_minutes: int,
+) -> None:
+    create_mysql_tables()
+    _create_control_defaults_for_torre(torre_id)
+    if ph_min >= ph_max:
+        raise ValueError("El pH minimo debe ser menor que el pH maximo.")
+    if ec_min >= ec_max:
+        raise ValueError("La EC minima debe ser menor que la EC maxima.")
+    if temperatura_agua_min >= temperatura_agua_max:
+        raise ValueError("La temperatura minima del agua debe ser menor que la maxima.")
+    if nivel_minimo >= nivel_objetivo:
+        raise ValueError("El nivel minimo debe ser menor que el nivel objetivo.")
+
+    _execute(
+        """
+        UPDATE configuracion_control
+        SET module_size_mm = %s,
+            deposito_litros = %s,
+            bomba_modelo = %s,
+            head_height_m = %s,
+            ph_min = %s,
+            ph_max = %s,
+            ec_min = %s,
+            ec_max = %s,
+            temperatura_agua_min = %s,
+            temperatura_agua_max = %s,
+            nivel_minimo = %s,
+            nivel_objetivo = %s,
+            irrigation_on_minutes = %s,
+            irrigation_off_minutes = %s,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE torre_id = %s
+        """,
+        (
+            module_size_mm,
+            deposito_litros,
+            bomba_modelo,
+            head_height_m,
+            ph_min,
+            ph_max,
+            ec_min,
+            ec_max,
+            temperatura_agua_min,
+            temperatura_agua_max,
+            nivel_minimo,
+            nivel_objetivo,
+            irrigation_on_minutes,
+            irrigation_off_minutes,
+            torre_id,
+        ),
+    )
+
+
+def update_torre_irrigation_schedule(
+    torre_id: int,
+    *,
+    habilitado: bool,
+    minutos_encendido: int,
+    minutos_apagado: int,
+    estrategia: str,
+) -> None:
+    create_mysql_tables()
+    _create_control_defaults_for_torre(torre_id)
+    if minutos_encendido <= 0 or minutos_apagado <= 0:
+        raise ValueError("Los minutos de riego deben ser mayores que cero.")
+
+    _execute(
+        """
+        UPDATE programaciones_riego
+        SET habilitado = %s,
+            minutos_encendido = %s,
+            minutos_apagado = %s,
+            estrategia = %s,
+            actualizado_en = CURRENT_TIMESTAMP
+        WHERE torre_id = %s
+        """,
+        (habilitado, minutos_encendido, minutos_apagado, estrategia, torre_id),
+    )
+
+
+def update_active_cycle_phase(torre_id: int, fase: str, notas: str | None = None) -> None:
+    create_mysql_tables()
+    ciclo = fetch_active_cycle_by_torre(torre_id)
+    if not ciclo:
+        raise ValueError("No hay un ciclo activo en esta torre.")
+
+    if notas is None:
+        _execute(
+            """
+            UPDATE ciclos_cultivo
+            SET fase = %s
+            WHERE id_ciclo = %s
+            """,
+            (fase, ciclo["id_ciclo"]),
+        )
+    else:
+        _execute(
+            """
+            UPDATE ciclos_cultivo
+            SET fase = %s, notas = %s
+            WHERE id_ciclo = %s
+            """,
+            (fase, notas, ciclo["id_ciclo"]),
+        )
+
+    _execute(
+        """
+        UPDATE cultivos
+        SET estado = %s
+        WHERE id_cultivo = %s
+        """,
+        (fase, ciclo["cultivo_id"]),
+    )
+
+
 def insert_sensor_reading(
     torre_codigo: str,
     dispositivo: str,
@@ -1495,3 +2152,131 @@ def fetch_latest_sensor_reading_by_torre(torre_id: int) -> dict | None:
         (torre_id,),
         fetchone=True,
     )
+
+
+def _rele_command_from_estado(estado: str) -> str:
+    normalized = (estado or "").strip().lower()
+    if normalized in {"encendida", "on", "activa", "encendido", "true", "1"}:
+        return "encendido"
+    return "apagado"
+
+
+def _estado_from_rele_on(enabled: bool) -> str:
+    return "encendida" if enabled else "apagada"
+
+
+def set_actuador_estado(
+    torre_id: int,
+    tipo: str,
+    estado: str,
+    *,
+    modo: str = "manual",
+    ultimo_comando: str = "panel_web",
+) -> None:
+    create_mysql_tables()
+    _create_control_defaults_for_torre(torre_id)
+    _execute(
+        """
+        UPDATE actuadores_torre
+        SET estado = %s,
+            modo = %s,
+            ultimo_comando = %s,
+            actualizado_en = CURRENT_TIMESTAMP
+        WHERE torre_id = %s AND tipo = %s
+        """,
+        (estado, modo, ultimo_comando, torre_id, tipo),
+    )
+
+
+def sync_iot_device(
+    torre_codigo: str,
+    dispositivo: str,
+    *,
+    rele_principal_on: bool | None = None,
+    temperatura_aire: float | None = None,
+    humedad_aire: float | None = None,
+    temperatura_agua: float | None = None,
+    ph: float | None = None,
+    ec: float | None = None,
+    nivel_agua: float | None = None,
+    luminosidad: float | None = None,
+) -> dict:
+    create_mysql_tables()
+    torre = fetch_torre_by_codigo(torre_codigo)
+    if not torre:
+        raise ValueError("La torre indicada no existe.")
+
+    torre_id = int(torre["id_torre"])
+    _create_control_defaults_for_torre(torre_id)
+
+    if rele_principal_on is not None:
+        actuador = _execute(
+            """
+            SELECT modo FROM actuadores_torre
+            WHERE torre_id = %s AND tipo = 'bomba_principal'
+            LIMIT 1
+            """,
+            (torre_id,),
+            fetchone=True,
+        )
+        modo = actuador["modo"] if actuador else "automatico"
+        if modo != "manual":
+            set_actuador_estado(
+                torre_id,
+                "bomba_principal",
+                _estado_from_rele_on(rele_principal_on),
+                modo=modo,
+                ultimo_comando=f"reporte_{dispositivo}",
+            )
+
+    lectura_id = None
+    sensor_values = {
+        "temperatura_aire": temperatura_aire,
+        "humedad_aire": humedad_aire,
+        "temperatura_agua": temperatura_agua,
+        "ph": ph,
+        "ec": ec,
+        "nivel_agua": nivel_agua,
+        "luminosidad": luminosidad,
+    }
+    if any(value is not None for value in sensor_values.values()):
+        try:
+            lectura_id = insert_sensor_reading(
+                torre_codigo=torre_codigo,
+                dispositivo=dispositivo,
+                **sensor_values,
+            )
+        except ValueError as exc:
+            lectura_id = None
+            sensor_warning = str(exc)
+        else:
+            sensor_warning = None
+    else:
+        sensor_warning = None
+
+    bomba = _execute(
+        """
+        SELECT estado, modo, ultimo_comando
+        FROM actuadores_torre
+        WHERE torre_id = %s AND tipo = 'bomba_principal'
+        LIMIT 1
+        """,
+        (torre_id,),
+        fetchone=True,
+    )
+    bomba_estado = bomba["estado"] if bomba else "apagada"
+    bomba_modo = bomba["modo"] if bomba else "automatico"
+
+    return {
+        "torre_id": torre_id,
+        "lectura_id": lectura_id,
+        "sensor_warning": sensor_warning,
+        "comandos": {
+            "rele_principal": _rele_command_from_estado(bomba_estado),
+        },
+        "actuador": {
+            "estado": bomba_estado,
+            "modo": bomba_modo,
+            "ultimo_comando": bomba["ultimo_comando"] if bomba else "sin accion",
+        },
+    }

@@ -34,7 +34,7 @@ except ModuleNotFoundError:
         fetch_torre,
     )
 
-from .shared import current_torre, is_admin_mode, tower_required
+from .shared import current_torre, tower_required
 
 ai_bp = Blueprint("ai", __name__)
 
@@ -336,9 +336,6 @@ def agricultor_ia_chat():
 
     if not question:
         return jsonify({"success": False, "error": "Escribe una pregunta para el asistente."}), 400
-
-    if authorize_control and not is_admin_mode():
-        return jsonify({"success": False, "error": "Solo el modo administrador puede autorizar acciones en la torre."}), 403
 
     try:
         snapshot = _build_snapshot(authorized_tower["id_torre"])

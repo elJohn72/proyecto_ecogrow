@@ -1,7 +1,7 @@
 import os
 import secrets
 
-from flask import Flask, flash, redirect, url_for
+from flask import Flask, flash, redirect, request, url_for
 from flask_login import LoginManager
 from mysql.connector import Error
 
@@ -26,7 +26,14 @@ app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSION_COOKIE_SECURE", "f
     "yes",
     "on",
 }
-app.config["SENSOR_API_TOKEN"] = os.environ.get("ECOGROW_SENSOR_API_TOKEN", "ecogrow-sensor-dev")
+sensor_api_token = os.environ.get("ECOGROW_SENSOR_API_TOKEN", "").strip()
+app.config["SENSOR_API_TOKEN"] = sensor_api_token or secrets.token_urlsafe(32)
+app.config["SENSOR_API_TOKEN_CONFIGURED"] = bool(sensor_api_token)
+app.config["ADMIN_EMAILS"] = {
+    email.strip().lower()
+    for email in os.environ.get("ECOGROW_ADMIN_EMAILS", "").split(",")
+    if email.strip()
+}
 
 login_manager = LoginManager()
 login_manager.login_view = "auth.login"
@@ -51,6 +58,34 @@ def unauthorized():
 
 register_app_security(app)
 register_context_processors(app)
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "ecogrow"}, 200
+
+
+@app.after_request
+def apply_response_headers(response):
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault(
+        "Content-Security-Policy-Report-Only",
+        (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
+            "font-src 'self' https://fonts.gstatic.com data:; "
+            "img-src 'self' data:; "
+            "connect-src 'self'"
+        ),
+    )
+    if request.path.startswith("/static/"):
+        response.cache_control.max_age = 86400
+        response.cache_control.public = True
+    return response
+
 
 app.register_blueprint(main_bp)
 app.register_blueprint(auth_bp)

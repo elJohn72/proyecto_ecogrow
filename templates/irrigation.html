@@ -10,9 +10,14 @@
                 <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Riego y proteccion de bomba{% if torre %} para {{ torre.nombre }}{% endif %}.</h1>
                 <p class="page-subtitle mt-3">Panel operativo alineado con la estrategia 15 minutos ON / 1 hora OFF para oxigenacion radicular y proteccion en seco.</p>
             </div>
-            {% if programacion %}
-                <span class="ops-badge ops-badge--teal">{{ programacion.minutos_encendido }} min ON / {{ programacion.minutos_apagado }} min OFF</span>
-            {% endif %}
+            <div class="hero-actions">
+                {% if programacion %}
+                    <span class="ops-badge ops-badge--teal">{{ programacion.minutos_encendido }} min ON / {{ programacion.minutos_apagado }} min OFF</span>
+                {% endif %}
+                {% if torre and can_manage %}
+                    <a class="site-button site-button--ghost" href="{{ url_for('torres.configuracion_torre') }}">Editar setpoints</a>
+                {% endif %}
+            </div>
         </div>
 
         {% if configuracion and programacion %}

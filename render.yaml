@@ -29,3 +29,5 @@ services:
         value: "true"
       - key: ECOGROW_SENSOR_API_TOKEN
         sync: false
+      - key: ECOGROW_ADMIN_EMAILS
+        sync: false

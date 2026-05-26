@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}Contactos - EcoGrow{% endblock %}
+{% block title %}Contacto EcoGrow | Equipo y canales de comunicación{% endblock %}
+{% block meta_description %}Contacta al equipo EcoGrow (AJENZA y AJTecnology): correo, teléfono y soporte del proyecto de hidroponía inteligente y plataforma web.{% endblock %}
 
 {% block content_wrapper %}
     <section class="content-shell fade-in-up">
@@ -13,17 +14,30 @@
         </div>
         <div class="section-grid mt-6">
             <article class="soft-card">
-                <h3>Correo</h3>
+                <h2 class="text-xl font-bold">Correo</h2>
                 <p class="mt-3">ecogrow@universidad.edu</p>
             </article>
             <article class="soft-card">
-                <h3>Teléfono</h3>
+                <h2 class="text-xl font-bold">Teléfono</h2>
                 <p class="mt-3">+593 99 000 0000</p>
             </article>
             <article class="soft-card">
-                <h3>Equipo</h3>
+                <h2 class="text-xl font-bold">Equipo</h2>
                 <p class="mt-3">Desarrollo de software, análisis de datos y automatización integral del sistema hidropónico por AJENZA y AJTecnology.</p>
             </article>
+        </div>
+        <div class="dashboard-panel mt-6">
+            <h2 class="text-2xl font-bold">Soporte y consultas</h2>
+            <p class="mt-3">
+                Utiliza el correo institucional para reportar incidencias con el panel web, la base de datos MySQL o la
+                recepción de lecturas desde el dispositivo ESP32. Indica siempre el código único de tu torre y la hora
+                aproximada del problema para agilizar el diagnóstico.
+            </p>
+            <p class="mt-3">
+                Para solicitudes académicas (demostraciones, documentación o acceso de evaluadores) escribe al mismo canal
+                con al menos cuarenta y ocho horas de anticipación. Consulta también la
+                <a href="{{ url_for('main.privacidad') }}">política de privacidad</a> sobre el tratamiento de datos de cuenta y telemetría.
+            </p>
         </div>
     </section>
 {% endblock %}

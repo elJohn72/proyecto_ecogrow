@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}Ingresar - EcoGrow{% endblock %}
+{% block title %}Iniciar sesión | Panel EcoGrow hidropónico{% endblock %}
+{% block meta_description %}Accede a tu cuenta EcoGrow para gestionar torres hidropónicas, cultivos activos, lecturas de sensores y recomendaciones del agricultor IA.{% endblock %}
 
 {% block content_wrapper %}
     <section class="content-shell fade-in-up simple-auth-shell">
@@ -12,7 +13,7 @@
             </div>
 
             <div class="dashboard-panel simple-form-card">
-                <h3>Iniciar sesion</h3>
+                <h2 class="text-xl font-bold">Iniciar sesion</h2>
                 <form method="post" class="simple-form-stack mt-6">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <label>

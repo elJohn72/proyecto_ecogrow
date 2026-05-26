@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Registrar cosecha - EcoGrow{% endblock %}
+
+{% block content_wrapper %}
+    <section class="content-shell fade-in-up">
+        <div class="panel-header">
+            <div>
+                <span class="eyebrow">Cierre de ciclo</span>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Registrar cosecha</h1>
+                <p class="page-subtitle mt-3">
+                    Cierra el ciclo activo de {{ torre.nombre }} y deja la bomba en reposo tras la cosecha.
+                </p>
+            </div>
+        </div>
+
+        {% if ciclo_activo %}
+            <div class="dashboard-panel mt-6">
+                <h2 class="text-xl font-bold">Ciclo en curso</h2>
+                <p class="mt-3">
+                    {{ ciclo_activo.cultivo_nombre }} · fase {{ ciclo_activo.fase }}
+                </p>
+            </div>
+        {% endif %}
+
+        <div class="dashboard-panel mt-6 simple-form-card">
+            <form method="post" class="simple-form-stack">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <label>
+                    <span>Peso total cosechado (kg)</span>
+                    <input type="text" name="peso_kg" inputmode="decimal" required
+                           value="{{ form_data.peso_kg if form_data.peso_kg is not none else '' }}"
+                           placeholder="Ej. 2.4"/>
+                </label>
+                <label>
+                    <span>Plantas cosechadas (opcional)</span>
+                    <input type="number" name="plantas_cosechadas" min="1"
+                           value="{{ form_data.plantas_cosechadas if form_data.plantas_cosechadas is not none else '' }}"
+                           placeholder="Ej. 24"/>
+                </label>
+                <label>
+                    <span>Notas</span>
+                    <textarea name="notas" rows="3" placeholder="Calidad, descarte, observaciones">{{ form_data.notas }}</textarea>
+                </label>
+
+                {% if errores %}
+                    <div class="flash-card flash-card--error">
+                        {% for error in errores %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="hero-actions">
+                    <button type="submit" class="site-button site-button--primary simple-form-button">Registrar cosecha y cerrar ciclo</button>
+                    <a href="{{ url_for('torres.dashboard') }}" class="site-button site-button--ghost simple-form-button">Volver al panel</a>
+                </div>
+            </form>
+        </div>
+
+        {% if historial_cosechas %}
+            <div class="table-card mt-6">
+                <div class="panel-header">
+                    <div>
+                        <h3>Ultimas cosechas</h3>
+                        <p class="mt-2">Historial reciente de esta torre.</p>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="ecogrow-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Cultivo</th>
+                                <th>Peso (kg)</th>
+                                <th>Plantas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cosecha in historial_cosechas %}
+                                <tr>
+                                    <td>{{ cosecha.cosechado_en }}</td>
+                                    <td>{{ cosecha.cultivo_nombre or '—' }}</td>
+                                    <td>{{ cosecha.peso_kg }}</td>
+                                    <td>{{ cosecha.plantas_cosechadas or '—' }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

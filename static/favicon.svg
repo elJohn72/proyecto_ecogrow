@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="EcoGrow">
+  <rect width="32" height="32" rx="8" fill="#0f766e"/>
+  <path fill="#ecfdf5" d="M16 6c-4 6-8 8-8 13a8 8 0 0 0 16 0c0-5-4-7-8-13z"/>
+  <circle cx="16" cy="22" r="2" fill="#5eead4"/>
+</svg>

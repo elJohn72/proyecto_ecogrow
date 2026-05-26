@@ -7,8 +7,8 @@
         <div class="panel-header">
             <div>
                 <span class="eyebrow">Tus torres</span>
-                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Elige con que torre quieres trabajar.</h1>
-                <p class="page-subtitle mt-3">Primero selecciona una torre. Luego podras ver sensores, cultivo y riego de esa misma torre.</p>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Torres activas de tu sistema.</h1>
+                <p class="page-subtitle mt-3">Aqui ves las torres activas de tu cuenta. El monitoreo muestra automaticamente todas las que esten activas.</p>
             </div>
             <div class="panel-actions">
                 {% if can_manage %}
@@ -16,7 +16,7 @@
                     <a class="site-button site-button--ghost" href="{{ url_for('torres.torres_inactivas') }}">Ver inactivas</a>
                 {% endif %}
                 {% if current_torre and can_manage %}
-                    <a class="site-button site-button--ghost" href="{{ url_for('torres.elegir_cultivo_actual') }}">Cambiar cultivo</a>
+                    <a class="site-button site-button--ghost" href="{{ url_for('cultivos.crear_cultivo') }}">Nuevo cultivo</a>
                 {% endif %}
             </div>
         </div>
@@ -25,7 +25,7 @@
                 <div class="panel-header">
                     <div>
                         <h3>Listado de torres</h3>
-                        <p class="mt-2">La torre activa es la que se usa en todo el panel.</p>
+                        <p class="mt-2">Cada registro de esta tabla esta disponible para monitoreo porque su estado es activo.</p>
                     </div>
                 </div>
             {% if torres %}
@@ -38,6 +38,7 @@
                                 <th>Ubicación</th>
                                 <th>Cultivo activo</th>
                                 <th>Fase</th>
+                                <th>Estado</th>
                                 <th>Acción</th>
                             </tr>
                         </thead>
@@ -49,27 +50,17 @@
                                     <td>{{ torre.ubicacion }}</td>
                                     <td>{{ torre.cultivo_activo_nombre or "Sin cultivo activo" }}</td>
                                     <td>{{ torre.fase_activa or "Sin fase" }}</td>
+                                    <td><span class="site-pill">Activa</span></td>
                                     <td>
-                                        {% if current_torre and current_torre.id_torre == torre.id_torre %}
+                                        {% if can_manage %}
                                             <div class="table-actions">
-                                                <span class="site-pill">Activa</span>
-                                                {% if can_manage %}
-                                                    <form method="post" action="{{ url_for('torres.inactivar_torre', torre_id=torre.id_torre) }}">
-                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                                        <button class="site-button site-button--sm" type="submit">Inactivar</button>
-                                                    </form>
-                                                {% endif %}
+                                                <form method="post" action="{{ url_for('torres.inactivar_torre', torre_id=torre.id_torre) }}">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                    <button class="site-button site-button--sm" type="submit">Inactivar</button>
+                                                </form>
                                             </div>
                                         {% else %}
-                                            <div class="table-actions">
-                                                <a class="site-button site-button--ghost site-button--sm" href="{{ url_for('torres.seleccionar_torre', torre_id=torre.id_torre) }}">Usar esta torre</a>
-                                                {% if can_manage %}
-                                                    <form method="post" action="{{ url_for('torres.inactivar_torre', torre_id=torre.id_torre) }}">
-                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                                        <button class="site-button site-button--sm" type="submit">Inactivar</button>
-                                                    </form>
-                                                {% endif %}
-                                            </div>
+                                            <span class="text-sm text-slate-500">Solo lectura</span>
                                         {% endif %}
                                     </td>
                                 </tr>

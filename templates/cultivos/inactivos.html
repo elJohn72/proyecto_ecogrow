@@ -21,7 +21,8 @@
                     <table class="ecogrow-table">
                         <thead>
                             <tr>
-                                <th>Nombre</th>
+                                <th>Tipo de cultivo</th>
+                                <th>Torre</th>
                                 <th>Variedad</th>
                                 <th>Estado</th>
                                 <th>Ubicacion</th>
@@ -32,6 +33,7 @@
                             {% for cultivo in cultivos %}
                                 <tr>
                                     <td>{{ cultivo.nombre }}</td>
+                                    <td>{{ cultivo.torre_nombre or "Sin torre" }}</td>
                                     <td>{{ cultivo.variedad }}</td>
                                     <td>{{ cultivo.estado }}</td>
                                     <td>{{ cultivo.ubicacion }}</td>

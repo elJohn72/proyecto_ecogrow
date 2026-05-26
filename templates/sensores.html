@@ -7,141 +7,178 @@
         <div class="panel-header">
             <div>
                 <span class="eyebrow">Monitoreo</span>
-                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Estado actual de {{ torre.nombre }}.</h1>
-                <p class="page-subtitle mt-3">Aqui solo ves lo esencial: valores, alertas y la accion sugerida por el sistema.</p>
+                <h1 class="text-4xl font-extrabold tracking-tight text-ink mt-4">Estado actual de tus torres.</h1>
+                <p class="page-subtitle mt-3">Aqui ves lo esencial de cada torre: valores, alertas y la accion sugerida por el sistema.</p>
             </div>
-            <div class="simple-inline-card">
-                <strong>{{ torre.codigo_unico }}</strong>
-                <span>{{ ciclo_activo.cultivo_nombre if ciclo_activo else "Sin cultivo activo" }}</span>
+            <div class="simple-monitor-toolbar">
+                <div class="simple-filter-row">
+                    <a class="site-chip {% if selected_filter == 'all' %}is-active{% endif %}" href="{{ url_for('sensores.sensores') }}">Todas</a>
+                    <a class="site-chip {% if selected_filter == 'alerts' %}is-active{% endif %}" href="{{ url_for('sensores.sensores', filter='alerts') }}">Con alertas</a>
+                </div>
+                {% if torre_activa %}
+                    <div class="simple-inline-card">
+                        <strong>Torre seleccionada</strong>
+                        <span>{{ torre_activa.nombre }} · {{ torre_activa.codigo_unico }}</span>
+                    </div>
+                {% endif %}
             </div>
         </div>
 
-        {% if configuracion and operations %}
-            <div class="metric-grid mt-6">
-                <div class="metric-card simple-status-card">
-                    <p class="metric-label">pH</p>
-                    <p class="metric-value text-[1.75rem]">{{ "%.2f"|format(ultima_lectura.ph) if ultima_lectura and ultima_lectura.ph is not none else "--" }}</p>
-                    <p class="metric-note">{{ operations.sensor_states.ph.label }} · {{ operations.sensor_states.ph.detail }}</p>
-                </div>
-                <div class="metric-card simple-status-card">
-                    <p class="metric-label">EC</p>
-                    <p class="metric-value text-[1.75rem]">{{ "%.2f"|format(ultima_lectura.ec) if ultima_lectura and ultima_lectura.ec is not none else "--" }}</p>
-                    <p class="metric-note">{{ operations.sensor_states.ec.label }} · {{ operations.sensor_states.ec.detail }}</p>
-                </div>
-                <div class="metric-card simple-status-card">
-                    <p class="metric-label">Temp. agua</p>
-                    <p class="metric-value text-[1.75rem]">{{ "%.2f"|format(ultima_lectura.temperatura_agua) if ultima_lectura and ultima_lectura.temperatura_agua is not none else "--" }}</p>
-                    <p class="metric-note">{{ operations.sensor_states.temperatura_agua.label }} · {{ operations.sensor_states.temperatura_agua.detail }}</p>
-                </div>
-                <div class="metric-card simple-status-card">
-                    <p class="metric-label">Nivel</p>
-                    <p class="metric-value text-[1.75rem]">{{ "%.2f"|format(ultima_lectura.nivel_agua) if ultima_lectura and ultima_lectura.nivel_agua is not none else "--" }}</p>
-                    <p class="metric-note">{{ operations.sensor_states.nivel_agua.label }} · {{ operations.sensor_states.nivel_agua.detail }}</p>
-                </div>
-            </div>
+        {% if monitor_items %}
+            <div class="simple-monitor-stack mt-6">
+                {% for item in monitor_items %}
+                    <div class="table-card simple-monitor-card {% if item.is_selected %}simple-monitor-card--selected{% endif %}">
+                        <div class="panel-header">
+                            <div>
+                                <h3>{{ item.torre.nombre }}</h3>
+                                <p class="mt-2">{{ item.torre.codigo_unico }} · {{ item.torre.ubicacion }}</p>
+                            </div>
+                            <div class="simple-inline-card">
+                                <strong>{{ item.ciclo_activo.cultivo_nombre if item.ciclo_activo else "Sin cultivo activo" }}</strong>
+                                <span>{{ item.ciclo_activo.fase if item.ciclo_activo else "Sin fase" }}</span>
+                            </div>
+                        </div>
 
-            <div class="section-grid mt-6 simple-monitor-grid">
-                <article class="dashboard-panel simple-panel-block">
-                    <h3>Resumen rapido</h3>
-                    <div class="simple-summary-list mt-4">
-                        <div><strong>Torre:</strong> {{ torre.nombre }} · {{ torre.ubicacion }}</div>
-                        <div><strong>Cultivo:</strong> {{ ciclo_activo.cultivo_nombre if ciclo_activo else "Sin cultivo" }}</div>
-                        <div><strong>Dispositivo:</strong> {{ ultima_lectura.dispositivo if ultima_lectura else "Sin datos" }}</div>
-                        <div><strong>Ultima lectura:</strong> {{ ultima_lectura.fecha_registro if ultima_lectura else "Sin datos" }}</div>
-                        <div><strong>Riego:</strong> {{ operations.riego_resumen }}</div>
-                    </div>
-                </article>
-
-                <article class="dashboard-panel simple-panel-block simple-panel-block--accent">
-                    <h3>Accion sugerida</h3>
-                    <p class="simple-highlight-value">{{ operations.control.accion }}</p>
-                    <p>{{ operations.control.motivo }}</p>
-                </article>
-
-                <article class="dashboard-panel simple-panel-block">
-                    <h3>Alertas</h3>
-                    {% if alertas %}
-                        <div class="simple-alert-stack mt-4">
-                            {% for alerta in alertas %}
-                                <div class="simple-alert-item">
-                                    <strong>{{ alerta.tipo.replace('_', ' ')|title }}</strong>
-                                    <span>{{ alerta.mensaje }}</span>
+                        {% if item.error %}
+                            <p class="mt-4">No fue posible cargar el monitoreo de esta torre: {{ item.error }}</p>
+                        {% elif item.configuracion and item.operations %}
+                            <div class="metric-grid mt-6">
+                                <div class="metric-card simple-status-card">
+                                    <p class="metric-label">pH</p>
+                                    <p class="metric-value text-[1.75rem]">{{ "%.2f"|format(item.ultima_lectura.ph) if item.ultima_lectura and item.ultima_lectura.ph is not none else "--" }}</p>
+                                    <p class="metric-note">{{ item.operations.sensor_states.ph.label }} · {{ item.operations.sensor_states.ph.detail }}</p>
                                 </div>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <p class="mt-4">No hay alertas activas.</p>
-                    {% endif %}
-                </article>
-            </div>
+                                <div class="metric-card simple-status-card">
+                                    <p class="metric-label">EC</p>
+                                    <p class="metric-value text-[1.75rem]">{{ "%.2f"|format(item.ultima_lectura.ec) if item.ultima_lectura and item.ultima_lectura.ec is not none else "--" }}</p>
+                                    <p class="metric-note">{{ item.operations.sensor_states.ec.label }} · {{ item.operations.sensor_states.ec.detail }}</p>
+                                </div>
+                                <div class="metric-card simple-status-card">
+                                    <p class="metric-label">Temp. agua</p>
+                                    <p class="metric-value text-[1.75rem]">{{ "%.2f"|format(item.ultima_lectura.temperatura_agua) if item.ultima_lectura and item.ultima_lectura.temperatura_agua is not none else "--" }}</p>
+                                    <p class="metric-note">{{ item.operations.sensor_states.temperatura_agua.label }} · {{ item.operations.sensor_states.temperatura_agua.detail }}</p>
+                                </div>
+                                <div class="metric-card simple-status-card">
+                                    <p class="metric-label">Nivel</p>
+                                    <p class="metric-value text-[1.75rem]">{{ "%.2f"|format(item.ultima_lectura.nivel_agua) if item.ultima_lectura and item.ultima_lectura.nivel_agua is not none else "--" }}</p>
+                                    <p class="metric-note">{{ item.operations.sensor_states.nivel_agua.label }} · {{ item.operations.sensor_states.nivel_agua.detail }}</p>
+                                </div>
+                            </div>
 
-            {% if ui_mode == 'admin' %}
-                <div class="table-card mt-6">
-                    <div class="panel-header">
-                        <div>
-                            <h3>Vista administrativa</h3>
-                            <p class="mt-2">Detalles tecnicos visibles solo para administracion.</p>
-                        </div>
-                    </div>
-                    <div class="ops-info-grid">
-                        <div class="soft-card ops-mini-card">
-                            <strong>Modo de control</strong>
-                            <p>{{ operations.control.algoritmo }}</p>
-                        </div>
-                        <div class="soft-card ops-mini-card">
-                            <strong>Variable</strong>
-                            <p>{{ operations.control.variable }}</p>
-                        </div>
-                        <div class="soft-card ops-mini-card">
-                            <strong>Error</strong>
-                            <p>{{ operations.control.error }}</p>
-                        </div>
-                        <div class="soft-card ops-mini-card">
-                            <strong>Riego</strong>
-                            <p>{{ operations.riego_resumen }}</p>
-                        </div>
-                    </div>
-                </div>
-            {% endif %}
+                            <div class="section-grid mt-6 simple-monitor-grid">
+                                <article class="dashboard-panel simple-panel-block">
+                                    <h3>Resumen rapido</h3>
+                                    <div class="simple-summary-list mt-4">
+                                        <div><strong>Torre:</strong> {{ item.torre.nombre }} · {{ item.torre.ubicacion }}</div>
+                                        <div><strong>Cultivo:</strong> {{ item.ciclo_activo.cultivo_nombre if item.ciclo_activo else "Sin cultivo" }}</div>
+                                        <div><strong>Dispositivo:</strong> {{ item.ultima_lectura.dispositivo if item.ultima_lectura else "Sin datos" }}</div>
+                                        <div><strong>Ultima lectura:</strong> {{ item.ultima_lectura.fecha_registro if item.ultima_lectura else "Sin datos" }}</div>
+                                        <div><strong>Riego:</strong> {{ item.operations.riego_resumen }}</div>
+                                        {% if item.configuracion and item.configuracion.perfil_fase %}
+                                            <div><strong>Perfil fase:</strong> {{ item.configuracion.perfil_fase }} (pH {{ item.configuracion.ph_min }}–{{ item.configuracion.ph_max }}, EC {{ item.configuracion.ec_min }}–{{ item.configuracion.ec_max }})</div>
+                                        {% endif %}
+                                        <div><strong>Rele / bomba:</strong> {{ item.operations.bomba_estado }}</div>
+                                    </div>
+                                    {% if can_manage and item.is_selected %}
+                                        <form method="post" action="{{ url_for('sensores.control_rele_torre', torre_id=item.torre.id_torre) }}" class="simple-rele-form mt-4">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <p class="text-sm text-slate-600">Control manual IoT. El ESP32 aplica el cambio en la proxima sincronizacion (cada ~10 s).</p>
+                                            <div class="hero-actions mt-3">
+                                                <button class="site-button site-button--primary site-button--sm" type="submit" name="estado" value="encendida">Encender rele</button>
+                                                <button class="site-button site-button--ghost site-button--sm" type="submit" name="estado" value="apagada">Apagar rele</button>
+                                            </div>
+                                        </form>
+                                    {% endif %}
+                                </article>
 
-            <div class="table-card mt-6">
-                <div class="panel-header">
-                    <div>
-                        <h3>Historial reciente</h3>
-                        <p class="mt-2">Solo las ultimas mediciones para revisar rapido el comportamiento de la torre.</p>
+                                <article class="dashboard-panel simple-panel-block simple-panel-block--accent">
+                                    <h3>Accion sugerida</h3>
+                                    <p class="simple-highlight-value">{{ item.operations.control.accion }}</p>
+                                    <p>{{ item.operations.control.motivo }}</p>
+                                </article>
+
+                                <article class="dashboard-panel simple-panel-block">
+                                    <h3>Alertas</h3>
+                                    {% if item.alertas %}
+                                        <div class="simple-alert-stack mt-4">
+                                            {% for alerta in item.alertas %}
+                                                <div class="simple-alert-item">
+                                                    <strong>{{ alerta.tipo.replace('_', ' ')|title }}</strong>
+                                                    <span>{{ alerta.mensaje }}</span>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <p class="mt-4">No hay alertas activas.</p>
+                                    {% endif %}
+                                </article>
+                            </div>
+
+                            {% if is_admin_mode %}
+                                <div class="ops-info-grid mt-6">
+                                    <div class="soft-card ops-mini-card">
+                                        <strong>Modo de control</strong>
+                                        <p>{{ item.operations.control.algoritmo }}</p>
+                                    </div>
+                                    <div class="soft-card ops-mini-card">
+                                        <strong>Variable</strong>
+                                        <p>{{ item.operations.control.variable }}</p>
+                                    </div>
+                                    <div class="soft-card ops-mini-card">
+                                        <strong>Error</strong>
+                                        <p>{{ item.operations.control.error }}</p>
+                                    </div>
+                                    <div class="soft-card ops-mini-card">
+                                        <strong>Riego</strong>
+                                        <p>{{ item.operations.riego_resumen }}</p>
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            <div class="table-card mt-6">
+                                <div class="panel-header">
+                                    <div>
+                                        <h3>Historial reciente</h3>
+                                        <p class="mt-2">Ultimas mediciones de {{ item.torre.nombre }}.</p>
+                                    </div>
+                                </div>
+                                {% if item.historial %}
+                                    <div class="overflow-x-auto">
+                                        <table class="ecogrow-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Fecha</th>
+                                                    <th>pH</th>
+                                                    <th>EC</th>
+                                                    <th>Temp. agua</th>
+                                                    <th>Nivel</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for lectura in item.historial %}
+                                                    <tr>
+                                                        <td>{{ lectura.fecha_registro }}</td>
+                                                        <td>{{ lectura.ph }}</td>
+                                                        <td>{{ lectura.ec }}</td>
+                                                        <td>{{ lectura.temperatura_agua }}</td>
+                                                        <td>{{ lectura.nivel_agua }}</td>
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% else %}
+                                    <p>No hay historial de lecturas todavia.</p>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <p class="mt-4">No fue posible cargar el monitoreo de esta torre.</p>
+                        {% endif %}
                     </div>
-                </div>
-                {% if historial %}
-                    <div class="overflow-x-auto">
-                        <table class="ecogrow-table">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>pH</th>
-                                    <th>EC</th>
-                                    <th>Temp. agua</th>
-                                    <th>Nivel</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for lectura in historial %}
-                                    <tr>
-                                        <td>{{ lectura.fecha_registro }}</td>
-                                        <td>{{ lectura.ph }}</td>
-                                        <td>{{ lectura.ec }}</td>
-                                        <td>{{ lectura.temperatura_agua }}</td>
-                                        <td>{{ lectura.nivel_agua }}</td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                {% else %}
-                    <p>No hay historial de lecturas todavia.</p>
-                {% endif %}
+                {% endfor %}
             </div>
         {% else %}
-            <p>No fue posible cargar el monitoreo de esta torre.</p>
+            <p>{% if selected_filter == 'alerts' %}No hay torres con alertas activas en este momento.{% else %}No tienes torres activas para monitorear todavia.{% endif %}</p>
         {% endif %}
     </section>
 {% endblock %}

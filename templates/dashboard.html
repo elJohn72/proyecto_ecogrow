@@ -22,6 +22,9 @@
                 <p class="metric-label">Cultivo activo</p>
                 <p class="metric-value text-[1.6rem]">{{ ciclo_activo.cultivo_nombre if ciclo_activo else "Sin cultivo" }}</p>
                 <p class="metric-note">{{ ciclo_activo.fase if ciclo_activo else "Configuralo cuando lo necesites" }}</p>
+                {% if config_fase and ciclo_activo %}
+                    <p class="metric-note mt-2">Objetivo fase: pH {{ config_fase.ph_min }}–{{ config_fase.ph_max }} · EC {{ config_fase.ec_min }}–{{ config_fase.ec_max }}</p>
+                {% endif %}
             </div>
             <div class="metric-card">
                 <p class="metric-label">Ultimo reporte</p>
@@ -32,30 +35,43 @@
 
         <div class="section-grid mt-6">
             <article class="soft-card simple-action-card">
-                <h3>1. Elegir cultivo</h3>
-                <p class="mt-3">{% if can_manage %}Selecciona el cultivo y la fase actual de esta torre.{% else %}Consulta el cultivo activo de la torre en modo solo lectura.{% endif %}</p>
+                <h3>1. Registra una torre</h3>
+                <p class="mt-3">Crea una torre nueva o cambia a otra ya registrada para trabajar sobre la correcta.</p>
+                <div class="hero-actions">
+                    <a class="site-button site-button--primary" href="{{ url_for('torres.torres') }}">Ir a torres</a>
+                </div>
+            </article>
+            <article class="soft-card simple-action-card">
+                <h3>2. Fase y cultivo en torre</h3>
+                <p class="mt-3">{% if can_manage %}Define la etapa fenológica (germinación, plántula, cosecha…). EcoGrow ajusta alertas pH/EC según la fase.{% else %}Consulta el cultivo y la fase activos.{% endif %}</p>
                 <div class="hero-actions">
                     {% if can_manage %}
-                        <a class="site-button site-button--primary" href="{{ url_for('torres.elegir_cultivo_actual') }}">Configurar cultivo</a>
+                        <a class="site-button site-button--primary" href="{{ url_for('torres.gestionar_fase_ciclo') }}">Gestionar fase</a>
+                        <a class="site-button site-button--ghost" href="{{ url_for('cultivos.crear_cultivo') }}">Nuevo cultivo</a>
                     {% else %}
                         <a class="site-button site-button--ghost" href="{{ url_for('cultivos.cultivos') }}">Ver cultivos</a>
                     {% endif %}
                 </div>
             </article>
             <article class="soft-card simple-action-card">
-                <h3>2. Ver monitoreo</h3>
+                <h3>3. Monitorea tu torre</h3>
                 <p class="mt-3">Consulta pH, EC, temperatura y nivel en una vista simple.</p>
                 <div class="hero-actions">
                     <a class="site-button site-button--ghost" href="{{ url_for('sensores.sensores') }}">Abrir monitoreo</a>
+                    {% if can_manage %}
+                        <a class="site-button site-button--ghost" href="{{ url_for('torres.configuracion_torre') }}">Editar setpoints</a>
+                    {% endif %}
                 </div>
             </article>
+            {% if can_manage and ciclo_activo %}
             <article class="soft-card simple-action-card">
-                <h3>3. Administrar torres</h3>
-                <p class="mt-3">Cambia de torre o registra una nueva si hace falta.</p>
+                <h3>Cosecha</h3>
+                <p class="mt-3">Registra peso y plantas cosechadas; el ciclo se cierra y la bomba queda en reposo.</p>
                 <div class="hero-actions">
-                    <a class="site-button site-button--ghost" href="{{ url_for('torres.torres') }}">Ver torres</a>
+                    <a class="site-button site-button--primary" href="{{ url_for('torres.registrar_cosecha') }}">Registrar cosecha</a>
                 </div>
             </article>
+            {% endif %}
             <article class="soft-card simple-action-card">
                 <h3>4. Agricultor IA</h3>
                 <p class="mt-3">Pregunta por el estado de tu planta y autoriza acciones sugeridas sobre la torre.</p>
@@ -64,5 +80,38 @@
                 </div>
             </article>
         </div>
+
+        {% if historial_cosechas %}
+            <div class="table-card mt-6">
+                <div class="panel-header">
+                    <div>
+                        <h3>Ultimas cosechas</h3>
+                        <p class="mt-2">Resumen reciente de rendimiento en esta torre.</p>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="ecogrow-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Cultivo</th>
+                                <th>Peso (kg)</th>
+                                <th>Plantas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cosecha in historial_cosechas %}
+                                <tr>
+                                    <td>{{ cosecha.cosechado_en }}</td>
+                                    <td>{{ cosecha.cultivo_nombre or '—' }}</td>
+                                    <td>{{ cosecha.peso_kg }}</td>
+                                    <td>{{ cosecha.plantas_cosechadas or '—' }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
     </section>
 {% endblock %}

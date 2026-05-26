@@ -39,12 +39,12 @@ def fetch_cultivo(cultivo_id: int, usuario_id: int) -> Cultivo | None:
     return Cultivo.from_mysql_row(row) if row else None
 
 
-def create_cultivo(usuario_id: int, nombre: str, variedad: str, ubicacion: str, estado: str, descripcion: str) -> int:
-    return insert_cultivo(usuario_id=usuario_id, nombre=nombre, variedad=variedad, ubicacion=ubicacion, estado=estado, descripcion=descripcion)
+def create_cultivo(usuario_id: int, torre_id: int, nombre: str, variedad: str, ubicacion: str, estado: str, descripcion: str) -> int:
+    return insert_cultivo(usuario_id=usuario_id, torre_id=torre_id, nombre=nombre, variedad=variedad, ubicacion=ubicacion, estado=estado, descripcion=descripcion)
 
 
-def update_cultivo(cultivo_id: int, usuario_id: int, nombre: str, variedad: str, ubicacion: str, estado: str, descripcion: str) -> None:
-    update_cultivo_db(cultivo_id, usuario_id=usuario_id, nombre=nombre, variedad=variedad, ubicacion=ubicacion, estado=estado, descripcion=descripcion)
+def update_cultivo(cultivo_id: int, usuario_id: int, torre_id: int, nombre: str, variedad: str, ubicacion: str, estado: str, descripcion: str) -> None:
+    update_cultivo_db(cultivo_id, usuario_id=usuario_id, torre_id=torre_id, nombre=nombre, variedad=variedad, ubicacion=ubicacion, estado=estado, descripcion=descripcion)
 
 
 def delete_cultivo(cultivo_id: int, usuario_id: int) -> None:

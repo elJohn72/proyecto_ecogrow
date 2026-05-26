@@ -11,28 +11,45 @@
                 <p class="page-subtitle mt-3">Elige el cultivo y la etapa que usara esta torre ahora.</p>
             </div>
             {% if ciclo_activo and can_manage %}
-                <form method="post" action="{{ url_for('torres.finalizar_ciclo_torre') }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                    <button class="site-button site-button--ghost" type="submit">Finalizar cultivo actual</button>
-                </form>
+                <div class="hero-actions">
+                    <a class="site-button site-button--primary" href="{{ url_for('torres.registrar_cosecha') }}">Registrar cosecha</a>
+                    <form method="post" action="{{ url_for('torres.finalizar_ciclo_torre') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button class="site-button site-button--ghost" type="submit">Finalizar sin cosecha</button>
+                    </form>
+                </div>
             {% endif %}
         </div>
+
+        {% if perfil_agronomico %}
+            <div class="dashboard-panel mt-6">
+                <h2 class="text-xl font-bold">Perfil agronómico de la fase actual</h2>
+                <p class="mt-3">
+                    pH {{ perfil_agronomico.ph_min }}–{{ perfil_agronomico.ph_max }} ·
+                    EC {{ perfil_agronomico.ec_min }}–{{ perfil_agronomico.ec_max }} mS/cm ·
+                    Agua {{ perfil_agronomico.temperatura_agua_min }}–{{ perfil_agronomico.temperatura_agua_max }} °C
+                </p>
+                <p class="mt-2 text-sm text-slate-600">{{ perfil_agronomico.notas }}</p>
+            </div>
+        {% endif %}
 
         <div class="dashboard-panel mt-6 simple-form-card">
             <form method="post" class="simple-form-stack">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <label>
-                    <span>Cultivo</span>
-                    <select name="cultivo_id" required>
+                    <span>Tipo de cultivo</span>
+                    <select name="cultivo_id" id="cultivo_id" required>
                         <option value="">Selecciona un cultivo</option>
                         {% for cultivo in cultivos %}
-                            <option value="{{ cultivo.id_cultivo }}" {% if ciclo.cultivo_id == cultivo.id_cultivo %}selected{% endif %}>{{ cultivo.nombre }} · {{ cultivo.variedad }}</option>
+                            <option value="{{ cultivo.id_cultivo }}" {% if ciclo.cultivo_id == cultivo.id_cultivo %}selected{% endif %}>{{ cultivo.nombre }} - {{ cultivo.variedad }}</option>
                         {% endfor %}
                     </select>
                 </label>
                 <label>
-                    <span>Etapa</span>
-                    <input type="text" name="fase" value="{{ ciclo.fase }}" required placeholder="Germinacion, crecimiento o produccion" />
+                    <span>Etapa del cultivo</span>
+                    <select name="fase" id="fase" required data-current-fase="{{ ciclo.fase }}">
+                        <option value="">Selecciona una etapa del cultivo</option>
+                    </select>
                 </label>
                 <label>
                     <span>Notas</span>
@@ -54,7 +71,7 @@
             </form>
         </div>
 
-        {% if ui_mode == 'admin' and historial_ciclos %}
+        {% if is_admin_mode and historial_ciclos %}
             <div class="table-card mt-6">
                 <div class="panel-header">
                     <div>
@@ -89,4 +106,47 @@
             </div>
         {% endif %}
     </section>
+
+    <script>
+        (() => {
+            const cultivoSelect = document.getElementById("cultivo_id");
+            const faseSelect = document.getElementById("fase");
+            const phaseOptionsByCultivo = {{ phase_options_by_cultivo | tojson }};
+            const currentFase = (faseSelect?.dataset.currentFase || "").trim().toLowerCase();
+
+            if (!cultivoSelect || !faseSelect) {
+                return;
+            }
+
+            const rebuildOptions = () => {
+                const cultivoId = cultivoSelect.value;
+                const options = phaseOptionsByCultivo[cultivoId] || [];
+                const previousValue = (faseSelect.value || currentFase).trim().toLowerCase();
+
+                faseSelect.innerHTML = "";
+
+                const placeholder = document.createElement("option");
+                placeholder.value = "";
+                placeholder.textContent = "Selecciona una etapa del cultivo";
+                faseSelect.appendChild(placeholder);
+
+                options.forEach((fase) => {
+                    const option = document.createElement("option");
+                    option.value = fase;
+                    option.textContent = fase.charAt(0).toUpperCase() + fase.slice(1);
+                    if (fase.toLowerCase() === previousValue) {
+                        option.selected = true;
+                    }
+                    faseSelect.appendChild(option);
+                });
+
+                if (!options.some((fase) => fase.toLowerCase() === previousValue)) {
+                    faseSelect.value = "";
+                }
+            };
+
+            cultivoSelect.addEventListener("change", rebuildOptions);
+            rebuildOptions();
+        })();
+    </script>
 {% endblock %}

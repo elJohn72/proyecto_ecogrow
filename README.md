@@ -77,7 +77,28 @@ proyecto_ecogrow/
 ├── tests/
 │   └── test_app.py
 └── platformio/
+    ├── esp32_rele_base/      # Inicio: solo relé + WiFi
+    └── esp32_hidroponico/    # Completo: sensores + riego
 ```
+
+## Documentación
+
+| Documento | Descripción |
+|-----------|-------------|
+| [**Documentación completa**](docs/DOCUMENTACION-PROYECTO-ECOGROW.md) | Tecnologías, arquitectura, APIs, BD, despliegue |
+| [**Presentación**](documentacion_equipo/presentaciones/ECOGROW-TECNOLOGIAS-Y-ARQUITECTURA.md) | Diapositivas para sustentación |
+| [**Manual hidropónico**](docs/hidroponia/MANUAL-DOMINIO-TORRE-VERTICAL.md) | Dominio torre vertical |
+| [**Guía ESP32**](docs/iot/GUIA-ESP32-RELE.md) | Firmware e IoT |
+
+Perfiles pH/EC por fase: `domain/hidroponia_torre.py`
+
+## IoT (ESP32)
+
+Guía paso a paso para empezar con **ESP32 + relé**: [`docs/iot/GUIA-ESP32-RELE.md`](docs/iot/GUIA-ESP32-RELE.md)
+
+- API de sincronización: `POST /api/iot/sync` (token `X-API-Token`)
+- Control manual desde **Monitoreo** en el panel web
+- Firmware mínimo: `platformio/esp32_rele_base/`
 
 ## Arquitectura
 
@@ -170,7 +191,10 @@ MYSQL_AUTO_CREATE_DATABASE=true
 MYSQL_SSL_DISABLED=true
 
 ECOGROW_SENSOR_API_TOKEN=cambia-este-token-del-dispositivo
+ECOGROW_ADMIN_EMAILS=admin@correo.com
 ```
+
+`ECOGROW_ADMIN_EMAILS` es una lista separada por comas. Solo esos correos pueden activar el modo administrador (`/modo/admin`) y acceder a `/mysql`.
 
 ## Instalacion
 
@@ -208,7 +232,9 @@ python3 app.py
 - `/dashboard`
 - `/torres`
 - `/torres/registrar`
-- `/torres/cultivo`
+- `/torres/cultivo/fase`
+- `/torres/cultivo/cosecha`
+- `/torres/configuracion`
 - `/cultivos`
 - `/cultivos/nuevo`
 - `/cultivos/reporte/pdf`

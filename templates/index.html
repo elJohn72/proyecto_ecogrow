@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}EcoGrow | Plataforma Hidropónica{% endblock %}
+{% block title %}EcoGrow | Plataforma hidropónica inteligente{% endblock %}
+{% block meta_description %}Monitorea torres hidropónicas con sensores IoT, gestiona cultivos y recibe alertas en tiempo real con la plataforma web EcoGrow para agricultura de precisión.{% endblock %}
+{% block extra_head %}
+    <link rel="preload" as="image" href="{{ url_for('static', filename='images/hero.png') }}"/>
+{% endblock %}
 
 {% block content_wrapper %}
     <section class="content-shell fade-in-up">
@@ -18,12 +22,13 @@
                 </p>
                 <div class="hero-actions">
                     <a class="site-button site-button--primary" href="{{ url_for('auth.login') }}">Ingresar al panel</a>
+                    <a class="site-button site-button--ghost" href="{{ url_for('auth.registro') }}">Crear cuenta</a>
                     <a class="site-button site-button--ghost" href="{{ url_for('main.about') }}">Conocer el proyecto</a>
                 </div>
             </div>
 
             <div class="hero-visual">
-                <img src="{{ url_for('static', filename='images/hero.png') }}" alt="EcoGrow Vertical Hydroponic Tower" class="hero-image">
+                <img src="{{ url_for('static', filename='images/hero.png') }}" alt="Torre hidropónica vertical EcoGrow con sensores integrados" class="hero-image" width="640" height="720" fetchpriority="high" decoding="async">
             </div>
         </div>
     </section>
@@ -37,19 +42,19 @@
         </div>
         <div class="section-grid">
             <article class="soft-card">
-                <h3>Monitoreo IoT</h3>
+                <h2 class="text-xl font-bold">Monitoreo IoT</h2>
                 <p class="mt-3">Recepción de lecturas desde ESP32 por código de torre, persistencia en MySQL y visualización en un dashboard de sensores.</p>
             </article>
             <article class="soft-card">
-                <h3>Gestión de torres y cultivos</h3>
+                <h2 class="text-xl font-bold">Gestión de torres y cultivos</h2>
                 <p class="mt-3">El panel interno permite registrar torres, elegir el cultivo de hoy y cambiarlo cuando una cosecha termina.</p>
             </article>
             <article class="soft-card">
-                <h3>Operación interna</h3>
+                <h2 class="text-xl font-bold">Operación interna</h2>
                 <p class="mt-3">La parte técnica y administrativa queda detrás del acceso, en vez de mostrarse en la cara pública.</p>
             </article>
             <article class="soft-card">
-                <h3>Despliegue</h3>
+                <h2 class="text-xl font-bold">Despliegue</h2>
                 <p class="mt-3">Configuración separada para XAMPP local y Render, evitando mezclar sockets locales con entornos productivos.</p>
             </article>
         </div>
@@ -64,21 +69,21 @@
         </div>
         <div class="section-grid">
             <article class="soft-card">
-                <h3>1. Acceso al panel</h3>
+                <h2 class="text-xl font-bold">1. Acceso al panel</h2>
                 <p class="mt-3">Inicia sesión para entrar al panel privado y activar el recorrido de gestión.</p>
                 <div class="hero-actions">
                     <a class="site-button site-button--ghost" href="{{ url_for('auth.login') }}">Entrar</a>
                 </div>
             </article>
             <article class="soft-card">
-                <h3>2. Registrar torre y fase</h3>
+                <h2 class="text-xl font-bold">2. Registrar torre y fase</h2>
                 <p class="mt-3">Asocia el código único de la torre y define qué cultivo estás trabajando hoy en esa estructura.</p>
                 <div class="hero-actions">
                     <a class="site-button site-button--ghost" href="{{ url_for('main.about') }}">Ver enfoque</a>
                 </div>
             </article>
             <article class="soft-card">
-                <h3>3. Monitorear sensores</h3>
+                <h2 class="text-xl font-bold">3. Monitorear sensores</h2>
                 <p class="mt-3">Consulta el historial de telemetría de la torre activa con el cultivo configurado en esta fase.</p>
                 <div class="hero-actions">
                     <a class="site-button site-button--ghost" href="{{ url_for('main.demo') }}">Ver demo</a>
