@@ -545,7 +545,8 @@ bash scripts/audit-local.sh
 | P2 | Recetas nutrientes A/B | Pendiente |
 | P2 | Programa de luz / DLI | Pendiente |
 | P2 | Modelo físico torre (niveles, copas) | Pendiente |
-| P3 | IPM, calibración sondas, germinador | Pendiente |
+| P3 | Modelo 3D germinador (`.3mf`) | Hecho — `hardware/3d/germinador/` |
+| P3 | IPM, calibración sondas, operación germinador | Pendiente |
 
 ---
 
