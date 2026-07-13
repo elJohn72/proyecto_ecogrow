@@ -85,6 +85,8 @@ ESP32 → POST /api/iot/sync → sensores blueprint → sync_iot_device → MySQ
 | Archivo | Contenido |
 |---------|-----------|
 | `domain/hidroponia_torre.py` | Perfiles pH/EC/riego por fase fenológica |
+| `docs/producto/VISION-Y-LINEAS-ECOGROW.md` | Visión: 2 líneas (Plantas + Forraje) |
+| `docs/iot/ROADMAP-AUTOMATIZACION-FASES.md` | Automatización A0→A1→A2→A3 |
 | `docs/hidroponia/MANUAL-DOMINIO-TORRE-VERTICAL.md` | Manual operativo |
 
 ---
