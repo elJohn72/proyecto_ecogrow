@@ -535,19 +535,29 @@ bash scripts/audit-local.sh
 
 ## 16. Roadmap
 
-| Prioridad | Funcionalidad | Estado |
-|-----------|---------------|--------|
-| P0 | Auth, torres, cultivos CRUD, sensores, PDF | Hecho |
-| P0 | IoT relé `/api/iot/sync` | Hecho |
-| P1 | Perfiles pH/EC por fase | Hecho |
-| P1 | Cosecha (`eventos_cosecha`) | Hecho |
-| P1 | Edición setpoints UI | Hecho |
-| P2 | Recetas nutrientes A/B | Pendiente |
-| P2 | Programa de luz / DLI | Pendiente |
-| P2 | Modelo físico torre (niveles, copas) | Pendiente |
-| P3 | Modelo 3D germinador (`.3mf`) | Hecho — `hardware/3d/germinador/` |
-| P3 | IPM, calibración sondas, operación germinador | Pendiente |
+### 16.1 Producto (dos líneas)
+
+Ver [`producto/VISION-Y-LINEAS-ECOGROW.md`](producto/VISION-Y-LINEAS-ECOGROW.md):
+
+| Línea | Alcance |
+|-------|---------|
+| **EcoGrow Plantas** | Torres verticales — lechuga, berro, cilantro, hortalizas de hoja |
+| **EcoGrow Ganadero / Forraje** | Forraje hidropónico para vacas, cerdos, aves y otros animales |
+
+### 16.2 Automatización (orden obligatorio)
+
+Ver [`iot/ROADMAP-AUTOMATIZACION-FASES.md`](iot/ROADMAP-AUTOMATIZACION-FASES.md):
+
+| Fase | Funcionalidad | Estado |
+|------|---------------|--------|
+| **A0** | Auth, torres, cultivos, PDF, IoT relé manual `/api/iot/sync` | Hecho |
+| **A0+** | Perfiles pH/EC por fase, cosecha, setpoints UI (software) | Hecho |
+| **A1.1** | Bomba automática por **tiempo** (ON/OFF desde BD + firmware) | En curso (prioridad) |
+| **A1.2** | **Nivel de agua** — telemetría + no bombear en seco | Pendiente (prioridad) |
+| **A2** | Sensores nutrientes reales (pH, EC, T° agua) | Pendiente (después de A1) |
+| **A3** | Luz/DLI, recetas A/B, IPM, modelo físico torre/forraje 3D | Pendiente |
+| — | Modelo 3D germinador (`.3mf`) | Hecho — `hardware/3d/germinador/` |
 
 ---
 
-*Documento mantenido por el equipo EcoGrow. Para cambios de producto, actualizar este archivo y el manual de dominio en la misma entrega.*
+*Documento mantenido por el equipo EcoGrow. Para cambios de producto, actualizar este archivo, la visión de líneas y el roadmap de automatización en la misma entrega.*

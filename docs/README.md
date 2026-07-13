@@ -6,6 +6,8 @@
 
 | Si necesitas… | Lee esto |
 |---------------|----------|
+| **Visión de producto (2 líneas)** | [producto/VISION-Y-LINEAS-ECOGROW.md](producto/VISION-Y-LINEAS-ECOGROW.md) |
+| **Automatización por fases (A0→A3)** | [iot/ROADMAP-AUTOMATIZACION-FASES.md](iot/ROADMAP-AUTOMATIZACION-FASES.md) |
 | Visión general y arquitectura | [DOCUMENTACION-PROYECTO-ECOGROW.md](DOCUMENTACION-PROYECTO-ECOGROW.md) |
 | Estructura de carpetas y capas | [ESTRUCTURA-PROYECTO.md](ESTRUCTURA-PROYECTO.md) |
 | Instalar y ejecutar | [../README.md](../README.md) |
@@ -15,10 +17,12 @@
 ## Por área
 
 ### Producto y agronomía
+- [producto/VISION-Y-LINEAS-ECOGROW.md](producto/VISION-Y-LINEAS-ECOGROW.md) — EcoGrow = automatización agrícola; torre vegetal + forraje
 - [hidroponia/MANUAL-DOMINIO-TORRE-VERTICAL.md](hidroponia/MANUAL-DOMINIO-TORRE-VERTICAL.md)
 
 ### IoT y hardware
-- [iot/FASE1-ESP32-BOMBA-RELE.md](iot/FASE1-ESP32-BOMBA-RELE.md) — Fase 1 (ESP32 + relé + bomba)
+- [iot/ROADMAP-AUTOMATIZACION-FASES.md](iot/ROADMAP-AUTOMATIZACION-FASES.md) — **A1 ahora:** bomba por tiempo + nivel; A2 nutrientes después
+- [iot/FASE1-ESP32-BOMBA-RELE.md](iot/FASE1-ESP32-BOMBA-RELE.md) — A0 (ESP32 + relé + bomba)
 - [iot/GUIA-ESP32-RELE.md](iot/GUIA-ESP32-RELE.md) — Resumen API
 - [../hardware/3d/germinador/README.md](../hardware/3d/germinador/README.md) — Modelo 3D germinador (.3mf)
 

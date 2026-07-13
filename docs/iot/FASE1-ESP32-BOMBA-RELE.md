@@ -1,6 +1,9 @@
 # Fase 1 — ESP32 DevKit + relé + bomba (PlatformIO)
 
-Guía práctica para la **primera integración física** con EcoGrow: solo control de bomba vía relé. Los sensores van en **fase 2** (`platformio/esp32_hidroponico/`).
+Guía práctica para la **primera integración física** con EcoGrow: solo control de bomba vía relé (**fase de automatización A0**).
+
+**Orden vigente (John 2026-07-13):** A0 manual → **A1 bomba por tiempo + nivel de agua** → A2 sensores de nutrientes (pH/EC).  
+Detalle: [`ROADMAP-AUTOMATIZACION-FASES.md`](ROADMAP-AUTOMATIZACION-FASES.md) · Visión dos líneas: [`../producto/VISION-Y-LINEAS-ECOGROW.md`](../producto/VISION-Y-LINEAS-ECOGROW.md).
 
 ---
 
@@ -213,8 +216,9 @@ curl -s -X POST "http://127.0.0.1:5000/api/iot/sync" \
 | Fase | Contenido |
 |------|-----------|
 | **1 (actual)** | ESP32 + relé + bomba + `/api/iot/sync` |
-| **2** | pH, EC, DS18B20, nivel TOF, DHT, lux → `esp32_hidroponico` |
-| **3** | Riego automático por programa ON/OFF desde BD + nivel mínimo |
+| **A1 (ahora)** | Riego automático ON/OFF por tiempo + **nivel de agua** (protección bomba seca) — ver [`ROADMAP-AUTOMATIZACION-FASES.md`](ROADMAP-AUTOMATIZACION-FASES.md) |
+| **A2 (después)** | pH, EC, DS18B20 (+ ambiente DHT/lux) → `esp32_hidroponico` |
+| **A3** | Luz/DLI, recetas A/B, IPM, modelos 3D torre/forraje |
 
 ---
 
