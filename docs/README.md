@@ -11,6 +11,7 @@
 | Visión general y arquitectura | [DOCUMENTACION-PROYECTO-ECOGROW.md](DOCUMENTACION-PROYECTO-ECOGROW.md) |
 | Estructura de carpetas y capas | [ESTRUCTURA-PROYECTO.md](ESTRUCTURA-PROYECTO.md) |
 | Instalar y ejecutar | [../README.md](../README.md) |
+| **Informe técnico para presentar** | [../documentacion_equipo/entregables/INFORME_TECNICO_PRESENTACION_ECOGROW_2026-07.md](../documentacion_equipo/entregables/INFORME_TECNICO_PRESENTACION_ECOGROW_2026-07.md) |
 | Sustentación / diapositivas | [../documentacion_equipo/presentaciones/ECOGROW-TECNOLOGIAS-Y-ARQUITECTURA.md](../documentacion_equipo/presentaciones/ECOGROW-TECNOLOGIAS-Y-ARQUITECTURA.md) |
 | PDF completo | `python3 scripts/generate_proyecto_pdf.py` |
 

@@ -9,6 +9,7 @@ Material listo para sustentación, docentes o portfolio.
 | **ECOGROW-DOCUMENTACION-COMPLETA.pdf** | Documento maestro (generado) |
 | [../../docs/ESTRUCTURA-PROYECTO.md](../../docs/ESTRUCTURA-PROYECTO.md) | Estructura del repositorio |
 | [../../hardware/3d/germinador/README.md](../../hardware/3d/germinador/README.md) | Modelo 3D germinador (`.3mf`) |
+| [INFORME_TECNICO_PRESENTACION_ECOGROW_2026-07.md](INFORME_TECNICO_PRESENTACION_ECOGROW_2026-07.md) | **Informe técnico para presentar** (visión, logros, roadmap) |
 | [../presentaciones/ECOGROW-TECNOLOGIAS-Y-ARQUITECTURA.md](../presentaciones/ECOGROW-TECNOLOGIAS-Y-ARQUITECTURA.md) | 20 diapositivas |
 
 ## Generar / actualizar
