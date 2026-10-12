@@ -34,6 +34,8 @@ const uint8_t PIN_TDS_PWR     = 18; // Alimentación pulsada sensor TDS (anti-el
 const uint8_t PIN_TEMP_AGUA   = 32; // Sonda OneWire DS18B20 temperatura agua
 const uint8_t PIN_LED_ESTADO  = 2;  // LED on-board de actividad
 const uint8_t PIN_BOTON_RESET = 0;  // Botón físico BOOT (recuperación 5s)
+const uint8_t PIN_BTN_BOMBA   = 26; // Botón físico bomba (conmutación manual)
+const uint8_t PIN_BTN_MODO    = 27; // Botón físico modo (AUTO / MANUAL)
 
 // ------------------------------------------------------------------------------
 // RED Y CONFIGURACIÓN: config.h local, excluido de git
@@ -344,6 +346,8 @@ void setup() {
   pinMode(PIN_TDS_ANALOG, INPUT);
   pinMode(PIN_PH_ANALOG, INPUT);
   pinMode(PIN_BOTON_RESET, INPUT_PULLUP);
+  pinMode(PIN_BTN_BOMBA, INPUT_PULLUP);
+  pinMode(PIN_BTN_MODO, INPUT_PULLUP);
 
   digitalWrite(PIN_BOMBA, LOW);
   digitalWrite(PIN_US_TRIG, LOW);
@@ -424,6 +428,54 @@ void loop() {
   } else {
     botonPresionadoInicio = 0;
   }
+
+  // Pulsador Físico 1: Bomba manual (GPIO 26)
+  static unsigned long ultimoDebounceBomba = 0;
+  static bool estadoPrevBomba = HIGH;
+  bool lecturaBomba = digitalRead(PIN_BTN_BOMBA);
+  if (lecturaBomba == LOW && estadoPrevBomba == HIGH && (millis() - ultimoDebounceBomba > 250)) {
+    ultimoDebounceBomba = millis();
+    modoActual = MODO_MANUAL;
+    timestampCiclo = millis();
+    if (!estadoBomba) {
+      nivelAguaPct = medirNivelUltrasonico(litrosActuales);
+      verificarSeguridadAgua();
+      if (nivelAguaOk) {
+        encenderBomba();
+        Serial.println("[BOTÓN FÍSICO] Bomba encendida (modo MANUAL)");
+      } else {
+        Serial.println("[BOTÓN FÍSICO] Encendido bloqueado: Depósito sin agua");
+        for (int i = 0; i < 3; i++) {
+          digitalWrite(PIN_LED_ESTADO, HIGH); delay(40);
+          digitalWrite(PIN_LED_ESTADO, LOW); delay(40);
+        }
+      }
+    } else {
+      apagarBomba();
+      Serial.println("[BOTÓN FÍSICO] Bomba apagada");
+    }
+  }
+  estadoPrevBomba = lecturaBomba;
+
+  // Pulsador Físico 2: Modo AUTO/MANUAL (GPIO 27)
+  static unsigned long ultimoDebounceModo = 0;
+  static bool estadoPrevModo = HIGH;
+  bool lecturaModo = digitalRead(PIN_BTN_MODO);
+  if (lecturaModo == LOW && estadoPrevModo == HIGH && (millis() - ultimoDebounceModo > 250)) {
+    ultimoDebounceModo = millis();
+    if (modoActual == MODO_AUTO) {
+      modoActual = MODO_MANUAL;
+      apagarBomba();
+      Serial.println("[BOTÓN FÍSICO] Modo conmutado a MANUAL");
+    } else {
+      modoActual = MODO_AUTO;
+      apagarBomba();
+      timestampCiclo = millis();
+      duracionCicloMs = tiempoOffMinutos * 60000UL;
+      Serial.println("[BOTÓN FÍSICO] Modo conmutado a AUTO");
+    }
+  }
+  estadoPrevModo = lecturaModo;
 
   unsigned long ahora = millis();
 
