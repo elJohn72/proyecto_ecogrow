@@ -6,8 +6,10 @@ Fecha: 2026-10-12. Estado: BORRADOR PARA REVISIÓN DE JOHN.
 ## Objetivo y solicitud confirmada
 
 John solicita una aplicación nativa Android para controlar las nuevas mejoras
-de EcoGrow y, adicionalmente, un dashboard para móvil. El inventario de esas
-mejoras y si el dashboard es web o está dentro de la app requieren respuesta.
+de EcoGrow y, adicionalmente, un dashboard para móvil. John confirmó el
+2026-10-12 que quiere app Android y dashboard web móvil como dos clientes.
+El inventario de mejoras instaladas y por añadir todavía requiere respuesta;
+el «sí» a la pregunta abierta no identifica sensores ni actuadores concretos.
 Este documento especifica una propuesta; no representa software implementado.
 
 ## Evidencia del sistema actual
@@ -31,8 +33,7 @@ La ficha AJENZA aún apunta a una carpeta distinta; usar el checkout verificado.
 
 ## Supuestos visibles y preguntas pendientes
 
-1. Propuesta: dos clientes, app Android y dashboard web responsive adicional.
-   PENDIENTE_CONFIRMAR con John.
+1. CONFIRMADO por John: dos clientes, app Android y dashboard web responsive adicional.
 2. Ambos consumen el mismo backend y permisos, sin duplicar reglas agronómicas.
 3. MVP propuesto: torres, sensores, bomba, alertas e historial.
    Inventario definitivo: PENDIENTE_DATOS de las nuevas mejoras.
