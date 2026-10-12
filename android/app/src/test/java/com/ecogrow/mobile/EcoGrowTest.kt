@@ -152,5 +152,34 @@ class EcoGrowTest {
                 )
         )
         server.start()
+        val local = LocalTowerApi("admin", "torre_pass", baseUrl = server.url("/").toString().trimEnd('/'))
+        val detail = local.detail()
+        assertEquals("Torre WiFi local", detail.getString("name"))
+        assertEquals("local", detail.getString("source"))
+        val sensors = detail.getJSONObject("sensors")
+        assertEquals(82.5, sensors.getDouble("nivel_pct"), 0.01)
+        assertEquals(24.75, sensors.getDouble("litros"), 0.01)
+        assertEquals(650.0, sensors.getDouble("tds_ppm"), 0.01)
+        assertEquals(6.1, sensors.getDouble("ph"), 0.01)
+        assertEquals(22.4, sensors.getDouble("temperatura_agua_c"), 0.01)
+
+        val pump = detail.getJSONObject("pump")
+        assertEquals("on", pump.getString("reported"))
+        assertEquals("AUTO", pump.getString("mode"))
+
+        val recipe = detail.getJSONObject("recipe")
+        assertEquals("Lechuga", recipe.getString("name"))
+    }
+
+    @Test
+    fun testBleProvStepsAndDeviceModel() {
+        val steps = BleProvStep.values()
+        assertTrue(steps.contains(BleProvStep.IDLE))
+        assertTrue(steps.contains(BleProvStep.SCANNING))
+        assertTrue(steps.contains(BleProvStep.CONNECTING))
+        assertTrue(steps.contains(BleProvStep.CONNECTED))
+        assertTrue(steps.contains(BleProvStep.PROVISIONING))
+        assertTrue(steps.contains(BleProvStep.SUCCESS))
+        assertTrue(steps.contains(BleProvStep.FAILED))
     }
 }

@@ -1,0 +1,63 @@
+name: Deploy VPS kv2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app.py'
+      - 'blueprints/**'
+      - 'services/**'
+      - 'models/**'
+      - 'Conexión/**'
+      - 'static/**'
+      - 'templates/**'
+      - 'deploy/**'
+      - 'scripts/deploy_vps.sh'
+      - 'requirements.txt'
+
+jobs:
+  deploy:
+    name: Deploy to Hostinger VPS kv2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        if: ${{ env.HOSTINGER_SSH_HOST != '' }}
+        env:
+          HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          HOSTINGER_SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
+          HOSTINGER_SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          HOSTINGER_SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT || '22' }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$HOSTINGER_SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "$HOSTINGER_SSH_PORT" -H "$HOSTINGER_SSH_HOST" >> ~/.ssh/known_hosts
+
+          ssh -p "$HOSTINGER_SSH_PORT" "$HOSTINGER_SSH_USER@$HOSTINGER_SSH_HOST" << 'EOF'
+            set -euo pipefail
+            APP_DIR="/opt/ecogrow"
+            if [ ! -d "$APP_DIR" ]; then
+              sudo mkdir -p "$APP_DIR"
+              sudo chown -R $(whoami):$(whoami) "$APP_DIR"
+              git clone https://github.com/elJohn72/proyecto_ecogrow.git "$APP_DIR"
+            fi
+            cd "$APP_DIR"
+            git fetch origin main
+            git checkout main
+            git pull origin main
+            chmod +x scripts/deploy_vps.sh
+            ./scripts/deploy_vps.sh
+          EOF
+
+      - name: Notice when SSH secrets are pending
+        if: ${{ env.HOSTINGER_SSH_HOST == '' }}
+        env:
+          HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+        run: |
+          echo "⚠️ Secretos de despliegue SSH (HOSTINGER_SSH_HOST, HOSTINGER_SSH_USER, HOSTINGER_SSH_KEY) aún no configurados en GitHub Secrets."
+          echo "Para activar el despliegue automático en el VPS kv2, añade estos secretos en Settings > Secrets and variables > Actions."

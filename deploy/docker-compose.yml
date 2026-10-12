@@ -1,0 +1,74 @@
+services:
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD requerida}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ecogrow_db}
+      MYSQL_USER: ${MYSQL_USER:-ecogrow_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD requerida}
+    volumes:
+      - ecogrow_db_data:/var/lib/mysql
+    networks:
+      - ecogrow_internal
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY requerida}
+      SESSION_COOKIE_SECURE: "true"
+      SESSION_COOKIE_SAMESITE: "Lax"
+      MYSQL_HOST: db
+      MYSQL_PORT: 3306
+      MYSQL_USER: ${MYSQL_USER:-ecogrow_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ecogrow_db}
+      MYSQL_USE_SOCKET: "false"
+      MYSQL_AUTO_CREATE_DATABASE: "true"
+      ECOGROW_SENSOR_API_TOKEN: ${ECOGROW_SENSOR_API_TOKEN:?ECOGROW_SENSOR_API_TOKEN requerida}
+      ECOGROW_ADMIN_EMAILS: ${ECOGROW_ADMIN_EMAILS:-}
+    networks:
+      - ecogrow_internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  proxy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      ECOGROW_DOMAIN: ${ECOGROW_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ecogrow_caddy_data:/data
+      - ecogrow_caddy_config:/config
+    networks:
+      - ecogrow_internal
+
+volumes:
+  ecogrow_db_data:
+  ecogrow_caddy_data:
+  ecogrow_caddy_config:
+
+networks:
+  ecogrow_internal:
+    driver: bridge

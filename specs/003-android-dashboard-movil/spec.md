@@ -84,12 +84,13 @@ carpeta como identificador de esta rama y no sobrescribir aquellas especificacio
    se extienden sobre el backend actual cuando exista almacenamiento real.
 4. Acceso local WiFi AP/LAN basado en documentación 2.0 y acceso al backend web.
    Recuperar contrato firmware y definir emparejamiento antes del control local.
-   Bluetooth/BLE no es requisito de la solicitud ni del paquete técnico 2.0.
-5. Modelo Android y versión mínima: PENDIENTE. URL real del backend y
-   entorno de prueba con hardware: PENDIENTE. No inventar dominios ni cuentas.
+   Bluetooth BLE CONFIRMADO por John para aprovisionamiento inicial y cambio de red WiFi del ESP32.
+   El control y monitoreo continuo se realiza por WiFi/HTTP; BLE se reserva para aprovisionamiento.
+5. VPS de pruebas Hostinger (kv2) CONFIRMADO por John para alojar el backend y dashboard web
+   con aislamiento de contenedores (Docker), base de datos de prueba, HTTPS y health checks.
+   La app Android consumirá la API HTTPS de dicho VPS de pruebas.
 6. Notificaciones en segundo plano: requisito y proveedor PENDIENTE.
-7. John aprobó el alcance y el plan y pidió continuar la construcción con otro
-   agente. El desglose de tareas debe respetar este alcance y sus verificaciones.
+7. John aprobó el alcance y el plan incorporando aprovisionamiento WiFi vía BLE y despliegue en VPS kv2.
 
 ## Tecnología propuesta
 
@@ -186,6 +187,46 @@ data class TowerUiState(
     val errorMessage: String? = null,
 )
 ```
+
+## Aprovisionamiento WiFi mediante Bluetooth BLE
+
+El objetivo es permitir configurar y cambiar la red WiFi del ESP32 desde la app Android
+sin necesidad de flashear nuevamente el microcontrolador ni usar cables.
+
+### Flujo de aprovisionamiento
+1. **Fase de Anuncio BLE:** Al no disponer de WiFi conectada o al activarse manualmente,
+   el ESP32 inicia anuncios BLE con el servicio oficial de aprovisionamiento (nombre `PROV_EcoGrow_XXXX`).
+2. **Descubrimiento en Android:** La pantalla «Configurar WiFi de la torre» en Android realiza
+   escaneo BLE filtrando dispositivos EcoGrow y solicita permisos Bluetooth (`BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT`, `ACCESS_FINE_LOCATION`).
+3. **Vinculación Segura (Proof of Possession - PoP):** Se establece la sesión BLE segura
+   verificando un PIN/PoP de confirmación de posesión física.
+4. **Escaneo de Redes:** El ESP32 escanea las redes WiFi disponibles en su entorno y
+   devuelve la lista de SSIDs detectados a la aplicación móvil vía BLE.
+5. **Envío de Credenciales:** El usuario selecciona el SSID, escribe la contraseña y Android
+   transmite las credenciales cifradas al ESP32.
+6. **Conexión y Persistencia:** El ESP32 almacena las credenciales en memoria NVS, se asocia
+   a la red WiFi y reporta a Android su estado y la dirección IP obtenida.
+7. **Liberación de Memoria:** Al completarse la conexión exitosa, el ESP32 detiene el anuncio BLE
+   y libera la memoria Bluetooth para garantizar la estabilidad de los ciclos de cultivo.
+8. **Recuperación física:** Pulsación prolongada (5 segundos) en el botón físico de la torre
+   (GPIO 0 / BOOT) borra las credenciales WiFi y reinicia el modo de aprovisionamiento BLE.
+
+## Despliegue en VPS de Pruebas Hostinger (kv2)
+
+El backend de EcoGrow y el dashboard web se alojan en el VPS de pruebas «kv2» de Hostinger.
+
+### Arquitectura en VPS
+- **Aislamiento en Contenedores:** Despliegue mediante `docker-compose.yml` aislando la aplicación
+  Flask (con Gunicorn), la base de datos MySQL (con volumen `ecogrow_data_vps` persistente) y un proxy
+  inverso Caddy/Nginx para terminación TLS/HTTPS automática.
+- **Sin colisión:** Asignación de puertos y nombres de contenedor aislados (`ecogrow-app`, `ecogrow-db`)
+  para no interferir con otros servicios que puedan coexistir en kv2.
+- **Datos de prueba:** Entorno configurado exclusivamente con datos marcados `PRUEBA`.
+- **Salud y Rollback:** Endpoint `/health` verificado tras el despliegue; si el contenedor falla en
+  arrancar o responder, el script de despliegue restaura la versión anterior.
+- **Workflow CI/CD:** Despliegue automatizado mediante `.github/workflows/deploy.yml` vía SSH
+  usando secretos en el repositorio (`HOSTINGER_SSH_HOST`, `HOSTINGER_SSH_USER`, `HOSTINGER_SSH_KEY`).
+  Las credenciales reales nunca se versionan en Git.
 
 ## Comandos y entorno
 

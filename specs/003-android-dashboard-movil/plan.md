@@ -41,17 +41,27 @@ La actuación segura permanece local al ESP32.
 5. Crear proyecto Android Kotlin/Compose con versiones reproducibles de JDK,
    SDK, AGP y Gradle Wrapper verificadas. ViewModels y repositorio por destino
    local/remoto; conexión explícita a torre, refresco y caché de solo lectura.
+   Incorporar módulo de aprovisionamiento WiFi mediante BLE: escaneo de dispositivos
+   EcoGrow, vinculación segura por Proof of Possession (PoP), escaneo de redes WiFi,
+   envío de credenciales y reporte de estado de conexión.
    Borrar datos privados al cerrar sesión/cambiar cuenta. No guardar claves
    en preferencias abiertas. Política de tráfico local acotada y HTTPS remoto.
    Verificación: lint, tests de estado/contrato, APK, emulador y dispositivo real.
 
-6. Integrar y probar con ESP32. Recetas/configuración reflejan la respuesta
-   del dispositivo. Cortar WAN y luego enlace local; comprobar que los clientes
-   distinguen ambas situaciones y no reenvían comandos caducados. Probar sensor
-   de nivel inválido/bajo y reinicio. No confundir GPIO activado con caudal real.
+6. Integrar y probar con ESP32. Soporte de aprovisionamiento WiFi por BLE oficial
+   (Espressif WiFiProv) con persistencia NVS y liberación de memoria Bluetooth tras conexión.
+   Botón físico de recuperación (GPIO 0 presionado 5s).
+   Recetas/configuración reflejan la respuesta del dispositivo. Cortar WAN y luego enlace local;
+   comprobar que los clientes distinguen ambas situaciones y no reenvían comandos caducados.
+   Probar sensor de nivel inválido/bajo y reinicio. No confundir GPIO activado con caudal real.
    Entrega: evidencia de actuación, estados seguros y limitaciones pendientes.
 
-7. Revisión final de UI, seguridad y lógica. Commit/push y PR del HEAD final;
+7. Despliegue en VPS de pruebas Hostinger (kv2). Preparar configuración de contenedores
+   (Docker Compose) aislando app Flask, MySQL y proxy inverso con HTTPS.
+   Configurar healthchecks (/health), registros sin secretos y script/workflow de rollback.
+   Definir workflow de despliegue automatizado en GitHub Actions usando secretos SSH.
+
+8. Revisión final de UI, seguridad y lógica. Commit/push y PR del HEAD final;
    checks completos antes de marcar listo para revisión humana. Merge/deploy y
    activación sobre hardware operativo necesitan autorización correspondiente.
 

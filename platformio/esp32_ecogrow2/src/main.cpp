@@ -14,6 +14,7 @@
  */
 
 #include <WiFi.h>
+#include <WiFiProv.h>
 #include <WebServer.h>
 #include <Preferences.h>
 #include <ArduinoJson.h>
@@ -32,6 +33,7 @@ const uint8_t PIN_PH_ANALOG   = 35; // Entrada analógica sensor pH (ADC1)
 const uint8_t PIN_TDS_PWR     = 18; // Alimentación pulsada sensor TDS (anti-electrólisis)
 const uint8_t PIN_TEMP_AGUA   = 32; // Sonda OneWire DS18B20 temperatura agua
 const uint8_t PIN_LED_ESTADO  = 2;  // LED on-board de actividad
+const uint8_t PIN_BOTON_RESET = 0;  // Botón físico BOOT (recuperación 5s)
 
 // ------------------------------------------------------------------------------
 // RED Y CONFIGURACIÓN: config.h local, excluido de git
@@ -301,6 +303,29 @@ void handleRecipeControl(){
   apagarBomba();timestampCiclo=millis();duracionCicloMs=tiempoOffMinutos*60000UL;sendStatus();
 }
 
+void SysProvEvent(arduino_event_t *sys_event) {
+  switch (sys_event->event_id) {
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+      Serial.print("[BLE Prov] WiFi Conectado! IP: ");
+      Serial.println(IPAddress(sys_event->event_info.got_ip.ip_info.ip.addr));
+      break;
+    case ARDUINO_EVENT_PROV_START:
+      Serial.println("[BLE Prov] Anuncio BLE iniciado. Configura WiFi desde la app EcoGrow.");
+      break;
+    case ARDUINO_EVENT_PROV_CRED_RECV:
+      Serial.println("[BLE Prov] Credenciales WiFi recibidas por BLE.");
+      break;
+    case ARDUINO_EVENT_PROV_CRED_SUCCESS:
+      Serial.println("[BLE Prov] Credenciales validadas con éxito.");
+      break;
+    case ARDUINO_EVENT_PROV_END:
+      Serial.println("[BLE Prov] Aprovisionamiento finalizado.");
+      break;
+    default:
+      break;
+  }
+}
+
 // ------------------------------------------------------------------------------
 // SETUP
 // ------------------------------------------------------------------------------
@@ -318,6 +343,7 @@ void setup() {
   pinMode(PIN_LED_ESTADO, OUTPUT);
   pinMode(PIN_TDS_ANALOG, INPUT);
   pinMode(PIN_PH_ANALOG, INPUT);
+  pinMode(PIN_BOTON_RESET, INPUT_PULLUP);
 
   digitalWrite(PIN_BOMBA, LOW);
   digitalWrite(PIN_US_TRIG, LOW);
@@ -341,17 +367,22 @@ void setup() {
   nivelAguaPct = medirNivelUltrasonico(litrosActuales);
   verificarSeguridadAgua();
 
-  // WiFi Dual (AP + STA)
-  if (strlen(password_ap)<12) { Serial.println("Configurar red local antes de habilitar acceso"); return; }
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.softAP(ssid_ap, password_ap);
-  Serial.print("Punto de Acceso iniciado: ");
-  Serial.println(ssid_ap);
-  Serial.print("IP Torre: ");
-  Serial.println(WiFi.softAPIP());
+  // Aprovisionamiento WiFi mediante Bluetooth BLE (Espressif WiFiProv)
+  WiFi.onEvent(SysProvEvent);
+  char ble_service_name[24];
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
+  snprintf(ble_service_name, sizeof(ble_service_name), "PROV_EcoGrow_%02X%02X", mac[4], mac[5]);
+  const char* ble_pop = "ecogrow20"; // Proof of Possession / PIN
 
-  if (strlen(ssid_sta) > 0) {
-    WiFi.begin(ssid_sta, password_sta);
+  // beginProvision inicia BLE si no hay credenciales o reconecta automáticamente
+  WiFiProv.beginProvision(WIFI_PROV_SCHEME_BLE, WIFI_PROV_SCHEME_HANDLER_FREE_BTDM, WIFI_PROV_SECURITY_1, ble_pop, ble_service_name);
+
+  // WiFi Dual fallback si hay credenciales configuradas
+  if (strlen(password_ap)>=12) {
+    WiFi.softAP(ssid_ap, password_ap);
+    Serial.print("Punto de Acceso iniciado: ");
+    Serial.println(ssid_ap);
   }
 
   const char* headers[]={"Content-Type","Origin"};
@@ -378,6 +409,21 @@ void setup() {
 
 void loop() {
   server.handleClient();
+
+  // Botón físico de recuperación (GPIO 0 / BOOT presionado 5s continuo)
+  static unsigned long botonPresionadoInicio = 0;
+  if (digitalRead(PIN_BOTON_RESET) == LOW) {
+    if (botonPresionadoInicio == 0) botonPresionadoInicio = millis();
+    if (millis() - botonPresionadoInicio >= 5000) {
+      Serial.println("[RESET] Botón presionado 5s. Borrando NVS y reiniciando aprovisionamiento BLE...");
+      prefs.clear();
+      WiFi.disconnect(true, true);
+      delay(500);
+      ESP.restart();
+    }
+  } else {
+    botonPresionadoInicio = 0;
+  }
 
   unsigned long ahora = millis();
 
