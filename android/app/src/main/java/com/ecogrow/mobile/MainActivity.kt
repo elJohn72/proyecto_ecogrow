@@ -1,8 +1,13 @@
 package com.ecogrow.mobile
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -10,9 +15,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import org.json.JSONObject
@@ -167,6 +174,49 @@ private fun BleProvisioningDialog(
     var provStep by remember { mutableStateOf(BleProvStep.IDLE) }
     var isScanning by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+    val requiredPermissions = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            arrayOf(
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.BLUETOOTH_CONNECT
+            )
+        } else {
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        }
+    }
+
+    val triggerScan: () -> Unit = {
+        towers = emptyList()
+        isScanning = true
+        statusMessage = "Buscando torres EcoGrow cercanas..."
+        bleManager?.startScan(
+            onFound = { found ->
+                if (towers.none { it.address == found.address }) {
+                    towers = towers + found
+                }
+            },
+            onError = { err ->
+                isScanning = false
+                statusMessage = err
+            }
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { perms ->
+        val granted = perms.values.all { it }
+        if (granted) {
+            triggerScan()
+        } else {
+            statusMessage = "Permiso de Bluetooth denegado. Concede el permiso en la ventana de Android o en Ajustes."
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Configurar WiFi (BLE)") },
@@ -194,20 +244,14 @@ private fun BleProvisioningDialog(
                     ) {
                         Button(
                             onClick = {
-                                towers = emptyList()
-                                isScanning = true
-                                statusMessage = "Buscando torres EcoGrow cercanas..."
-                                bleManager.startScan(
-                                    onFound = { found ->
-                                        if (towers.none { it.address == found.address }) {
-                                            towers = towers + found
-                                        }
-                                    },
-                                    onError = { err ->
-                                        isScanning = false
-                                        statusMessage = err
-                                    }
-                                )
+                                val hasPerms = requiredPermissions.all {
+                                    ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+                                }
+                                if (hasPerms) {
+                                    triggerScan()
+                                } else {
+                                    permissionLauncher.launch(requiredPermissions)
+                                }
                             },
                             enabled = !isScanning && provStep != BleProvStep.PROVISIONING
                         ) {
