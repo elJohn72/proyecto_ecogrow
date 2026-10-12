@@ -20,7 +20,13 @@
 #include <ArduinoJson.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <esp_bt.h>
 #include "safety.h"
+
+// Evitar que el core de Arduino libere la memoria Bluetooth (BTDM) al arrancar
+extern "C" bool btInUse() {
+    return true;
+}
 
 // ------------------------------------------------------------------------------
 // ASIGNACIÓN DE PINES (EXPEDIENTE TÉCNICO G2 OPTIMIZADO)
@@ -379,8 +385,8 @@ void setup() {
   snprintf(ble_service_name, sizeof(ble_service_name), "PROV_EcoGrow_%02X%02X", mac[4], mac[5]);
   const char* ble_pop = "ecogrow20"; // Proof of Possession / PIN
 
-  // beginProvision inicia BLE si no hay credenciales o reconecta automáticamente
-  WiFiProv.beginProvision(WIFI_PROV_SCHEME_BLE, WIFI_PROV_SCHEME_HANDLER_FREE_BTDM, WIFI_PROV_SECURITY_1, ble_pop, ble_service_name);
+  // beginProvision inicia BLE sin liberar memoria BT para evitar error ESP_ERR_INVALID_STATE (259)
+  WiFiProv.beginProvision(WIFI_PROV_SCHEME_BLE, WIFI_PROV_SCHEME_HANDLER_NONE, WIFI_PROV_SECURITY_1, ble_pop, ble_service_name, NULL, NULL, false);
 
   // WiFi Dual fallback si hay credenciales configuradas
   if (strlen(password_ap)>=12) {
