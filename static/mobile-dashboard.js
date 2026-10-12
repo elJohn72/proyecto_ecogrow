@@ -66,6 +66,7 @@
     byId('legacy-ec').hidden = sensors.ec_ms_cm == null;
     text('connection', detail.stale ? 'Lectura antigua / sin enlace reciente' : 'Telemetría reciente');
     byId('connection').dataset.tone = detail.stale ? 'warning' : 'normal';
+    if (byId('live-dot')) byId('live-dot').dataset.tone = detail.stale ? 'warning' : 'normal';
     text('reading-time', `Última actualización: ${when(detail.updated_at)}`);
     text('pump-reported', pump(detail.pump?.reported));
     text('pump-desired', pump(detail.pump?.desired));

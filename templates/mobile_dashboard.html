@@ -14,26 +14,53 @@
   <div class="grow-notice" id="notice" role="status" aria-live="polite">Cargando tus torres…</div>
   <div class="grow-toolbar">
     <div><label for="tower-select">Torre</label><select id="tower-select" disabled><option>Buscando torres…</option></select></div>
-    <div class="grow-connection"><span class="grow-badge" id="connection">Sin lectura</span><span id="reading-time">Última actualización: SIN_DATO</span><span>Conexión: servidor EcoGrow</span></div>
+    <div class="grow-connection">
+      <div class="grow-badge-container">
+        <span class="grow-live-dot" id="live-dot" aria-hidden="true"></span>
+        <span class="grow-badge" id="connection">Sin lectura</span>
+      </div>
+      <span id="reading-time">Última actualización: SIN_DATO</span>
+      <span>Conexión: servidor EcoGrow</span>
+    </div>
   </div>
   <section id="tower-detail" hidden aria-labelledby="tower-title">
     <div class="grow-section-title"><h2 id="tower-title">Depósito</h2><span id="tower-location"></span></div>
     <div class="grow-metrics">
-      <article class="grow-card grow-water"><h3>Nivel del depósito</h3><p class="grow-value"><span id="level">SIN_DATO</span><small>%</small></p><progress id="level-progress" value="0" max="100" aria-label="Nivel de agua" hidden></progress><p class="grow-caption"><span id="liters">SIN_DATO</span> L · capacidad calibrada</p></article>
-      <article class="grow-card"><h3>Acidez</h3><p class="grow-value"><span id="ph">SIN_DATO</span><small>pH</small></p><p class="grow-caption">Lectura del agua</p></article>
-      <article class="grow-card"><h3>Sólidos disueltos</h3><p class="grow-value"><span id="tds">SIN_DATO</span><small>ppm</small></p><p class="grow-caption">TDS del depósito</p></article>
-      <article class="grow-card"><h3>Temperatura del agua</h3><p class="grow-value"><span id="temperature">SIN_DATO</span><small>°C</small></p><p class="grow-caption">Sensor del depósito</p></article>
+      <article class="grow-card grow-water">
+        <div class="grow-card-head"><h3>Nivel del depósito</h3><span class="material-symbols-outlined grow-card-icon" aria-hidden="true">water_drop</span></div>
+        <p class="grow-value"><span id="level">SIN_DATO</span><small>%</small></p>
+        <progress id="level-progress" value="0" max="100" aria-label="Nivel de agua" hidden></progress>
+        <p class="grow-caption"><span id="liters">SIN_DATO</span> L · capacidad calibrada</p>
+      </article>
+      <article class="grow-card">
+        <div class="grow-card-head"><h3>Acidez</h3><span class="material-symbols-outlined grow-card-icon" aria-hidden="true">science</span></div>
+        <p class="grow-value"><span id="ph">SIN_DATO</span><small>pH</small></p>
+        <p class="grow-caption">Lectura del agua</p>
+      </article>
+      <article class="grow-card">
+        <div class="grow-card-head"><h3>Sólidos disueltos</h3><span class="material-symbols-outlined grow-card-icon" aria-hidden="true">grain</span></div>
+        <p class="grow-value"><span id="tds">SIN_DATO</span><small>ppm</small></p>
+        <p class="grow-caption">TDS del depósito</p>
+      </article>
+      <article class="grow-card">
+        <div class="grow-card-head"><h3>Temperatura del agua</h3><span class="material-symbols-outlined grow-card-icon" aria-hidden="true">thermostat</span></div>
+        <p class="grow-value"><span id="temperature">SIN_DATO</span><small>°C</small></p>
+        <p class="grow-caption">Sensor del depósito</p>
+      </article>
     </div>
     <p class="grow-legacy" id="legacy-ec" hidden>Conductividad EC: <strong id="ec">SIN_DATO</strong> mS/cm · lectura independiente de TDS</p>
     <div class="grow-columns">
       <section class="grow-card grow-pump" aria-labelledby="pump-title">
-        <p class="grow-eyebrow">CONTROL</p><h2 id="pump-title">Bomba de riego</h2>
+        <div class="grow-card-head"><p class="grow-eyebrow">CONTROL</p><span class="material-symbols-outlined grow-card-icon" aria-hidden="true">cyclone</span></div>
+        <h2 id="pump-title">Bomba de riego</h2>
         <dl class="grow-states"><div><dt>Reportado por la torre</dt><dd id="pump-reported">SIN_DATO</dd></div><div><dt>Orden solicitada</dt><dd id="pump-desired">SIN_DATO</dd></div><div><dt>Estado de la orden</dt><dd id="pump-command">Sin orden</dd></div></dl>
         <p class="grow-caption">El reporte del relé no verifica el caudal de agua.</p>
         <p id="pump-blocked" class="grow-help">Esperando conexión con la torre.</p>
         <div class="grow-actions"><button id="pump-on" class="grow-button" type="button" disabled>Encender bomba</button><button id="pump-off" class="grow-button grow-button-secondary" type="button" disabled>Apagar bomba</button></div>
       </section>
-      <section class="grow-card" aria-labelledby="recipe-title"><p class="grow-eyebrow">CULTIVO</p><h2 id="recipe-title">Receta y ciclos</h2><p id="recipe" class="grow-help">SIN_DATO</p><p id="timer" class="grow-caption">Temporizador pendiente de integración con el dispositivo.</p><p class="grow-caption" id="recipe-note">Los parámetros se muestran solo cuando están disponibles en la torre.</p>
+      <section class="grow-card" aria-labelledby="recipe-title">
+        <div class="grow-card-head"><p class="grow-eyebrow">CULTIVO</p><span class="material-symbols-outlined grow-card-icon" aria-hidden="true">potted_plant</span></div>
+        <h2 id="recipe-title">Receta y ciclos</h2><p id="recipe" class="grow-help">SIN_DATO</p><p id="timer" class="grow-caption">Temporizador pendiente de integración con el dispositivo.</p><p class="grow-caption" id="recipe-note">Los parámetros se muestran solo cuando están disponibles en la torre.</p>
         <form id="irrigation-form" class="grow-form" hidden>
           <label class="grow-checkbox"><input type="checkbox" id="irrigation-enabled"> Habilitar programación</label>
           <div class="grow-form-fields"><div><label for="on-minutes">Riego (minutos)</label><input id="on-minutes" type="number" min="1" max="1440" step="1" required></div><div><label for="off-minutes">Reposo (minutos)</label><input id="off-minutes" type="number" min="1" max="1440" step="1" required></div></div>
@@ -43,8 +70,20 @@
       </section>
     </div>
     <div class="grow-columns grow-events">
-      <section class="grow-card" aria-labelledby="alerts-title"><div class="grow-section-title"><h2 id="alerts-title">Alertas</h2><span class="grow-badge" id="alert-count">—</span></div><ul id="alerts" class="grow-list"><li>Esperando lecturas.</li></ul></section>
-      <section class="grow-card" aria-labelledby="history-title"><h2 id="history-title">Lecturas recientes</h2><p class="grow-caption">pH · TDS · temperatura del agua</p><ol id="history" class="grow-list"><li>Esperando historial.</li></ol></section>
+      <section class="grow-card" aria-labelledby="alerts-title">
+        <div class="grow-section-title">
+          <div class="grow-title-with-icon"><span class="material-symbols-outlined grow-card-icon" aria-hidden="true">notifications_active</span><h2 id="alerts-title">Alertas</h2></div>
+          <span class="grow-badge" id="alert-count">—</span>
+        </div>
+        <ul id="alerts" class="grow-list"><li>Esperando lecturas.</li></ul>
+      </section>
+      <section class="grow-card" aria-labelledby="history-title">
+        <div class="grow-section-title">
+          <div class="grow-title-with-icon"><span class="material-symbols-outlined grow-card-icon" aria-hidden="true">history</span><h2 id="history-title">Lecturas recientes</h2></div>
+        </div>
+        <p class="grow-caption">pH · TDS · temperatura del agua</p>
+        <ol id="history" class="grow-list"><li>Esperando historial.</li></ol>
+      </section>
     </div>
   </section>
   <noscript><div class="grow-notice">Activa JavaScript para consultar lecturas y controlar la bomba.</div></noscript>
