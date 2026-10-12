@@ -179,7 +179,8 @@ private fun BleProvisioningDialog(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             arrayOf(
                 Manifest.permission.BLUETOOTH_SCAN,
-                Manifest.permission.BLUETOOTH_CONNECT
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.ACCESS_FINE_LOCATION
             )
         } else {
             arrayOf(
@@ -197,11 +198,18 @@ private fun BleProvisioningDialog(
             onFound = { found ->
                 if (towers.none { it.address == found.address }) {
                     towers = towers + found
+                    statusMessage = "¡Torre detectada! Selecciona la torre abajo para configurar WiFi."
                 }
             },
             onError = { err ->
                 isScanning = false
                 statusMessage = err
+            },
+            onTimeout = {
+                isScanning = false
+                if (towers.isEmpty()) {
+                    statusMessage = "No se detectaron torres. Verifica que el ESP32 esté encendido y mantén pulsado el botón BOOT por 5 segundos para reactivar el BLE."
+                }
             }
         )
     }

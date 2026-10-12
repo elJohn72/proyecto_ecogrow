@@ -10,9 +10,11 @@ import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import java.util.UUID
 
 data class DiscoveredTower(
@@ -38,6 +40,7 @@ class BleProvisioningManager(private val context: Context) {
     private val handler = Handler(Looper.getMainLooper())
 
     private var scanCallback: ScanCallback? = null
+    private var scanTimeoutRunnable: Runnable? = null
     private var activeGatt: BluetoothGatt? = null
 
     val isBluetoothSupported: Boolean get() = adapter != null
@@ -46,7 +49,8 @@ class BleProvisioningManager(private val context: Context) {
     @SuppressLint("MissingPermission")
     fun startScan(
         onFound: (DiscoveredTower) -> Unit,
-        onError: (String) -> Unit
+        onError: (String) -> Unit,
+        onTimeout: (() -> Unit)? = null
     ) {
         val scanner = adapter?.bluetoothLeScanner
         if (scanner == null) {
@@ -60,10 +64,15 @@ class BleProvisioningManager(private val context: Context) {
             override fun onScanResult(callbackType: Int, result: ScanResult?) {
                 result?.let { r ->
                     val devName = try { r.device.name } catch (_: SecurityException) { null } ?: r.scanRecord?.deviceName
-                    if (devName != null && devName.startsWith("PROV_")) {
+                    Log.d("EcoGrowBle", "BLE detectado: addr=${r.device.address}, name=$devName, rssi=${r.rssi}")
+                    val isEcoGrow = devName != null && (
+                        devName.startsWith("PROV_", ignoreCase = true) ||
+                        devName.contains("EcoGrow", ignoreCase = true)
+                    )
+                    if (isEcoGrow) {
                         onFound(
                             DiscoveredTower(
-                                name = devName,
+                                name = devName ?: "PROV_EcoGrow",
                                 address = r.device.address,
                                 rssi = r.rssi,
                                 device = r.device
@@ -73,15 +82,29 @@ class BleProvisioningManager(private val context: Context) {
                 }
             }
 
+            override fun onBatchScanResults(results: MutableList<ScanResult>?) {
+                results?.forEach { onScanResult(ScanSettings.CALLBACK_TYPE_ALL_MATCHES, it) }
+            }
+
             override fun onScanFailed(errorCode: Int) {
+                Log.e("EcoGrowBle", "Error escaneo BLE: $errorCode")
                 onError("Error en escaneo BLE: código $errorCode")
             }
         }
 
         try {
-            scanner.startScan(scanCallback)
-            // Detener escaneo tras 15 segundos automáticamente para ahorrar batería
-            handler.postDelayed({ stopScan() }, 15000)
+            val scanSettings = ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .build()
+            scanner.startScan(null, scanSettings, scanCallback)
+            Log.d("EcoGrowBle", "Escaneo BLE iniciado en modo LOW_LATENCY")
+
+            val timeoutRunnable = Runnable {
+                stopScan()
+                onTimeout?.invoke()
+            }
+            scanTimeoutRunnable = timeoutRunnable
+            handler.postDelayed(timeoutRunnable, 12000)
         } catch (e: SecurityException) {
             onError("Permisos de Bluetooth denegados.")
         } catch (e: Exception) {
@@ -91,6 +114,10 @@ class BleProvisioningManager(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun stopScan() {
+        scanTimeoutRunnable?.let {
+            handler.removeCallbacks(it)
+            scanTimeoutRunnable = null
+        }
         scanCallback?.let {
             try {
                 adapter?.bluetoothLeScanner?.stopScan(it)
