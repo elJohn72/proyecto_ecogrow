@@ -1,18 +1,18 @@
 import os
 import secrets
 
-from flask import Flask, flash, redirect, request, url_for
+from flask import Flask, flash, jsonify, redirect, request, url_for
 from flask_login import LoginManager
 from mysql.connector import Error
 
 try:
     from Conexión import MYSQL_CONFIG, create_mysql_tables, fetch_mysql_usuario
-    from blueprints import ai_bp, auth_bp, cultivos_bp, main_bp, mysql_bp, sensores_bp, torres_bp
+    from blueprints import ai_bp, auth_bp, cultivos_bp, main_bp, mysql_bp, sensores_bp, torres_bp, mobile_bp
     from blueprints.shared import register_app_security, register_context_processors
     from models import User
 except ModuleNotFoundError:
     from .Conexión import MYSQL_CONFIG, create_mysql_tables, fetch_mysql_usuario
-    from .blueprints import ai_bp, auth_bp, cultivos_bp, main_bp, mysql_bp, sensores_bp, torres_bp
+    from .blueprints import ai_bp, auth_bp, cultivos_bp, main_bp, mysql_bp, sensores_bp, torres_bp, mobile_bp
     from .blueprints.shared import register_app_security, register_context_processors
     from .models import User
 
@@ -45,6 +45,12 @@ login_manager.init_app(app)
 @login_manager.user_loader
 def load_user(user_id: str):
     try:
+        if request.path.startswith("/api/mobile/"):
+            try:
+                from services.mobile_service import user_by_id
+            except ModuleNotFoundError:
+                from .services.mobile_service import user_by_id
+            return User.from_mysql_row(user_by_id(int(user_id)))
         return User.from_mysql_row(fetch_mysql_usuario(int(user_id)))
     except (Error, ValueError):
         return None
@@ -94,6 +100,18 @@ app.register_blueprint(cultivos_bp)
 app.register_blueprint(sensores_bp)
 app.register_blueprint(mysql_bp)
 app.register_blueprint(ai_bp)
+app.register_blueprint(mobile_bp)
+
+
+@app.errorhandler(404)
+@app.errorhandler(405)
+def route_error(exc):
+    if request.path.startswith("/api/mobile/"):
+        response = jsonify(error="route_unavailable", message="Ruta o método no disponible.")
+        response.status_code = exc.code
+        response.headers["Cache-Control"] = "no-store"
+        return response
+    return exc
 
 
 @app.cli.command("mysql-init")

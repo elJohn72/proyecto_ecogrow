@@ -1,4 +1,5 @@
 venv/
+.venv/
 __pycache__/
 .DS_Store
 *.pyc
@@ -8,3 +9,5 @@ inventario.db
 backups/
 ecogrow_server_*.log
 platformio/**/include/config.h
+platformio/**/.pio/
+android/build-check.log

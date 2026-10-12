@@ -1,0 +1,15 @@
+#pragma once
+// Configuración local. Copiar a config.h, excluido de git; nunca subir credenciales.
+#define ECOGROW_AP_NAME "EcoGrow-2.0-Torre"
+#define ECOGROW_AP_PASSWORD ""
+#define ECOGROW_STA_NAME ""
+#define ECOGROW_STA_PASSWORD ""
+#define ECOGROW_CONTROL_USER ""
+#define ECOGROW_CONTROL_PASSWORD ""
+// Medir el depósito real y validar sensores antes de habilitar estas capacidades.
+#define ECOGROW_TANK_HEIGHT_CM 40.0f
+#define ECOGROW_TANK_MIN_DISTANCE_CM 10.0f
+#define ECOGROW_TANK_CAPACITY_L 30.0f
+#define ECOGROW_TANK_CALIBRATED false
+#define ECOGROW_TDS_CALIBRATED false
+#define ECOGROW_PH_CALIBRATED false

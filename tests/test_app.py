@@ -174,6 +174,15 @@ class AppTestCase(unittest.TestCase):
                 "ubicacion": "Laboratorio",
                 "estado": "activa",
             },
+        ), patch(
+            "blueprints.cultivos.fetch_torres_by_user",
+            return_value=[
+                {
+                    "id_torre": 1,
+                    "codigo_unico": "TORRE01",
+                    "nombre": "Torre Demo",
+                }
+            ],
         ):
             response = self.client.get("/cultivos/nuevo", follow_redirects=False)
 

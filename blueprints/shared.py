@@ -1,7 +1,7 @@
 import secrets
 from functools import wraps
 
-from flask import current_app, flash, redirect, request, session, url_for
+from flask import current_app, flash, jsonify, redirect, request, session, url_for
 from flask_login import current_user, login_required as flask_login_required
 from mysql.connector import Error
 
@@ -101,6 +101,9 @@ def register_app_security(app):
         token = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token")
         if is_valid_csrf_token(token):
             return None
+
+        if request.path.startswith("/api/mobile/"):
+            return jsonify(error="csrf_invalid", message="La sesión venció. Actualiza e intenta de nuevo."), 403
 
         flash("La sesion del formulario vencio. Intenta nuevamente.", "error")
         return redirect(request.referrer or url_for("main.inicio"))
