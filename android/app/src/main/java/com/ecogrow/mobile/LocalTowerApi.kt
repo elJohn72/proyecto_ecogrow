@@ -9,14 +9,16 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 /** Sólo el AP de una torre aprovisionada. Nunca recibe cookies ni credenciales cloud. */
-class LocalTowerApi(user: String, password: String, private val baseUrl: String = "http://192.168.4.1") {
-    private val authorization = Credentials.basic(user, password)
-    private val client = OkHttpClient.Builder().followRedirects(false).callTimeout(10, TimeUnit.SECONDS).build()
+class LocalTowerApi(user: String = "", password: String = "", val baseUrl: String = "http://192.168.4.1") {
+    private val authorization = if (user.isNotBlank() && password.isNotBlank()) Credentials.basic(user, password) else null
+    private val client = OkHttpClient.Builder().followRedirects(false).callTimeout(8, TimeUnit.SECONDS).build()
     fun request(route: String, body: JSONObject? = null): JSONObject {
-        val r = Request.Builder().url("$baseUrl/api/$route").header("Authorization", authorization)
+        val cleanBase = if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) "http://$baseUrl" else baseUrl
+        val r = Request.Builder().url("${cleanBase.trimEnd('/')}/api/$route")
+        authorization?.let { r.header("Authorization", it) }
         if (body != null) r.post(body.toString().toRequestBody("application/json".toMediaType()))
         client.newCall(r.build()).execute().use {
-            if (!it.isSuccessful) throw ApiFailure(it.code, if (it.code == 401) "Credenciales de torre incorrectas." else "La torre rechazó la operación.")
+            if (!it.isSuccessful) throw ApiFailure(it.code, if (it.code == 401) "Credenciales de torre incorrectas." else "La torre respondió con código ${it.code}.")
             return JSONObject(it.body?.string() ?: "{}")
         }
     }

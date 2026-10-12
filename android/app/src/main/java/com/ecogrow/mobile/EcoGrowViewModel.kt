@@ -50,12 +50,12 @@ class EcoGrowViewModel : ViewModel() {
         loadDetail(id)
         state.value = state.value.copy(notice = result.optString("message", "Orden enviada. Falta confirmación del dispositivo."))
     }
-    fun connectLocal(user: String, password: String) = action {
-        require(user.isNotBlank() && password.isNotBlank()) { "Introduce las credenciales aprovisionadas de la torre." }
-        api?.clear(); api = null; local = LocalTowerApi(user, password)
+    fun connectLocal(user: String = "", password: String = "", baseUrl: String = "http://192.168.4.1") = action {
+        api?.clear(); api = null; local = LocalTowerApi(user, password, baseUrl)
         state.value = ScreenState(busy = true)
         loadDetail(0)
-        state.value = state.value.copy(authenticated = true, user = "Conexión local")
+        val host = baseUrl.removePrefix("http://").removePrefix("https://").trimEnd('/')
+        state.value = state.value.copy(authenticated = true, user = "Torre Local ($host)")
     }
     fun mode(mode: String) = action { withContext(Dispatchers.IO) { local!!.request("mode", JSONObject().put("mode", mode)) }; loadDetail(0) }
     fun recipe(index: Int) = action { withContext(Dispatchers.IO) { local!!.request("recipe", JSONObject().put("recipe_idx", index)) }; loadDetail(0) }

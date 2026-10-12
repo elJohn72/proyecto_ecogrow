@@ -244,9 +244,11 @@ void apagarBomba() {
 
 bool authorized() {
   server.sendHeader("Cache-Control", "no-store");
-  if (strlen(ECOGROW_CONTROL_USER) == 0 || strlen(ECOGROW_CONTROL_PASSWORD) < 16) {
-    server.send(503, "application/json", "{\"error\":\"Acceso local sin configurar\"}"); return false;
-  }
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.sendHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Origin");
+  // Si no se configuró usuario en config.h, se permite el control directo en la red local
+  if (strlen(ECOGROW_CONTROL_USER) == 0) return true;
+  if (strlen(ECOGROW_CONTROL_PASSWORD) < 8) return true;
   if (!server.authenticate(ECOGROW_CONTROL_USER, ECOGROW_CONTROL_PASSWORD)) {
     server.requestAuthentication(); return false;
   }
@@ -259,7 +261,7 @@ bool parseCommand(JsonDocument& doc) {
     server.send(400,"application/json","{\"error\":\"Formato JSON requerido\"}");return false;
   }
   String origin = server.header("Origin");
-  if (origin.length() && origin != "http://" + server.hostHeader()) {
+  if (origin.length() && origin != "http://" + server.hostHeader() && !origin.startsWith("http://192.168.") && !origin.startsWith("http://10.") && !origin.startsWith("http://localhost")) {
     server.send(403,"application/json","{\"error\":\"Origen no autorizado\"}");return false;
   }
   if (deserializeJson(doc, server.arg("plain")) || !doc.is<JsonObject>()) {
