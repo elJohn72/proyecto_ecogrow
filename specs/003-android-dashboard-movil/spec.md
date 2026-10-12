@@ -1,6 +1,6 @@
 # EcoGrow: Android nativo y dashboard móvil
 
-Fecha: 2026-10-12. Estado: BORRADOR PARA REVISIÓN DE JOHN.
+Fecha: 2026-10-12. Estado: ALCANCE Y PLAN APROBADOS POR JOHN; CONSTRUCCIÓN CON OTRO AGENTE.
 Ámbito: ECOGROW. Modo: AISLADO. Sin cruce de datos con otras marcas.
 
 ## Objetivo y solicitud confirmada
@@ -88,7 +88,8 @@ carpeta como identificador de esta rama y no sobrescribir aquellas especificacio
 5. Modelo Android y versión mínima: PENDIENTE. URL real del backend y
    entorno de prueba con hardware: PENDIENTE. No inventar dominios ni cuentas.
 6. Notificaciones en segundo plano: requisito y proveedor PENDIENTE.
-7. Especificación, plan y tareas requieren revisión antes de implementación.
+7. John aprobó el alcance y el plan y pidió continuar la construcción con otro
+   agente. El desglose de tareas debe respetar este alcance y sus verificaciones.
 
 ## Tecnología propuesta
 
@@ -239,5 +240,5 @@ una orden pendiente como actuación confirmada.
 
 ## Próxima fase
 
-Tras las respuestas y revisión de John, concretar el alcance, generar `plan.md`
-y `tasks.md` y validar el plan antes de implementar conforme a Spec Kit.
+El plan está aprobado. Otro agente debe leer `HANDOFF_OTRO_AGENTE.md`, concretar
+`tasks.md`, completar y corregir el WIP y ejecutar las verificaciones del plan.

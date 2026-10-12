@@ -14,4 +14,7 @@ __all__ = [
     "sensores_bp",
     "torres_bp",
     "ai_bp",
+    "mobile_bp",
 ]
+
+from .mobile import mobile_bp

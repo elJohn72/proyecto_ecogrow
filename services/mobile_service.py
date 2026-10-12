@@ -1,0 +1,193 @@
+"""Mobile adapter for the existing schema; no migrations or device credentials.
+
+Legacy actuator rows mix commands and reports. They cannot establish physical
+confirmation. Tank capacity is an uncalibrated default, not a volume measurement.
+"""
+import math
+import secrets
+from datetime import datetime, timedelta, timezone
+
+from werkzeug.security import check_password_hash
+
+try:
+    from Conexión.conexion import _execute
+    from domain.hidroponia_torre import merge_control_with_phase_profile
+except ModuleNotFoundError:
+    from ..Conexión.conexion import _execute
+    from ..domain.hidroponia_torre import merge_control_with_phase_profile
+
+STALE_SECONDS = 120
+
+
+class MobileError(Exception):
+    def __init__(self, code, message, status=400):
+        self.code, self.message, self.status = code, message, status
+        super().__init__(message)
+
+
+def authenticate(mail, password):
+    row = _execute("SELECT * FROM usuarios WHERE mail = %s LIMIT 1", (mail,), fetchone=True)
+    stored = str(row.get("password", "")) if row else ""
+    if stored.startswith(("scrypt:", "pbkdf2:")):
+        valid = check_password_hash(stored, password)
+    else:
+        valid = bool(stored) and secrets.compare_digest(stored.encode(), password.encode())
+    return row if row and valid else None
+
+
+def user_by_id(user_id):
+    return _execute("SELECT * FROM usuarios WHERE id_usuario = %s", (user_id,), fetchone=True)
+
+
+def tower_summary(row):
+    return {"id": row["id_torre"], "name": row["nombre"], "code": row["codigo_unico"]}
+
+
+def list_towers(user_id):
+    rows = _execute("SELECT id_torre, nombre, codigo_unico FROM torres WHERE usuario_id = %s AND estado <> 'inactivo' ORDER BY id_torre", (user_id,), fetchall=True)
+    return [tower_summary(row) for row in rows]
+
+
+def owned_tower(tower_id, user_id):
+    row = _execute("SELECT id_torre, nombre, codigo_unico, estado FROM torres WHERE id_torre = %s AND usuario_id = %s", (tower_id, user_id), fetchone=True)
+    if not row:
+        raise MobileError("tower_not_found", "Torre no disponible para esta cuenta.", 404)
+    return row
+
+
+def finite(value):
+    try:
+        number = float(value)
+        return number if math.isfinite(number) else None
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def timestamp(value):
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if not isinstance(value, datetime):
+        return None
+    # Existing MySQL TIMESTAMP values are naive; connection uses server session
+    # timezone. Do not invent a UTC offset. Emit naive ISO unless provided.
+    return value.isoformat()
+
+
+def is_stale(value, now=None):
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return True
+    if not isinstance(value, datetime) or value.tzinfo is None:
+        # MySQL session time is normalized at query time with UTC_TIMESTAMP;
+        # raw naive values outside that path are not trusted for commands.
+        return True
+    age = ((now or datetime.now(timezone.utc)) - value).total_seconds()
+    return age < 0 or age > STALE_SECONDS
+
+
+def readings(tower_id, limit=20):
+    # TIMESTAMP auto conversion is session-dependent. Derive age in MySQL to
+    # express the reading time relative to UTC independently of that timezone.
+    rows = _execute("""SELECT l.*, TIMESTAMPDIFF(SECOND, l.fecha_registro, CURRENT_TIMESTAMP) AS age_seconds
+        FROM lecturas_sensores l JOIN ciclos_cultivo c ON c.id_ciclo=l.ciclo_id
+        WHERE c.torre_id=%s ORDER BY l.fecha_registro DESC, l.id_lectura DESC LIMIT %s""", (tower_id, limit), fetchall=True)
+    for row in rows:
+        age = finite(row.get("age_seconds"))
+        if age is not None:
+            row["utc_reading_time"] = datetime.now(timezone.utc) - timedelta(seconds=age)
+    return rows
+
+
+def reading_timestamp(row):
+    return row.get("utc_reading_time") if row else None
+
+
+def sensors(row):
+    row = row or {}
+    level = finite(row.get("nivel_agua"))
+    return {"ph": finite(row.get("ph")), "tds_ppm": None,
+            "ec_ms_cm": finite(row.get("ec")),
+            "nivel_pct": level if level is not None and 0 <= level <= 100 else None,
+            "litros": None, "temperatura_agua_c": finite(row.get("temperatura_agua"))}
+
+
+def configuration(tower_id):
+    return _execute("SELECT * FROM configuracion_control WHERE torre_id=%s", (tower_id,), fetchone=True)
+
+
+def pump_row(tower_id):
+    return _execute("SELECT estado, modo, ultimo_comando FROM actuadores_torre WHERE torre_id=%s AND tipo='bomba_principal'", (tower_id,), fetchone=True)
+
+
+def irrigation_row(tower_id):
+    return _execute("SELECT * FROM programaciones_riego WHERE torre_id=%s", (tower_id,), fetchone=True)
+
+
+def irrigation_payload(row):
+    return {"enabled": bool(row["habilitado"]), "on_minutes": row["minutos_encendido"], "off_minutes": row["minutos_apagado"], "strategy": row["estrategia"]} if row else None
+
+
+def tower_detail(tower_id, user_id):
+    tower = owned_tower(tower_id, user_id)
+    history = readings(tower_id)
+    latest = history[0] if history else {}
+    pump = pump_row(tower_id)
+    irrigation = irrigation_row(tower_id)
+    cycle = _execute("""SELECT c.id_ciclo,c.fase,c.notas,u.nombre AS cultivo_nombre FROM ciclos_cultivo c
+        JOIN cultivos u ON u.id_cultivo=c.cultivo_id WHERE c.torre_id=%s AND c.estado='activo' ORDER BY c.id_ciclo DESC LIMIT 1""", (tower_id,), fetchone=True)
+    alerts = _execute("SELECT id_alerta,severidad,mensaje,creada_en FROM alertas_sistema WHERE torre_id=%s AND estado='activa' ORDER BY creada_en DESC LIMIT 50", (tower_id,), fetchall=True)
+    events = _execute("SELECT id_evento,accion_recomendada,motivo,creado_en FROM eventos_control WHERE torre_id=%s ORDER BY creado_en DESC LIMIT 20", (tower_id,), fetchall=True)
+    config = configuration(tower_id)
+    inactive = tower.get("estado") == "inactivo"
+    desired = {"encendida": "on", "apagada": "off"}.get(pump.get("estado")) if pump else None
+    effective = merge_control_with_phase_profile(config, cycle["fase"], cycle["cultivo_nombre"]) if config and cycle else config
+    return {**tower_summary(tower), "source": "remote", "sensors": sensors(latest),
+        "updated_at": timestamp(reading_timestamp(latest)), "stale": is_stale(reading_timestamp(latest)),
+        "pump": {"desired": desired, "reported": None, "mode": pump.get("modo") if pump else None,
+            "status": "pending" if pump and pump.get("ultimo_comando") == "mobile_dashboard" else "unconfirmed" if pump else "unknown"},
+        "irrigation": irrigation_payload(irrigation),
+        "cycle": {"id": cycle["id_ciclo"], "phase": cycle["fase"], "crop": cycle["cultivo_nombre"]} if cycle else None,
+        "recipe": {"phase": cycle["fase"], "crop": cycle["cultivo_nombre"], "notes": effective.get("perfil_notas", "") if effective else ""} if cycle else None,
+        "alerts": [{"id": r["id_alerta"], "severity": r["severidad"], "message": r["mensaje"], "created_at": timestamp(r["creada_en"])} for r in alerts],
+        "events": [{"id": r["id_evento"], "action": r["accion_recomendada"], "reason": r["motivo"], "created_at": timestamp(r["creado_en"])} for r in events],
+        "history": [{"updated_at": timestamp(reading_timestamp(r)), "sensors": sensors(r)} for r in history],
+        "capabilities": {"pump_control": bool(pump) and not inactive, "irrigation_edit": bool(irrigation) and not inactive,
+            "recipe_edit": False, "local_connection": False, "tds": False, "liters": False, "pump_reported": False}}
+
+
+def command_pump(tower_id, user_id, state):
+    tower = owned_tower(tower_id, user_id)
+    if tower.get("estado") == "inactivo" or not pump_row(tower_id):
+        raise MobileError("control_unavailable", "Control no disponible para esta torre.", 409)
+    if state == "on":
+        history = readings(tower_id, 1)
+        latest = history[0] if history else {}
+        if is_stale(reading_timestamp(latest)):
+            raise MobileError("stale_reading", "Se requiere una lectura reciente para encender.", 409)
+        level = sensors(latest)["nivel_pct"]
+        config = configuration(tower_id) or {}
+        minimum = finite(config.get("nivel_minimo"))
+        if level is None or minimum is None or not 0 <= minimum < 100 or level <= minimum:
+            raise MobileError("unsafe_level", "Nivel de agua inválido o insuficiente.", 409)
+    _execute("""UPDATE actuadores_torre SET estado=%s,modo='manual',ultimo_comando='mobile_dashboard',actualizado_en=CURRENT_TIMESTAMP
+        WHERE torre_id=%s AND tipo='bomba_principal'""", ("encendida" if state == "on" else "apagada", tower_id))
+    return {"accepted": True, "desired": state, "reported": None, "status": "pending",
+            "message": "Orden guardada; falta confirmación del dispositivo."}
+
+
+def save_irrigation(tower_id, user_id, payload):
+    tower = owned_tower(tower_id, user_id)
+    existing = irrigation_row(tower_id)
+    if tower.get("estado") == "inactivo" or not existing:
+        raise MobileError("control_unavailable", "Programación no disponible.", 409)
+    enabled = payload.get("enabled")
+    on_minutes, off_minutes = payload.get("on_minutes"), payload.get("off_minutes")
+    if not isinstance(enabled, bool) or any(type(v) is not int or not 1 <= v <= 1440 for v in (on_minutes, off_minutes)):
+        raise MobileError("invalid_payload", "Indica habilitación y minutos entre 1 y 1440.")
+    _execute("UPDATE programaciones_riego SET habilitado=%s,minutos_encendido=%s,minutos_apagado=%s,actualizado_en=CURRENT_TIMESTAMP WHERE torre_id=%s", (enabled, on_minutes, off_minutes, tower_id))
+    return {"accepted": True, "status": "saved", "message": "Programación guardada en servidor; no acredita aplicación en dispositivo.", "irrigation": {"enabled": enabled, "on_minutes": on_minutes, "off_minutes": off_minutes, "strategy": existing["estrategia"]}}

@@ -1,7 +1,11 @@
 # Plan técnico: dashboard web y Android nativo EcoGrow 2.0
 
-Fecha: 2026-10-12. Estado: PROPUESTA PARA REVISIÓN.
+Fecha: 2026-10-12. Estado: APROBADO POR JOHN PARA CONSTRUCCIÓN CON OTRO AGENTE.
 Solicitud confirmada: dos entregables, sobre las especificaciones EcoGrow 2.0.
+
+John aprobó el plan y después indicó que la construcción debe continuar con
+otro agente. Se detuvo la implementación iniciada; el avance se conserva como
+WIP sin validación completa. Ver `HANDOFF_OTRO_AGENTE.md` antes de retomarlo.
 
 ## Resultado previsto
 
@@ -71,5 +75,5 @@ para que puedan incorporarse después conservando contrato de interfaz.
 - PR correcto y checks obligatorios del HEAD final verdes.
 
 Este plan no afirma que exista aún un APK, API 2.0 integrada o dashboard nuevo.
-Tras su revisión se desglosa en tareas con archivos y comandos definitivos,
-siguiendo la compuerta de la skill spec-driven-development.
+El agente constructor desglosa los pasos aprobados en tareas con archivos y
+comandos definitivos y continúa el ciclo autónomo hasta completar los gates.

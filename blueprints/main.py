@@ -46,6 +46,12 @@ def demo():
     return render_template("demo.html")
 
 
+@main_bp.route("/control")
+@login_required
+def mobile_dashboard():
+    return render_template("mobile_dashboard.html")
+
+
 @main_bp.route("/robots.txt")
 def robots_txt():
     sitemap_url = url_for("main.sitemap_xml", _external=True)
