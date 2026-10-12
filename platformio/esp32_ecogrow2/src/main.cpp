@@ -33,18 +33,20 @@ const uint8_t PIN_TDS_PWR     = 18; // Alimentación pulsada sensor TDS (anti-el
 const uint8_t PIN_TEMP_AGUA   = 32; // Sonda OneWire DS18B20 temperatura agua
 const uint8_t PIN_LED_ESTADO  = 2;  // LED on-board de actividad
 
+// ------------------------------------------------------------------------------
+// RED Y CONFIGURACIÓN: config.h local, excluido de git
+#if __has_include("config.h")
+#include "config.h"
+#endif
+
+#ifndef ECOGROW_AP_NAME
+#include "config.h.example"
+#endif
+
 // Parámetros de geometría del depósito base
 const float TANQUE_ALTURA_CM   = ECOGROW_TANK_HEIGHT_CM; // Altura total del depósito
 const float TANQUE_DIST_MIN_CM = ECOGROW_TANK_MIN_DISTANCE_CM; // Zona muerta (tanque al 100%)
 const float TANQUE_CAPACIDAD_L = ECOGROW_TANK_CAPACITY_L; // Volumen nominal en litros
-
-// ------------------------------------------------------------------------------
-// RED: config.h local, excluido de git
-#if __has_include("config.h")
-#include "config.h"
-#else
-#include "config.h.example"
-#endif
 
 WebServer server(80);
 Preferences prefs;
@@ -342,14 +344,14 @@ void setup() {
   // WiFi Dual (AP + STA)
   if (strlen(password_ap)<12) { Serial.println("Configurar red local antes de habilitar acceso"); return; }
   WiFi.mode(WIFI_AP_STA);
-  WiFi.softAP(AP_SSID, AP_PASS);
+  WiFi.softAP(ssid_ap, password_ap);
   Serial.print("Punto de Acceso iniciado: ");
-  Serial.println(AP_SSID);
+  Serial.println(ssid_ap);
   Serial.print("IP Torre: ");
   Serial.println(WiFi.softAPIP());
 
-  if (strlen(STA_SSID) > 0) {
-    WiFi.begin(STA_SSID, STA_PASS);
+  if (strlen(ssid_sta) > 0) {
+    WiFi.begin(ssid_sta, password_sta);
   }
 
   const char* headers[]={"Content-Type","Origin"};

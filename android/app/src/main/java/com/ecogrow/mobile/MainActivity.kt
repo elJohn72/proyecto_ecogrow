@@ -111,8 +111,9 @@ class MainActivity : ComponentActivity() {
     Text(recipe?.optString(if (local) "name" else "phase", "Sin receta") ?: "Sin receta")
     if (local && d.optJSONObject("capabilities")?.optBoolean("recipe_edit") == true) {
         var selection by remember { mutableStateOf<Int?>(null) }
-        listOf("Germinación", "Crecimiento vegetativo", "Floración", "Fructificación").forEachIndexed { index, name -> OutlinedButton(onClick = { selection = index }, enabled = !busy && !failed, modifier = Modifier.fillMaxWidth()) { Text(name) } }
-        selection?.let { index -> AlertDialog(onDismissRequest = { selection = null }, title = { Text("Cambiar receta") }, text = { Text("La torre aplicará la receta seleccionada. Comprueba el cultivo y su etapa antes de continuar.") }, confirmButton = { TextButton(onClick = { selection = null; vm.recipe(index) }) { Text("Aplicar") } }, dismissButton = { TextButton(onClick = { selection = null }) { Text("Cancelar") } }) }
+        val recipeNames = listOf("Lechuga", "Espinaca", "Albahaca", "Frutilla / Fresa")
+        recipeNames.forEachIndexed { index, name -> OutlinedButton(onClick = { selection = index }, enabled = !busy && !failed, modifier = Modifier.fillMaxWidth()) { Text(name) } }
+        selection?.let { index -> AlertDialog(onDismissRequest = { selection = null }, title = { Text("Cambiar receta") }, text = { Text("La torre aplicará la receta '${recipeNames.getOrElse(index) { "" }}'. Comprueba el cultivo y los parámetros de la solución antes de continuar.") }, confirmButton = { TextButton(onClick = { selection = null; vm.recipe(index) }) { Text("Aplicar") } }, dismissButton = { TextButton(onClick = { selection = null }) { Text("Cancelar") } }) }
     }
     val events = d.optJSONArray("events")
     if (events != null && events.length() > 0) { Text("Actividad reciente", style = MaterialTheme.typography.titleLarge); for (i in 0 until minOf(5, events.length())) { val e = events.getJSONObject(i); Text("${e.optString("created_at")} · ${e.optString("action")} ${e.optString("reason")}") } }

@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'codex/**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  python-web:
+    name: Backend & Web Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate JavaScript syntax
+        run: node --check static/mobile-dashboard.js
+
+      - name: Run Python unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Check git formatting
+        run: git diff --check
+
+  android:
+    name: Android Native (Kotlin & Compose)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run Android Lint, Unit Tests and Build APK
+        working-directory: android
+        run: ./gradlew --no-daemon lintDebug testDebugUnitTest assembleDebug
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecogrow-app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+  firmware:
+    name: Firmware EcoGrow 2.0 & Safety
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python for PlatformIO
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Compile and run safety test
+        run: |
+          c++ -std=c++17 -Iplatformio/esp32_ecogrow2/include platformio/esp32_ecogrow2/tests/safety_test.cpp -o /tmp/ecogrow-safety-test
+          /tmp/ecogrow-safety-test
+
+      - name: Compile ESP32 EcoGrow 2.0 Firmware
+        run: pio run -d platformio/esp32_ecogrow2
