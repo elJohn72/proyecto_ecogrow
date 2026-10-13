@@ -282,7 +282,9 @@ def api_iot_sync():
             temperatura_agua=parse_optional_float(payload.get("temperatura_agua")),
             ph=parse_optional_float(payload.get("ph")),
             ec=parse_optional_float(payload.get("ec")),
+            tds_ppm=parse_optional_float(payload.get("tds_ppm")),
             nivel_agua=parse_optional_float(payload.get("nivel_agua")),
+            volumen_litros=parse_optional_float(payload.get("volumen_litros") or payload.get("litros")),
             luminosidad=parse_optional_float(payload.get("luminosidad")),
         )
     except ValueError as exc:
@@ -320,6 +322,10 @@ def api_iot_sync():
                     "ttl_sec": active_cmd["ttl_sec"],
                     "now": int(time.time()),
                 }
+                if "mode" in active_cmd:
+                    command_payload["mode"] = active_cmd["mode"]
+                if "recipe_idx" in active_cmd:
+                    command_payload["recipe_idx"] = active_cmd["recipe_idx"]
         except Exception:
             pass
 

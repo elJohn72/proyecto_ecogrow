@@ -314,8 +314,8 @@ private fun HomeConnectionScreen(
             OutlinedTextField(
                 value = localPin,
                 onValueChange = { localPin = it },
-                label = { Text("PIN / Clave de Acceso Local") },
-                placeholder = { Text("ecogrow20") },
+                label = { Text("PIN / Clave de Acceso Local de la Torre") },
+                placeholder = { Text("PIN de la torre (ej: EG-A1B2)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !busy,
@@ -323,8 +323,8 @@ private fun HomeConnectionScreen(
             )
 
             Button(
-                onClick = { vm.connectLocal(user = "admin", password = localPin.trim().ifBlank { "ecogrow20" }, baseUrl = localIp.trim()) },
-                enabled = !busy && localIp.isNotBlank(),
+                onClick = { vm.connectLocal(user = "admin", password = localPin.trim(), baseUrl = localIp.trim()) },
+                enabled = !busy && localIp.isNotBlank() && localPin.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -365,7 +365,7 @@ private fun HomeConnectionScreen(
             }
 
             AnimatedVisibility(visible = showCloudLogin) {
-                var endpoint by remember { mutableStateOf("http://w3bmo8epk9iedi7gkqchdpru.179.236.74.107.sslip.io") }
+                var endpoint by remember { mutableStateOf("https://w3bmo8epk9iedi7gkqchdpru.179.236.74.107.sslip.io") }
                 var mail by remember { mutableStateOf("prueba@ecogrow.local") }
                 var password by remember { mutableStateOf("") }
 
@@ -635,8 +635,7 @@ private fun BleProvisioningDialog(
 
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var pop by remember { mutableStateOf("ecogrow20") }
-    var showAdvanced by remember { mutableStateOf(false) }
+    var pop by remember { mutableStateOf("") }
 
     var statusMessage by remember { mutableStateOf("Busca torres EcoGrow cercanas por Bluetooth.") }
     var provStep by remember { mutableStateOf(BleProvStep.IDLE) }
@@ -845,25 +844,16 @@ private fun BleProvisioningDialog(
                         enabled = provStep != BleProvStep.PROVISIONING
                     )
 
-                    // Opciones avanzadas (PoP oculto)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showAdvanced = !showAdvanced },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(if (showAdvanced) "▲ Menos opciones" else "▼ Opciones avanzadas (PoP)", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                    }
-
-                    if (showAdvanced) {
-                        OutlinedTextField(
-                            value = pop,
-                            onValueChange = { pop = it },
-                            label = { Text("Clave PoP (Preconfigurada)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                    // Clave PoP por dispositivo (Proof of Possession)
+                    OutlinedTextField(
+                        value = pop,
+                        onValueChange = { pop = it },
+                        label = { Text("PIN / Clave PoP de la Torre") },
+                        placeholder = { Text("PIN único (ej: EG-A1B2)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = provStep != BleProvStep.PROVISIONING
+                    )
 
                     // Botón de Enviar Configuración
                     Button(
@@ -878,7 +868,7 @@ private fun BleProvisioningDialog(
                                 statusMessage = msg
                             }
                         },
-                        enabled = effectiveSsid.isNotBlank() && provStep != BleProvStep.PROVISIONING,
+                        enabled = effectiveSsid.isNotBlank() && pop.isNotBlank() && provStep != BleProvStep.PROVISIONING,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     ) {

@@ -61,8 +61,24 @@ class EcoGrowViewModel : ViewModel() {
         val host = baseUrl.removePrefix("http://").removePrefix("https://").trimEnd('/')
         state.value = state.value.copy(authenticated = true, user = "Torre Local ($host)")
     }
-    fun mode(mode: String) = action { withContext(Dispatchers.IO) { local!!.request("mode", JSONObject().put("mode", mode)) }; loadDetail(0) }
-    fun recipe(index: Int) = action { withContext(Dispatchers.IO) { local!!.request("recipe", JSONObject().put("recipe_idx", index)) }; loadDetail(0) }
+    fun mode(mode: String) = action {
+        val id = state.value.detail!!.getInt("id")
+        val result = withContext(Dispatchers.IO) {
+            local?.request("mode", JSONObject().put("mode", mode))
+                ?: api!!.post("towers/$id/mode", JSONObject().put("mode", mode))
+        }
+        loadDetail(id)
+        state.value = state.value.copy(notice = result.optString("message", "Orden de modo enviada. Falta confirmación de la torre."))
+    }
+    fun recipe(index: Int) = action {
+        val id = state.value.detail!!.getInt("id")
+        val result = withContext(Dispatchers.IO) {
+            local?.request("recipe", JSONObject().put("recipe_idx", index))
+                ?: api!!.post("towers/$id/recipe", JSONObject().put("recipe_idx", index))
+        }
+        loadDetail(id)
+        state.value = state.value.copy(notice = result.optString("message", "Orden de receta enviada. Falta confirmación de la torre."))
+    }
     fun logout() = action {
         try { withContext(Dispatchers.IO) { api?.post("logout", JSONObject()) } }
         finally { api?.clear(); api = null; local = null; state.value = ScreenState() }

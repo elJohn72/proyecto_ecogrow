@@ -529,6 +529,7 @@ def create_mysql_tables() -> None:
             _ensure_cultivos_schema(cursor)
             _ensure_lecturas_schema(cursor)
             _ensure_cosechas_schema(cursor)
+            _ensure_comandos_schema(cursor)
         database_connection.commit()
     finally:
         database_connection.close()
@@ -642,6 +643,16 @@ def _ensure_lecturas_schema(cursor) -> None:
     if not ciclo_column:
         cursor.execute("ALTER TABLE lecturas_sensores ADD COLUMN ciclo_id INT NULL AFTER id_lectura")
 
+    cursor.execute("SHOW COLUMNS FROM lecturas_sensores LIKE 'tds_ppm'")
+    tds_column = cursor.fetchone()
+    if not tds_column:
+        cursor.execute("ALTER TABLE lecturas_sensores ADD COLUMN tds_ppm DECIMAL(7,2) NULL AFTER ec")
+
+    cursor.execute("SHOW COLUMNS FROM lecturas_sensores LIKE 'volumen_litros'")
+    vol_column = cursor.fetchone()
+    if not vol_column:
+        cursor.execute("ALTER TABLE lecturas_sensores ADD COLUMN volumen_litros DECIMAL(6,2) NULL AFTER nivel_agua")
+
     cursor.execute("SHOW INDEX FROM lecturas_sensores WHERE Key_name = 'fk_lecturas_ciclo'")
     ciclo_fk_exists = cursor.fetchone()
     if not ciclo_fk_exists:
@@ -654,6 +665,34 @@ def _ensure_lecturas_schema(cursor) -> None:
                 ON DELETE RESTRICT
                 """
             )
+        except Error:
+            pass
+
+
+def _ensure_comandos_schema(cursor) -> None:
+    cursor.execute("SHOW TABLES LIKE 'dispositivo_comandos'")
+    if not cursor.fetchone():
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS dispositivo_comandos (
+                id_comando VARCHAR(64) PRIMARY KEY,
+                torre_id INT NOT NULL,
+                accion VARCHAR(60) NOT NULL,
+                estado_deseado VARCHAR(40) NOT NULL,
+                parametros_json TEXT NULL,
+                estado VARCHAR(40) NOT NULL DEFAULT 'pending',
+                creado_en BIGINT NOT NULL,
+                expira_en BIGINT NOT NULL,
+                ejecutado_en BIGINT NULL,
+                ack_mensaje VARCHAR(255) NULL,
+                CONSTRAINT fk_cmd_torre
+                    FOREIGN KEY (torre_id) REFERENCES torres(id_torre)
+                    ON DELETE CASCADE
+            )
+            """
+        )
+        try:
+            cursor.execute("CREATE INDEX idx_cmd_torre_estado ON dispositivo_comandos (torre_id, estado)")
         except Error:
             pass
 
@@ -2029,6 +2068,8 @@ def insert_sensor_reading(
     ec: float | None,
     nivel_agua: float | None,
     luminosidad: float | None,
+    tds_ppm: float | None = None,
+    volumen_litros: float | None = None,
 ) -> int:
     create_mysql_tables()
     torre = fetch_torre_by_codigo(torre_codigo)
@@ -2051,10 +2092,12 @@ def insert_sensor_reading(
             temperatura_agua,
             ph,
             ec,
+            tds_ppm,
             nivel_agua,
+            volumen_litros,
             luminosidad
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             ciclo_id,
@@ -2064,7 +2107,9 @@ def insert_sensor_reading(
             temperatura_agua,
             ph,
             ec,
+            tds_ppm,
             nivel_agua,
+            volumen_litros,
             luminosidad,
         ),
     )
@@ -2210,7 +2255,9 @@ def sync_iot_device(
     temperatura_agua: float | None = None,
     ph: float | None = None,
     ec: float | None = None,
+    tds_ppm: float | None = None,
     nivel_agua: float | None = None,
+    volumen_litros: float | None = None,
     luminosidad: float | None = None,
 ) -> dict:
     create_mysql_tables()
@@ -2220,6 +2267,16 @@ def sync_iot_device(
 
     torre_id = int(torre["id_torre"])
     _create_control_defaults_for_torre(torre_id)
+
+    if volumen_litros is None and nivel_agua is not None and 0 <= nivel_agua <= 100:
+        cfg = _execute("SELECT deposito_litros FROM configuracion_control WHERE torre_id = %s LIMIT 1", (torre_id,), fetchone=True)
+        if cfg and cfg.get("deposito_litros"):
+            try:
+                cap = float(cfg["deposito_litros"])
+                if cap > 0:
+                    volumen_litros = round((nivel_agua / 100.0) * cap, 2)
+            except (ValueError, TypeError):
+                pass
 
     if rele_principal_on is not None:
         actuador = _execute(
@@ -2248,7 +2305,9 @@ def sync_iot_device(
         "temperatura_agua": temperatura_agua,
         "ph": ph,
         "ec": ec,
+        "tds_ppm": tds_ppm,
         "nivel_agua": nivel_agua,
+        "volumen_litros": volumen_litros,
         "luminosidad": luminosidad,
     }
     if any(value is not None for value in sensor_values.values()):

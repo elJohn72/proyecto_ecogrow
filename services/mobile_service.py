@@ -3,6 +3,7 @@
 Legacy actuator rows mix commands and reports. They cannot establish physical
 confirmation. Tank capacity is an uncalibrated default, not a volume measurement.
 """
+import json
 import math
 import secrets
 import time
@@ -25,9 +26,10 @@ _pending_commands = {}
 def create_pump_command(tower_id, desired_state, ttl_sec=60):
     now = int(time.time())
     cmd_id = f"cmd_{uuid.uuid4().hex[:8]}"
+    action = "PUMP_ON" if desired_state == "on" else "PUMP_OFF"
     cmd = {
         "id": cmd_id,
-        "action": "PUMP_ON" if desired_state == "on" else "PUMP_OFF",
+        "action": action,
         "desired": desired_state,
         "created_at": now,
         "expires_at": now + ttl_sec,
@@ -35,10 +37,122 @@ def create_pump_command(tower_id, desired_state, ttl_sec=60):
         "status": "pending",
     }
     _pending_commands[tower_id] = cmd
+    try:
+        _execute(
+            "UPDATE dispositivo_comandos SET estado='superseded' WHERE torre_id=%s AND estado='pending'",
+            (tower_id,),
+        )
+        _execute(
+            """INSERT INTO dispositivo_comandos (id_comando, torre_id, accion, estado_deseado, parametros_json, estado, creado_en, expira_en)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+            (cmd_id, tower_id, action, desired_state, None, "pending", now, now + ttl_sec),
+        )
+    except Exception:
+        pass
+    return cmd
+
+
+def create_mode_command(tower_id, mode, ttl_sec=60):
+    now = int(time.time())
+    cmd_id = f"cmd_{uuid.uuid4().hex[:8]}"
+    mode_clean = str(mode).strip().upper()
+    cmd = {
+        "id": cmd_id,
+        "action": "SET_MODE",
+        "mode": mode_clean,
+        "desired": mode_clean,
+        "created_at": now,
+        "expires_at": now + ttl_sec,
+        "ttl_sec": ttl_sec,
+        "status": "pending",
+    }
+    _pending_commands[tower_id] = cmd
+    try:
+        _execute(
+            "UPDATE dispositivo_comandos SET estado='superseded' WHERE torre_id=%s AND estado='pending'",
+            (tower_id,),
+        )
+        _execute(
+            """INSERT INTO dispositivo_comandos (id_comando, torre_id, accion, estado_deseado, parametros_json, estado, creado_en, expira_en)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+            (cmd_id, tower_id, "SET_MODE", mode_clean, json.dumps({"mode": mode_clean}), "pending", now, now + ttl_sec),
+        )
+    except Exception:
+        pass
+    return cmd
+
+
+def create_recipe_command(tower_id, recipe_idx, ttl_sec=60):
+    now = int(time.time())
+    cmd_id = f"cmd_{uuid.uuid4().hex[:8]}"
+    cmd = {
+        "id": cmd_id,
+        "action": "SET_RECIPE",
+        "recipe_idx": int(recipe_idx),
+        "desired": str(recipe_idx),
+        "created_at": now,
+        "expires_at": now + ttl_sec,
+        "ttl_sec": ttl_sec,
+        "status": "pending",
+    }
+    _pending_commands[tower_id] = cmd
+    try:
+        _execute(
+            "UPDATE dispositivo_comandos SET estado='superseded' WHERE torre_id=%s AND estado='pending'",
+            (tower_id,),
+        )
+        _execute(
+            """INSERT INTO dispositivo_comandos (id_comando, torre_id, accion, estado_deseado, parametros_json, estado, creado_en, expira_en)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+            (cmd_id, tower_id, "SET_RECIPE", str(recipe_idx), json.dumps({"recipe_idx": int(recipe_idx)}), "pending", now, now + ttl_sec),
+        )
+    except Exception:
+        pass
     return cmd
 
 
 def get_active_command(tower_id):
+    now = int(time.time())
+    row = None
+    try:
+        row = _execute(
+            "SELECT * FROM dispositivo_comandos WHERE torre_id=%s ORDER BY creado_en DESC LIMIT 1",
+            (tower_id,),
+            fetchone=True,
+        )
+    except Exception:
+        pass
+
+    if row:
+        cmd_status = row.get("estado", "pending")
+        exp = int(row.get("expira_en", 0))
+        if cmd_status == "pending" and now > exp:
+            cmd_status = "expired"
+            try:
+                _execute("UPDATE dispositivo_comandos SET estado='expired' WHERE id_comando=%s", (row["id_comando"],))
+            except Exception:
+                pass
+
+        params = {}
+        if row.get("parametros_json"):
+            try:
+                params = json.loads(row["parametros_json"])
+            except Exception:
+                pass
+
+        cmd = {
+            "id": row["id_comando"],
+            "action": row["accion"],
+            "desired": row["estado_deseado"],
+            "created_at": int(row["creado_en"]),
+            "expires_at": exp,
+            "ttl_sec": max(0, exp - int(row["creado_en"])),
+            "status": cmd_status,
+            **params,
+        }
+        _pending_commands[tower_id] = cmd
+        return cmd
+
     cmd = _pending_commands.get(tower_id)
     if not cmd:
         return None
@@ -48,17 +162,34 @@ def get_active_command(tower_id):
 
 
 def record_command_ack(tower_id, cmd_id, ack_status):
+    now = int(time.time())
+    normalized = str(ack_status).lower()
+    if "executed" in normalized or "ok" in normalized:
+        status_val = "executed"
+    elif "expired" in normalized:
+        status_val = "expired"
+    elif "reject" in normalized:
+        status_val = "rejected"
+    else:
+        status_val = normalized
+
+    try:
+        if cmd_id:
+            _execute(
+                "UPDATE dispositivo_comandos SET estado=%s, ejecutado_en=%s, ack_mensaje=%s WHERE id_comando=%s",
+                (status_val, now, ack_status, cmd_id),
+            )
+        else:
+            _execute(
+                "UPDATE dispositivo_comandos SET estado=%s, ejecutado_en=%s, ack_mensaje=%s WHERE torre_id=%s AND estado='pending'",
+                (status_val, now, ack_status, tower_id),
+            )
+    except Exception:
+        pass
+
     cmd = _pending_commands.get(tower_id)
     if cmd and (cmd["id"] == cmd_id or not cmd_id):
-        normalized = ack_status.lower()
-        if "executed" in normalized or "ok" in normalized:
-            cmd["status"] = "executed"
-        elif "expired" in normalized:
-            cmd["status"] = "expired"
-        elif "reject" in normalized:
-            cmd["status"] = "rejected"
-        else:
-            cmd["status"] = normalized
+        cmd["status"] = status_val
         return cmd
     return None
 
@@ -154,10 +285,11 @@ def reading_timestamp(row):
 def sensors(row):
     row = row or {}
     level = finite(row.get("nivel_agua"))
+    liters = finite(row.get("volumen_litros")) if row.get("volumen_litros") is not None else finite(row.get("litros"))
     return {"ph": finite(row.get("ph")), "tds_ppm": finite(row.get("tds_ppm")),
             "ec_ms_cm": finite(row.get("ec")),
             "nivel_pct": level if level is not None and 0 <= level <= 100 else None,
-            "litros": finite(row.get("litros")), "temperatura_agua_c": finite(row.get("temperatura_agua"))}
+            "litros": liters, "temperatura_agua_c": finite(row.get("temperatura_agua"))}
 
 
 def configuration(tower_id):
@@ -216,8 +348,9 @@ def tower_detail(tower_id, user_id):
         "alerts": [{"id": r["id_alerta"], "severity": r["severidad"], "message": r["mensaje"], "created_at": timestamp(r["creada_en"])} for r in alerts],
         "events": [{"id": r["id_evento"], "action": r["accion_recomendada"], "reason": r["motivo"], "created_at": timestamp(r["creado_en"])} for r in events],
         "history": [{"updated_at": timestamp(reading_timestamp(r)), "sensors": sensors(r)} for r in history],
-        "capabilities": {"pump_control": bool(pump) and not inactive, "irrigation_edit": bool(irrigation) and not inactive,
-            "recipe_edit": False, "local_connection": False, "tds": True, "liters": bool(config and config.get("deposito_litros")), "pump_reported": reported is not None}}
+        "capabilities": {"pump_control": bool(pump) and not inactive, "mode_control": bool(pump) and not inactive,
+            "irrigation_edit": bool(irrigation) and not inactive,
+            "recipe_edit": not inactive, "local_connection": False, "tds": True, "liters": bool(config and config.get("deposito_litros")), "pump_reported": reported is not None}}
 
 
 def command_pump(tower_id, user_id, state):
@@ -240,6 +373,49 @@ def command_pump(tower_id, user_id, state):
     return {"accepted": True, "desired": state, "reported": None, "status": "pending",
             "command_id": cmd["id"], "expires_at": cmd["expires_at"],
             "message": "Orden guardada; falta confirmación del dispositivo."}
+
+
+def command_mode(tower_id, user_id, mode):
+    tower = owned_tower(tower_id, user_id)
+    if tower.get("estado") == "inactivo":
+        raise MobileError("control_unavailable", "Control no disponible para esta torre.", 409)
+    mode_clean = str(mode).strip().upper()
+    if mode_clean not in {"AUTO", "MANUAL"}:
+        raise MobileError("invalid_payload", "Modo debe ser 'AUTO' o 'MANUAL'.", 400)
+    cmd = create_mode_command(tower_id, mode_clean)
+    _execute(
+        "UPDATE actuadores_torre SET modo=%s, ultimo_comando='mobile_dashboard', actualizado_en=CURRENT_TIMESTAMP WHERE torre_id=%s AND tipo='bomba_principal'",
+        ("automatico" if mode_clean == "AUTO" else "manual", tower_id),
+    )
+    return {
+        "accepted": True,
+        "desired": mode_clean,
+        "status": "pending",
+        "command_id": cmd["id"],
+        "expires_at": cmd["expires_at"],
+        "message": f"Modo {mode_clean} solicitado; esperando confirmación del dispositivo.",
+    }
+
+
+def command_recipe(tower_id, user_id, recipe_idx):
+    tower = owned_tower(tower_id, user_id)
+    if tower.get("estado") == "inactivo":
+        raise MobileError("control_unavailable", "Control no disponible para esta torre.", 409)
+    try:
+        r_idx = int(recipe_idx)
+        if not (0 <= r_idx <= 3):
+            raise ValueError()
+    except (ValueError, TypeError):
+        raise MobileError("invalid_payload", "Índice de receta inválido (0 a 3).", 400)
+    cmd = create_recipe_command(tower_id, r_idx)
+    return {
+        "accepted": True,
+        "desired": str(r_idx),
+        "status": "pending",
+        "command_id": cmd["id"],
+        "expires_at": cmd["expires_at"],
+        "message": f"Receta {r_idx} solicitada; esperando confirmación del dispositivo.",
+    }
 
 
 def save_irrigation(tower_id, user_id, payload):

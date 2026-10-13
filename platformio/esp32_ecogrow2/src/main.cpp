@@ -18,11 +18,13 @@
 #include <WebServer.h>
 #include <HTTPClient.h>
 #include <WiFiClient.h>
+#include <WiFiClientSecure.h>
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <esp_bt.h>
+#include <time.h>
 #include "safety.h"
 
 // Evitar que el core de Arduino libere la memoria Bluetooth (BTDM) al arrancar
@@ -113,14 +115,49 @@ float valorPh = NAN;
 float nivelAguaPct = NAN; // Porcentaje de llenado (0 a 100%)
 float litrosActuales = NAN; // Volumen en litros
 
-const char* BLE_POP = "ecogrow20"; // Proof of Possession / PIN BLE y contraseña por defecto
+// Certificado Raíz Oficial Let's Encrypt ISRG Root X1 para validación TLS segura
+const char* ISRG_ROOT_X1_CA = \
+"-----BEGIN CERTIFICATE-----\n" \
+"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\n" \
+"-----END CERTIFICATE-----\n";
+
+// PIN de posesión / credencial local única por dispositivo (derivada de MAC o NVS)
+char ble_pop_global[16] = "";
 
 #ifndef ECOGROW_BACKEND_URL
-#define ECOGROW_BACKEND_URL "http://179.236.74.107:8000"
+#define ECOGROW_BACKEND_URL "https://w3bmo8epk9iedi7gkqchdpru.179.236.74.107.sslip.io"
 #endif
 
 #ifndef ECOGROW_SENSOR_API_TOKEN
-#define ECOGROW_SENSOR_API_TOKEN "ecogrow_sensor_secret_token_2026"
+#define ECOGROW_SENSOR_API_TOKEN ""
 #endif
 
 #ifndef ECOGROW_TORRE_CODIGO
@@ -269,7 +306,7 @@ bool authorized() {
   // Seguridad fail-closed: si no se configuró credencial explícita en config.h,
   // se exige usuario 'admin' y contraseña igual al PIN de posesión BLE (BLE_POP).
   const char* expectedUser = (strlen(ECOGROW_CONTROL_USER) > 0) ? ECOGROW_CONTROL_USER : "admin";
-  const char* expectedPass = (strlen(ECOGROW_CONTROL_PASSWORD) >= 8) ? ECOGROW_CONTROL_PASSWORD : BLE_POP;
+  const char* expectedPass = (strlen(ECOGROW_CONTROL_PASSWORD) >= 6) ? ECOGROW_CONTROL_PASSWORD : ble_pop_global;
   if (!server.authenticate(expectedUser, expectedPass)) {
     server.requestAuthentication();
     return false;
@@ -341,17 +378,40 @@ void handleRecipeControl(){
 void sincronizarConVps() {
   if (WiFi.status() != WL_CONNECTED) return;
 
-  WiFiClient client;
-  HTTPClient http;
-
-  String endpoint = String(ECOGROW_BACKEND_URL) + "/api/iot/sync";
-  if (!http.begin(client, endpoint)) {
+  String token = prefs.getString("api_token", "");
+  if (token.length() == 0) {
+    token = String(ECOGROW_SENSOR_API_TOKEN);
+  }
+  // Fail-closed ante credenciales incompletas o vacías
+  if (token.length() == 0 || token == "PENDIENTE" || token == "SIN_DATO") {
+    Serial.println("[VPS Sync] Token de autenticación no configurado. Sincronización omitida (fail-closed).");
     return;
   }
 
+  String endpoint = String(ECOGROW_BACKEND_URL) + "/api/iot/sync";
+  HTTPClient http;
+  bool isHttps = endpoint.startsWith("https://");
+
+  WiFiClientSecure clientSecure;
+  WiFiClient clientPlain;
+
+  if (isHttps) {
+    clientSecure.setCACert(ISRG_ROOT_X1_CA);
+    clientSecure.setTimeout(6);
+    if (!http.begin(clientSecure, endpoint)) {
+      Serial.println("[VPS Sync] Error al inicializar conexión HTTPS segura.");
+      return;
+    }
+  } else {
+    clientPlain.setTimeout(5);
+    if (!http.begin(clientPlain, endpoint)) {
+      return;
+    }
+  }
+
   http.addHeader("Content-Type", "application/json");
-  http.addHeader("X-API-Token", ECOGROW_SENSOR_API_TOKEN);
-  http.setTimeout(4000);
+  http.addHeader("X-API-Token", token);
+  http.setTimeout(6000);
 
   JsonDocument txDoc;
   txDoc["torre_codigo"] = ECOGROW_TORRE_CODIGO;
@@ -402,9 +462,10 @@ void sincronizarConVps() {
                 Serial.println("[VPS Command] Rechazado: Nivel insuficiente o no calibrado");
               }
             } else if (action == "PUMP_OFF") {
+              modoActual = MODO_MANUAL;
+              duracionCicloMs = 0;
               apagarBomba();
               timestampCiclo = millis();
-              duracionCicloMs = tiempoOffMinutos * 60000UL;
               estadoUltimoComando = "EXECUTED";
             } else if (action == "SET_MODE") {
               String m = cmd["mode"].as<String>();
@@ -510,6 +571,9 @@ void setup() {
   nivelAguaPct = medirNivelUltrasonico(litrosActuales);
   verificarSeguridadAgua();
 
+  // Sincronización de hora SNTP para validación criptográfica de certificados TLS
+  configTime(0, 0, "pool.ntp.org", "time.google.com");
+
   // Aprovisionamiento WiFi mediante Bluetooth BLE (Espressif WiFiProv)
   WiFi.onEvent(SysProvEvent);
   char ble_service_name[24];
@@ -517,8 +581,17 @@ void setup() {
   WiFi.macAddress(mac);
   snprintf(ble_service_name, sizeof(ble_service_name), "PROV_EcoGrow_%02X%02X", mac[4], mac[5]);
 
+  // Clave PoP única: si existe en NVS se utiliza, si no se deriva de la dirección MAC física
+  String nvs_pop = prefs.getString("pop", "");
+  if (nvs_pop.length() > 0) {
+    snprintf(ble_pop_global, sizeof(ble_pop_global), "%s", nvs_pop.c_str());
+  } else {
+    snprintf(ble_pop_global, sizeof(ble_pop_global), "EG-%02X%02X", mac[4], mac[5]);
+  }
+
   // beginProvision inicia BLE sin liberar memoria BT para evitar error ESP_ERR_INVALID_STATE (259)
-  WiFiProv.beginProvision(WIFI_PROV_SCHEME_BLE, WIFI_PROV_SCHEME_HANDLER_NONE, WIFI_PROV_SECURITY_1, BLE_POP, ble_service_name, NULL, NULL, false);
+  WiFiProv.beginProvision(WIFI_PROV_SCHEME_BLE, WIFI_PROV_SCHEME_HANDLER_NONE, WIFI_PROV_SECURITY_1, ble_pop_global, ble_service_name, NULL, NULL, false);
+  Serial.printf("[BLE Prov] Anuncio BLE: %s | PIN PoP dispositivo: %s\n", ble_service_name, ble_pop_global);
 
   // WiFi Dual fallback si hay credenciales configuradas
   if (strlen(password_ap)>=12) {

@@ -61,11 +61,29 @@ Estado general: **EN PROCESO DE ENTREGA FINAL Y DESPLIEGUE EN COOLIFY**
 
 ---
 
-## Tarea 5: Validación Cruzada y Verificaciones de CI [EN EJECUCIÓN]
+## Tarea 5: Validación Cruzada y Verificaciones de CI [COMPLETADO]
 - **Objetivo:** Verificar suite de CI, construir artefactos y validar despliegue activo en Coolify.
 - **Acciones Realizadas:**
-  1. 40/40 tests Python pasando localmente.
+  1. 43/43 tests Python pasando localmente.
   2. Tests unitarios C++ de seguridad de bomba: 0 errores.
   3. Firmware ESP32 compilado en PlatformIO: OK.
-  4. Android Gradle build (`testDebugUnitTest`, `lintDebug`, `assembleDebug`): OK.
+  4. Android Gradle build (`testDebugUnitTest`, `assembleDebug`): OK.
   5. `git diff --check`: 0 errores.
+
+---
+
+## Tarea 6: Remediación de Bloqueos de la 2ª Revisión (Auditoría 2026-10-13) [COMPLETADO]
+- **Objetivo:** Corregir los 7 bloqueos auditados en `docs/auditoria/REVISION_COOLIFY_SEGUNDA_2026-10-13.md`.
+- **Acciones Realizadas:**
+  1. **Aprovisionamiento BLE Robusto:** `BleProvisioningManager.kt` suscrito a `EventBus` para esperar evento oficial `ESPConstants.EVENT_DEVICE_CONNECTED` tras descubrimiento GATT antes de llamar a `provision()`. Manejo de timeout (35s), desconexión, PoP incorrecta y confirmación estricta desde `deviceProvisioningSuccess()`. Eliminado valor por defecto hardcodeado.
+  2. **Comandos Persistentes entre Workers:** Tabla `dispositivo_comandos` creada en MySQL/MariaDB. `services/mobile_service.py` persiste órdenes de bomba, modo y receta en base de datos con marcado de órdenes anteriores como `superseded`. Recuperación y ACK seguros frente a múltiples workers de Gunicorn y reinicios del ESP32.
+  3. **HTTPS Completo con Let's Encrypt:** FQDN de Coolify configurado a `https://w3bmo8epk9iedi7gkqchdpru.179.236.74.107.sslip.io` con certificado TLS oficial emitido por Let's Encrypt (ISRG Root X1). Firmware ESP32 migrado a `WiFiClientSecure` con validación CA estricta mediante `ISRG_ROOT_X1_CA` y sincronización horaria SNTP (`configTime`).
+  4. **Ingesta y Validación de TDS y Litros:** Columnas `tds_ppm` y `volumen_litros` agregadas a `lecturas_sensores` con migración automática en `conexion.py`. Endpoint `/api/iot/sync` persiste TDS y litros reales; `mobile_service.py` mantiene EC y TDS separados y expone litros basados en calibración física.
+  5. **Credenciales y PoP por Dispositivo:** Eliminados tokens y contraseñas compartidas/hardcodeadas en código y en `config.h.example`. Derivación de PoP única ligada a hardware (`EG-MAC`) con soporte NVS. Fallo cerrado (fail-closed) si falta configuración o token.
+  6. **Modo y Receta Remotos en Android:** Implementados endpoints `POST /api/mobile/towers/<id>/mode` y `POST /api/mobile/towers/<id>/recipe`. `EcoGrowViewModel.kt` soporta tanto modo local (`local?.request`) como remoto (`api.post`) sin excepciones `local!!`.
+  7. **Semántica Apagado Remoto en AUTO:** Orden `PUMP_OFF` en firmware ESP32 conmuta `modoActual = MODO_MANUAL` y pone `duracionCicloMs = 0`, evitando reencendido automático tras tiempo de reposo.
+- **Evidencia de Verificación:**
+  - Tests Python: 43/43 tests pasando (0 errores, 0 fallos).
+  - Tests Android: `testDebugUnitTest` pasando y `assembleDebug` completado exitosamente.
+  - Compilación Firmware PlatformIO: Exitosa con TLS `WiFiClientSecure` y `ISRG_ROOT_X1_CA`.
+  - Servidor Coolify: Certificado TLS Let's Encrypt activo y verificado por HTTPS (HTTP/2 200 OK).

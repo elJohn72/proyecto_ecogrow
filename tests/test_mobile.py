@@ -108,6 +108,17 @@ class MobileApiTest(unittest.TestCase):
         self.assertIn("usuario_id = %s", query.call_args.args[0])
         self.assertEqual(query.call_args.args[1], (8, 1))
 
+    def test_command_mode_and_recipe_endpoints(self):
+        headers = self.logged_in()
+        with patch.object(service, "owned_tower", return_value=TOWER), patch.object(service, "_execute"):
+            res_mode = self.client.post("/api/mobile/towers/7/mode", json={"mode": "auto"}, headers=headers)
+            self.assertEqual(res_mode.status_code, 202)
+            self.assertEqual(res_mode.json["desired"], "AUTO")
+
+            res_recipe = self.client.post("/api/mobile/towers/7/recipe", json={"recipe_idx": 2}, headers=headers)
+            self.assertEqual(res_recipe.status_code, 202)
+            self.assertEqual(res_recipe.json["desired"], "2")
+
 
 class MobileServiceTest(unittest.TestCase):
     def reading(self, level=70, age=0):
@@ -164,7 +175,7 @@ class MobileServiceTest(unittest.TestCase):
         with patch.object(service, "_execute") as execute:
             result = service.command_pump(7, 1, "off")
         self.assertEqual(result["desired"], "off")
-        execute.assert_called_once()
+        self.assertTrue(any("actuadores_torre" in call.args[0] for call in execute.call_args_list))
 
     def test_no_invented_tds_volume_or_nonfinite_sensors(self):
         result = service.sensors({"ec": 1.8, "ph": float("nan"), "nivel_agua": 70})
@@ -172,6 +183,53 @@ class MobileServiceTest(unittest.TestCase):
         self.assertIsNone(result["ph"])
         self.assertIsNone(result["tds_ppm"])
         self.assertIsNone(result["litros"])
+
+    def test_sensors_ingests_real_tds_and_liters(self):
+        result = service.sensors({"ec": 1.5, "ph": 6.8, "tds_ppm": 750.0, "nivel_agua": 80.0, "volumen_litros": 24.0})
+        self.assertEqual(result["tds_ppm"], 750.0)
+        self.assertEqual(result["litros"], 24.0)
+        self.assertEqual(result["nivel_pct"], 80.0)
+
+    def test_persistent_command_sharing_across_workers(self):
+        # Worker 1 creates a command in DB
+        db_store = {}
+        def mock_exec(query, params=None, fetchone=False, fetchall=False):
+            if "INSERT INTO dispositivo_comandos" in query:
+                cmd_id, t_id, action, desired, p_json, status, created, expires = params
+                db_store[t_id] = {
+                    "id_comando": cmd_id, "torre_id": t_id, "accion": action,
+                    "estado_deseado": desired, "parametros_json": p_json,
+                    "estado": status, "creado_en": created, "expira_en": expires
+                }
+            elif "SELECT * FROM dispositivo_comandos" in query:
+                return db_store.get(params[0])
+            elif "UPDATE dispositivo_comandos SET estado=" in query and "WHERE id_comando=" in query:
+                status, executed, ack, cmd_id = params
+                for item in db_store.values():
+                    if item["id_comando"] == cmd_id:
+                        item["estado"] = status
+            elif "UPDATE dispositivo_comandos SET estado='superseded'" in query:
+                t_id = params[0]
+                if t_id in db_store:
+                    db_store[t_id]["estado"] = "superseded"
+            return None
+
+        with patch.object(service, "_execute", side_effect=mock_exec):
+            # Worker 1: creates pump command
+            cmd = service.create_pump_command(7, "on", ttl_sec=60)
+            # Worker 2: memory cache is empty, queries DB directly
+            service._pending_commands.clear()
+            active = service.get_active_command(7)
+            self.assertIsNotNone(active)
+            self.assertEqual(active["id"], cmd["id"])
+            self.assertEqual(active["action"], "PUMP_ON")
+
+            # Worker 3: records ACK
+            service._pending_commands.clear()
+            service.record_command_ack(7, cmd["id"], "EXECUTED_OK")
+            # Verify in DB
+            reloaded = service.get_active_command(7)
+            self.assertEqual(reloaded["status"], "executed")
 
     def test_irrigation_validation_before_write(self):
         with patch.object(service, "owned_tower", return_value=TOWER), patch.object(service, "irrigation_row", return_value={"estrategia": "PRUEBA"}), patch.object(service, "_execute") as execute:

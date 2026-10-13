@@ -64,7 +64,9 @@ CREATE TABLE IF NOT EXISTS lecturas_sensores (
     temperatura_agua DECIMAL(5,2),
     ph DECIMAL(4,2),
     ec DECIMAL(5,2),
+    tds_ppm DECIMAL(7,2),
     nivel_agua DECIMAL(5,2),
+    volumen_litros DECIMAL(6,2),
     luminosidad DECIMAL(8,2),
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_lecturas_ciclo
@@ -166,3 +168,21 @@ CREATE TABLE IF NOT EXISTS eventos_control (
         FOREIGN KEY (lectura_id) REFERENCES lecturas_sensores(id_lectura)
         ON DELETE SET NULL
 );
+
+CREATE TABLE IF NOT EXISTS dispositivo_comandos (
+    id_comando VARCHAR(64) PRIMARY KEY,
+    torre_id INT NOT NULL,
+    accion VARCHAR(60) NOT NULL,
+    estado_deseado VARCHAR(40) NOT NULL,
+    parametros_json TEXT NULL,
+    estado VARCHAR(40) NOT NULL DEFAULT 'pending',
+    creado_en BIGINT NOT NULL,
+    expira_en BIGINT NOT NULL,
+    ejecutado_en BIGINT NULL,
+    ack_mensaje VARCHAR(255) NULL,
+    CONSTRAINT fk_cmd_torre
+        FOREIGN KEY (torre_id) REFERENCES torres(id_torre)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX idx_cmd_torre_estado ON dispositivo_comandos (torre_id, estado);
