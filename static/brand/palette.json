@@ -14,6 +14,12 @@
     "onSurface": "#172B22",
     "outline": "#718077",
     "error": "#B3261E",
-    "warning": "#946200"
+    "warning": "#946200",
+    "secondaryContainer": "#D6EEF0",
+    "onSecondaryContainer": "#06383F",
+    "tertiary": "#4C6652",
+    "onTertiary": "#FFFFFF",
+    "tertiaryContainer": "#D8EEDB",
+    "onTertiaryContainer": "#072113"
   }
 }

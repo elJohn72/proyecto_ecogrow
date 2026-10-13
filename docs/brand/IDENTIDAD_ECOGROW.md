@@ -33,3 +33,5 @@ Prompt final: «Clean up this EcoGrow logo for actual app icon production. Prese
 ## Validación
 
 PNG RGBA con alfa 0–255; favicon PNG 32, ICO 16/32/48; exportaciones 192/512. Plantilla Jinja parseada, 19 pruebas test_app y 19 test_provision_device pasan localmente. Android lint/unit/build ejecutados tras integrar recursos. No merge ni deploy; no se modificó firmware ni credenciales.
+
+Prueba física parcial: instalación por adb exitosa en Android 12; inicio visible y símbolo correcto. Captura `ecogrow-android-home.png` antes de ajustar el fondo tonal violeta predeterminado a turquesa claro. Toques automatizados rechazados por INJECT_EVENTS en el teléfono; no se cambió esa protección. No se recorrió el asistente ni se conectó una ESP32.
