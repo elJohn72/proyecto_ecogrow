@@ -847,9 +847,22 @@ private fun BleProvisioningDialog(
                     // Clave PoP por dispositivo (Proof of Possession)
                     OutlinedTextField(
                         value = pop,
-                        onValueChange = { pop = it },
+                        onValueChange = { input ->
+                            val trimmed = input.trim()
+                            if (trimmed.startsWith("{") && trimmed.contains("\"pop\"")) {
+                                try {
+                                    val obj = org.json.JSONObject(trimmed)
+                                    pop = obj.optString("pop", trimmed).uppercase()
+                                } catch (e: Exception) {
+                                    pop = trimmed.uppercase()
+                                }
+                            } else {
+                                pop = trimmed.uppercase()
+                            }
+                        },
                         label = { Text("PIN / Clave PoP de la Torre") },
                         placeholder = { Text("PIN de la etiqueta física de la torre") },
+                        supportingText = { Text("Ingresa el código o escaneo QR de la etiqueta adherida a la torre.") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         enabled = provStep != BleProvStep.PROVISIONING

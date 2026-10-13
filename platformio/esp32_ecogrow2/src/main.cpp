@@ -635,19 +635,54 @@ void setup() {
 void loop() {
   server.handleClient();
 
-  // Botón físico de recuperación (GPIO 0 / BOOT presionado 5s continuo)
+  // Botón físico de recuperación y configuración (GPIO 0 / BOOT)
+  // Separación estricta entre:
+  // 1. RECONFIGURAR WIFI (Pulsación entre 3s y 8s): borra credenciales WiFi pero CONSERVA
+  //    la identidad de la torre y su PIN PoP en NVS, permitiendo cambiar de router con la misma etiqueta.
+  // 2. RESTABLECIMIENTO DE FÁBRICA (Pulsación continua >= 12s): requiere confirmación física prolongada
+  //    para borrar NVS e identidad completa.
   static unsigned long botonPresionadoInicio = 0;
+  static bool avisoWifiEmitido = false;
+  static bool avisoFactoryEmitido = false;
+
   if (digitalRead(PIN_BOTON_RESET) == LOW) {
-    if (botonPresionadoInicio == 0) botonPresionadoInicio = millis();
-    if (millis() - botonPresionadoInicio >= 5000) {
-      Serial.println("[RESET] Botón presionado 5s. Borrando NVS y reiniciando aprovisionamiento BLE...");
+    if (botonPresionadoInicio == 0) {
+      botonPresionadoInicio = millis();
+      avisoWifiEmitido = false;
+      avisoFactoryEmitido = false;
+    }
+    unsigned long duracion = millis() - botonPresionadoInicio;
+
+    if (duracion >= 3000 && !avisoWifiEmitido) {
+      Serial.println("[RECUPERACIÓN] Botón BOOT >= 3s. Suelta ahora para RECONFIGURAR WIFI (conservando el PIN PoP de la etiqueta física).");
+      avisoWifiEmitido = true;
+    }
+
+    if (duracion >= 10000 && !avisoFactoryEmitido) {
+      Serial.println("[ALERTA] Botón BOOT >= 10s. Mantén hasta 12s para RESTABLECIMIENTO DE FÁBRICA TOTAL (borrará PoP e identidad).");
+      avisoFactoryEmitido = true;
+    }
+
+    if (duracion >= 12000) {
+      Serial.println("[FACTORY RESET] Restablecimiento de fábrica autorizado físicamente (12s continuos). Borrando NVS y reiniciando...");
       prefs.clear();
       WiFi.disconnect(true, true);
       delay(500);
       ESP.restart();
     }
   } else {
-    botonPresionadoInicio = 0;
+    if (botonPresionadoInicio > 0) {
+      unsigned long duracion = millis() - botonPresionadoInicio;
+      if (duracion >= 3000 && duracion < 12000) {
+        Serial.println("[RECONFIGURAR WIFI] Solicitud confirmada al soltar botón. Conservando PIN PoP e identidad NVS. Reiniciando BLE Prov...");
+        WiFi.disconnect(true, true);
+        delay(500);
+        ESP.restart();
+      }
+      botonPresionadoInicio = 0;
+      avisoWifiEmitido = false;
+      avisoFactoryEmitido = false;
+    }
   }
 
   // Pulsador Físico 1: Bomba manual (GPIO 26)

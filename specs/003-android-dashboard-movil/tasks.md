@@ -119,3 +119,38 @@ Estado general: **EN PROCESO DE ENTREGA FINAL Y DESPLIEGUE EN COOLIFY**
   - Tests Android: `testDebugUnitTest` pasando al 100%.
   - Compilación Firmware PlatformIO: Exitosa (Flash: 91.9%, RAM: 18.5%).
   - `git diff --check`: 0 errores.
+
+---
+
+## Tarea 8: Remediación de la 4ª Revisión (Onboarding PoP, Estado Físico Bomba y Multi-worker Gate) [COMPLETADO]
+- **Objetivo:** Resolver los bloqueos identificados en la cuarta auditoría en `docs/auditoria/REVISION_CUARTA_2026-10-13.md` (HEAD `e70a26a`).
+- **Acciones Realizadas:**
+  1. **Entrega y Recuperación de PIN/PoP Bluetooth (P1):**
+     - En `platformio/esp32_ecogrow2/src/main.cpp`: separación estricta mediante botón BOOT (GPIO 0):
+       - Pulsación entre 3s y 8s: Reconfigura WiFi manteniendo la identidad NVS, calibración y PIN PoP. Permite cambiar de router sin invalidar la etiqueta física de la torre.
+       - Pulsación prolongada >= 12s: Restablecimiento de fábrica autorizado físicamente con borrado completo de NVS.
+     - Creada herramienta de aprovisionamiento de fábrica `tools/provision_device.py` para generar identificadores, PoP aleatorio Base32, payloads QR JSON y etiquetas vectoriales SVG imprimibles para el chasis de las torres.
+     - En Android `MainActivity.kt`: soporte en diálogo BLE para ingreso manual o extracción automática de PIN PoP desde JSON de QR escaneado.
+     - Documentación formal en `docs/soporte/RECUPERACION_Y_PROVISIONAMIENTO_POP.md`.
+  2. **Estado Físico de Bomba en Modo Manual (P1):**
+     - En `Conexión/conexion.py:sync_iot_device`: eliminado `if modo != "manual":` para asegurar que el estado físico reportado (`rele_principal_on`) se persista siempre en `actuadores_torre` con origen `reporte_{dispositivo}` y timestamp en todos los modos.
+     - En `services/mobile_service.py:tower_detail`: eliminado el fallback de `reported` a órdenes ejecutadas históricas (`active_pump_cmd.get("status") == "executed"`). `reported` proviene exclusivamente del reporte físico real de la torre.
+     - Añadidos tests unitarios validando que tras ON ejecutado y posterior apagado físico por botón o límite de seguridad, ambas interfaces (Web y Android) muestran OFF ("Apagada" / "⚪ DETENIDA").
+  3. **Integración Real Multi-Worker y Gate en CI:**
+     - Creada suite `tests/test_multiworker_integration.py` que ejecuta procesos independientes del SO (`multiprocessing.Process`) contra una base de datos temporal MariaDB (`ecogrow_temp_test_*`).
+     - Cubre los 6 escenarios críticos:
+       1. Ciclo de vida real multi-worker: Worker 1 crea orden, Worker 2 lee orden, Worker 3 envía ACK.
+       2. Rollback atómico en transacciones ante fallos sin corrupción de comandos previos.
+       3. Concurrencia multi-proceso con manejo automático de deadlocks transitorios (error 1213/1205 con backoff exponencial) y orden determinista (`creado_en DESC, id_comando DESC`).
+       4. Comandos expirados (`now >= exp`) y superseded rechazan ACKs.
+       5. Aislamiento multi-torre: rechazo de ACK de órdenes ajenas.
+       6. Persistencia tras reinicio y reconexión sin reejecución de comandos vencidos.
+     - Actualizado `.github/workflows/ci.yml` para desplegar el servicio MariaDB en el job `python-web` como gate obligatorio de CI.
+- **Evidencia de Verificación:**
+  - Tests Python: 56/56 tests pasando (50 unitarios + 6 de integración real multi-worker con MariaDB).
+  - Tests Android: `JAVA_HOME=/opt/homebrew/opt/openjdk@17 ./gradlew testDebugUnitTest` pasando al 100%.
+  - Compilación Firmware PlatformIO: Exitosa (Flash: 91.9%, RAM: 18.5%).
+  - Prueba de seguridad en C++: Exitosa (`/tmp/ecogrow-safety-test`).
+  - Sintaxis JavaScript: Validada con Node.js (`static/mobile-dashboard.js`).
+  - `git diff --check`: 0 errores.
+  - Nota de gobernanza: Pruebas físicas en banco real de hardware se conservan formalmente marcadas como pendientes de banco físico autorizado.

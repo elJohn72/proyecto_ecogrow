@@ -1141,27 +1141,35 @@ def _execute(query: str, params=None, *, fetchone: bool = False, fetchall: bool 
         connection.close()
 
 
-def _execute_transaction(operations: list[tuple[str, tuple | list]]):
+def _execute_transaction(operations: list[tuple[str, tuple | list]], max_retries: int = 5):
     """Executes a list of (query, params) atomically in a single transaction.
     Rolls back completely if any query raises an exception.
+    Automatically retries on transient deadlocks (MySQL/MariaDB error 1213/1205).
     """
-    connection = _connect(include_database=True)
-    try:
-        with connection.cursor(dictionary=True) as cursor:
-            results = []
-            for query, params in operations:
-                cursor.execute(query, params or ())
-                results.append(cursor.rowcount)
-            connection.commit()
-            return results
-    except Exception:
+    for attempt in range(max_retries):
+        connection = _connect(include_database=True)
         try:
-            connection.rollback()
-        except Exception:
-            pass
-        raise
-    finally:
-        connection.close()
+            with connection.cursor(dictionary=True) as cursor:
+                results = []
+                for query, params in operations:
+                    cursor.execute(query, params or ())
+                    results.append(cursor.rowcount)
+                connection.commit()
+                return results
+        except Exception as exc:
+            try:
+                connection.rollback()
+            except Exception:
+                pass
+            err_code = getattr(exc, "errno", None)
+            if err_code in (1213, 1205) and attempt < max_retries - 1:
+                import random
+                import time
+                time.sleep(0.02 * (2 ** attempt) + random.uniform(0.005, 0.02))
+                continue
+            raise
+        finally:
+            connection.close()
 
 
 def fetch_mysql_usuarios() -> list[dict]:
@@ -2332,14 +2340,13 @@ def sync_iot_device(
             fetchone=True,
         )
         modo = actuador["modo"] if actuador else "automatico"
-        if modo != "manual":
-            set_actuador_estado(
-                torre_id,
-                "bomba_principal",
-                _estado_from_rele_on(rele_principal_on),
-                modo=modo,
-                ultimo_comando=f"reporte_{dispositivo}",
-            )
+        set_actuador_estado(
+            torre_id,
+            "bomba_principal",
+            _estado_from_rele_on(rele_principal_on),
+            modo=modo,
+            ultimo_comando=f"reporte_{dispositivo}",
+        )
 
     lectura_id = None
     sensor_values = {

@@ -132,7 +132,7 @@ def get_active_command(tower_id):
 
     cmd_status = row.get("estado", "pending")
     exp = int(row.get("expira_en", 0))
-    if cmd_status == "pending" and now > exp:
+    if cmd_status == "pending" and now >= exp:
         cmd_status = "expired"
         try:
             _execute("UPDATE dispositivo_comandos SET estado='expired' WHERE id_comando=%s AND torre_id=%s", (row["id_comando"], tower_id))
@@ -171,7 +171,7 @@ def get_active_pump_command(tower_id):
 
     cmd_status = row.get("estado", "pending")
     exp = int(row.get("expira_en", 0))
-    if cmd_status == "pending" and now > exp:
+    if cmd_status == "pending" and now >= exp:
         cmd_status = "expired"
         try:
             _execute("UPDATE dispositivo_comandos SET estado='expired' WHERE id_comando=%s AND torre_id=%s", (row["id_comando"], tower_id))
@@ -396,8 +396,6 @@ def tower_detail(tower_id, user_id):
         cmd_status = active_pump_cmd["status"]
         if physical_reported in ("on", "off"):
             reported = physical_reported
-        elif active_pump_cmd.get("status") == "executed" and active_pump_cmd.get("desired") in ("on", "off"):
-            reported = active_pump_cmd["desired"]
         else:
             reported = None
         pump_cmd_id = active_pump_cmd["id"]

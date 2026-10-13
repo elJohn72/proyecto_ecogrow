@@ -1,4 +1,5 @@
 """PRUEBA fixtures only; every database operation is mocked."""
+import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
@@ -425,6 +426,74 @@ class MobileServiceTest(unittest.TestCase):
             row = service.readings(7)[0]
         self.assertIsNotNone(row["utc_reading_time"].tzinfo)
         self.assertFalse(service.is_stale(row["utc_reading_time"]))
+
+    def test_sync_iot_device_persists_pump_state_in_manual_mode(self):
+        from Conexión import conexion
+        executed_updates = []
+        def mock_exec(q, params=None, **k):
+            if "SELECT modo FROM actuadores_torre" in q:
+                return {"modo": "manual"}
+            if "UPDATE actuadores_torre" in q:
+                executed_updates.append(params)
+                return None
+            return None
+
+        with patch.object(conexion, "fetch_torre_by_codigo", return_value={"id_torre": 7}), \
+             patch.object(conexion, "create_mysql_tables"), \
+             patch.object(conexion, "_create_control_defaults_for_torre"), \
+             patch.object(conexion, "_execute", side_effect=mock_exec):
+
+            # Dispositivo reporta que la bomba se apagó físicamente (rele_principal_on=False)
+            conexion.sync_iot_device("TORRE-7", "esp32_ecogrow2", rele_principal_on=False)
+
+            self.assertEqual(len(executed_updates), 1)
+            estado, modo, ultimo_comando, torre_id, tipo = executed_updates[0]
+            self.assertEqual(estado, "apagada")
+            self.assertEqual(modo, "manual")
+            self.assertEqual(ultimo_comando, "reporte_esp32_ecogrow2")
+            self.assertEqual(torre_id, 7)
+            self.assertEqual(tipo, "bomba_principal")
+
+    def test_pump_reported_reflects_physical_reading_never_executed_command_ack(self):
+        # Escenario auditado: ON solicitado -> ejecutado por comando -> apagado físico por botón o timeout -> sync_iot OFF
+        # El comando activo está 'executed' con desired='on', pero la lectura física del actuador es 'apagada'.
+        executed_cmd = {
+            "id": "cmd_12345",
+            "action": "PUMP_ON",
+            "desired": "on",
+            "created_at": int(time.time()) - 300,
+            "expires_at": int(time.time()) + 300,
+            "ttl_sec": 60,
+            "status": "executed",
+        }
+        # Caso 1: Lectura física presente indicando apagada -> reported DEBE ser 'off'
+        pump_phys_off = {"estado": "apagada", "modo": "manual", "ultimo_comando": "reporte_esp32_ecogrow2"}
+        with patch.object(service, "owned_tower", return_value=TOWER), \
+             patch.object(service, "readings", return_value=[]), \
+             patch.object(service, "pump_row", return_value=pump_phys_off), \
+             patch.object(service, "irrigation_row", return_value=None), \
+             patch.object(service, "configuration", return_value={}), \
+             patch.object(service, "get_active_pump_command", return_value=executed_cmd), \
+             patch.object(service, "_execute", return_value=[]):
+
+            detail = service.tower_detail(7, 1)
+            # Ambas interfaces ven el reporte físico real: 'off' (apagada/detenida), NUNCA 'on' del comando ejecutado
+            self.assertEqual(detail["pump"]["reported"], "off")
+            self.assertEqual(detail["pump"]["desired"], "on")
+            self.assertEqual(detail["pump"]["status"], "executed")
+
+        # Caso 2: Sin lectura física reportada por actuador -> reported DEBE ser None (no inventar 'on')
+        pump_no_report = {"estado": "encendida", "modo": "manual", "ultimo_comando": "panel_web"}
+        with patch.object(service, "owned_tower", return_value=TOWER), \
+             patch.object(service, "readings", return_value=[]), \
+             patch.object(service, "pump_row", return_value=pump_no_report), \
+             patch.object(service, "irrigation_row", return_value=None), \
+             patch.object(service, "configuration", return_value={}), \
+             patch.object(service, "get_active_pump_command", return_value=executed_cmd), \
+             patch.object(service, "_execute", return_value=[]):
+
+            detail2 = service.tower_detail(7, 1)
+            self.assertIsNone(detail2["pump"]["reported"])
 
 
 if __name__ == "__main__":
