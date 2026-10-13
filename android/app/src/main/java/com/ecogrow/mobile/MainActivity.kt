@@ -188,10 +188,45 @@ class MainActivity : ComponentActivity() {
                             }
 
                             val detail = state.detail
-                            if (detail == null) {
-                                Text("Cargando estado de la torre...", style = MaterialTheme.typography.bodyLarge)
-                            } else {
+                            if (detail != null) {
                                 TowerDetail(detail, vm, state.busy, state.error != null)
+                            } else if (state.towers.isNotEmpty()) {
+                                Text("Torres disponibles en tu cuenta:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                state.towers.forEach { tower ->
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { vm.select(tower.id) },
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                    ) {
+                                        Row(
+                                            Modifier.padding(16.dp).fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(tower.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                                                Text(tower.code, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                            }
+                                            Text("Abrir torre →", color = Color(0xFF195C3D), fontWeight = FontWeight.SemiBold)
+                                        }
+                                    }
+                                }
+                            } else if (!state.busy) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                                ) {
+                                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text("No hay torres vinculadas a esta cuenta.", fontWeight = FontWeight.Bold)
+                                        Text("Aprovisiona una nueva torre por Bluetooth para registrarla en el sistema.", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            } else {
+                                Text("Cargando torres...", style = MaterialTheme.typography.bodyLarge)
                             }
 
                             OutlinedButton(
@@ -209,9 +244,9 @@ class MainActivity : ComponentActivity() {
                     BleProvisioningDialog(
                         bleManager = bleManager,
                         onDismiss = { showBleDialog = false },
-                        onOpenLocalDashboard = { ip ->
+                        onOpenLocalDashboard = { ip, pin ->
                             showBleDialog = false
-                            vm.connectLocal(baseUrl = ip)
+                            vm.connectLocal(user = "admin", password = pin.ifBlank { "ecogrow20" }, baseUrl = ip)
                         }
                     )
                 }
@@ -238,6 +273,7 @@ private fun HomeConnectionScreen(
     onOpenBle: () -> Unit
 ) {
     var localIp by remember { mutableStateOf("192.168.4.1") }
+    var localPin by remember { mutableStateOf("ecogrow20") }
     var showCloudLogin by remember { mutableStateOf(false) }
 
     Card(
@@ -275,8 +311,19 @@ private fun HomeConnectionScreen(
                 shape = RoundedCornerShape(12.dp)
             )
 
+            OutlinedTextField(
+                value = localPin,
+                onValueChange = { localPin = it },
+                label = { Text("PIN / Clave de Acceso Local") },
+                placeholder = { Text("ecogrow20") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !busy,
+                shape = RoundedCornerShape(12.dp)
+            )
+
             Button(
-                onClick = { vm.connectLocal(baseUrl = localIp.trim()) },
+                onClick = { vm.connectLocal(user = "admin", password = localPin.trim().ifBlank { "ecogrow20" }, baseUrl = localIp.trim()) },
                 enabled = !busy && localIp.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
@@ -318,8 +365,8 @@ private fun HomeConnectionScreen(
             }
 
             AnimatedVisibility(visible = showCloudLogin) {
-                var endpoint by remember { mutableStateOf("") }
-                var mail by remember { mutableStateOf("") }
+                var endpoint by remember { mutableStateOf("http://w3bmo8epk9iedi7gkqchdpru.179.236.74.107.sslip.io") }
+                var mail by remember { mutableStateOf("prueba@ecogrow.local") }
                 var password by remember { mutableStateOf("") }
 
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -367,9 +414,13 @@ private fun HomeConnectionScreen(
 private fun TowerDetail(d: JSONObject, vm: EcoGrowViewModel, busy: Boolean, failed: Boolean) {
     val local = d.optString("source") == "local"
     val pump = d.optJSONObject("pump") ?: JSONObject()
-    val pumpState = pump.optString("reported") == "on"
-    val pumpMode = pump.optString("mode", "MANUAL")
+    val reportedStr = if (pump.isNull("reported")) null else pump.optString("reported")
+    val desiredStr = if (pump.isNull("desired")) null else pump.optString("desired")
+    val pumpState = reportedStr == "on" || (reportedStr == null && desiredStr == "on")
     val waterOk = d.optBoolean("water_level_ok", true)
+    val canTurnOff = !busy && !failed && (pumpState || reportedStr == null || desiredStr == "on")
+    val canTurnOn = !busy && !failed && waterOk && !pumpState
+    val pumpMode = pump.optString("mode", "MANUAL")
 
     // Tarjeta Principal de Control de Bomba
     Card(
@@ -395,11 +446,11 @@ private fun TowerDetail(d: JSONObject, vm: EcoGrowViewModel, busy: Boolean, fail
                     fontWeight = FontWeight.Bold
                 )
                 Surface(
-                    color = if (pumpState) Color(0xFF2E7D32) else Color(0xFF757575),
+                    color = if (reportedStr == "on") Color(0xFF2E7D32) else if (reportedStr == "off") Color(0xFF757575) else Color(0xFFE65100),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        if (pumpState) "🟢 ACTIVA" else "⚪ DETENIDA",
+                        if (reportedStr == "on") "🟢 ACTIVA" else if (reportedStr == "off") "⚪ DETENIDA" else if (desiredStr != null) "⏳ PENDIENTE" else "❓ SIN ACUSE",
                         color = Color.White,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
@@ -423,10 +474,14 @@ private fun TowerDetail(d: JSONObject, vm: EcoGrowViewModel, busy: Boolean, fail
             }
 
             Text(
-                text = if (pumpState)
-                    "La cascada vertical está en marcha alimentando las raíces en los cestillos."
+                text = if (reportedStr == "on")
+                    "La cascada vertical está en marcha (confirmada por el controlador)."
+                else if (reportedStr == "off")
+                    "Bomba apagada (confirmada por el controlador). Oxigenación radicular."
+                else if (desiredStr != null)
+                    "Orden enviada ($desiredStr). Esperando reporte del microcontrolador."
                 else
-                    "Bomba apagada. Sistema en fase de oxigenación radicular.",
+                    "Sin confirmación física de la bomba. Verifica la conexión.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xFF4A5D4E)
             )
@@ -438,7 +493,7 @@ private fun TowerDetail(d: JSONObject, vm: EcoGrowViewModel, busy: Boolean, fail
             ) {
                 Button(
                     onClick = { vm.pump(true) },
-                    enabled = !busy && !failed && waterOk && !pumpState,
+                    enabled = canTurnOn,
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF195C3D)),
                     shape = RoundedCornerShape(12.dp)
@@ -448,7 +503,7 @@ private fun TowerDetail(d: JSONObject, vm: EcoGrowViewModel, busy: Boolean, fail
 
                 Button(
                     onClick = { vm.pump(false) },
-                    enabled = !busy && !failed && pumpState,
+                    enabled = canTurnOff,
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
                     shape = RoundedCornerShape(12.dp)
@@ -529,7 +584,7 @@ private fun TowerDetail(d: JSONObject, vm: EcoGrowViewModel, busy: Boolean, fail
                 fontWeight = FontWeight.Bold
             )
 
-            val recipeNames = listOf("Lechuga (15/45m)", "Espinaca (15/30m)", "Albahaca (20/40m)", "Frutilla (10/50m)")
+            val recipeNames = listOf("Lechuga (10/20m)", "Espinaca (10/25m)", "Albahaca (12/20m)", "Frutilla (15/30m)")
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 recipeNames.take(2).forEachIndexed { idx, name ->
                     OutlinedButton(
@@ -567,7 +622,7 @@ private fun TowerDetail(d: JSONObject, vm: EcoGrowViewModel, busy: Boolean, fail
 private fun BleProvisioningDialog(
     bleManager: BleProvisioningManager?,
     onDismiss: () -> Unit,
-    onOpenLocalDashboard: (String) -> Unit
+    onOpenLocalDashboard: (String, String) -> Unit
 ) {
     val context = LocalContext.current
     var towers by remember { mutableStateOf<List<DiscoveredTower>>(emptyList()) }
@@ -842,7 +897,7 @@ private fun BleProvisioningDialog(
                             Text("✅ ¡Torre vinculada con éxito!", fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
                             Text("Las credenciales fueron transferidas. Ya puedes ingresar directamente a encender la bomba y probar el funcionamiento.", style = MaterialTheme.typography.bodySmall)
                             Button(
-                                onClick = { onOpenLocalDashboard("http://192.168.4.1") },
+                                onClick = { onOpenLocalDashboard("http://192.168.4.1", pop) },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF195C3D)),
                                 modifier = Modifier.fillMaxWidth()
                             ) {

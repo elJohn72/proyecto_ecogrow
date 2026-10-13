@@ -4,10 +4,7 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
-import android.bluetooth.BluetoothGattCallback
-import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothManager
-import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
@@ -15,7 +12,11 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import java.util.UUID
+import com.espressif.provisioning.ESPConstants
+import com.espressif.provisioning.ESPDevice
+import com.espressif.provisioning.ESPProvisionManager
+import com.espressif.provisioning.listeners.ProvisionListener
+import com.espressif.provisioning.listeners.WiFiScanListener
 
 data class DiscoveredTower(
     val name: String,
@@ -41,7 +42,10 @@ class BleProvisioningManager(private val context: Context) {
 
     private var scanCallback: ScanCallback? = null
     private var scanTimeoutRunnable: Runnable? = null
-    private var activeGatt: BluetoothGatt? = null
+    private var currentEspDevice: ESPDevice? = null
+
+    // UUID canónico del servicio WiFiProv de Espressif sobre BLE
+    val ESP_PROV_SERVICE_UUID = "021a9004-0382-4aea-bff4-6b3f1b5adfb4"
 
     val isBluetoothSupported: Boolean get() = adapter != null
     val isBluetoothEnabled: Boolean get() = adapter?.isEnabled == true
@@ -139,70 +143,76 @@ class BleProvisioningManager(private val context: Context) {
             return
         }
 
-        onStepChanged(BleProvStep.CONNECTING, "Conectando con torre ${device.name ?: device.address}...")
+        val devName = try { device.name } catch (_: SecurityException) { null } ?: "EcoGrow"
+        onStepChanged(BleProvStep.CONNECTING, "Conectando con torre $devName...")
 
         try {
-            activeGatt?.close()
-            activeGatt = device.connectGatt(context, false, object : BluetoothGattCallback() {
-                override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
-                    if (status != BluetoothGatt.GATT_SUCCESS) {
-                        handler.post {
-                            onStepChanged(BleProvStep.FAILED, "Error de conexión GATT: status $status")
-                        }
-                        gatt?.close()
-                        activeGatt = null
-                        return
-                    }
+            currentEspDevice?.disconnectDevice()
+            val manager = ESPProvisionManager.getInstance(context)
+            val espDevice = manager.createESPDevice(ESPConstants.TransportType.TRANSPORT_BLE, ESPConstants.SecurityType.SECURITY_1)
+            espDevice.proofOfPossession = pop.ifBlank { "ecogrow20" }
+            espDevice.primaryServiceUuid = ESP_PROV_SERVICE_UUID
+            currentEspDevice = espDevice
 
-                    if (newState == BluetoothProfile.STATE_CONNECTED) {
-                        handler.post {
-                            onStepChanged(BleProvStep.CONNECTED, "Conectado. Descubriendo servicios de la torre...")
-                        }
-                        try {
-                            gatt?.discoverServices()
-                        } catch (e: SecurityException) {
-                            handler.post {
-                                onStepChanged(BleProvStep.FAILED, "Permiso Bluetooth revocado.")
-                            }
-                        }
-                    } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                        handler.post {
-                            onStepChanged(BleProvStep.IDLE, "Desconectado de la torre.")
-                        }
-                        gatt?.close()
-                        activeGatt = null
+            espDevice.connectBLEDevice(device, ESP_PROV_SERVICE_UUID)
+            onStepChanged(BleProvStep.CONNECTED, "Conectado por BLE. Negociando seguridad Security 1 y enviando credenciales...")
+
+            espDevice.provision(ssid, passphrase, object : ProvisionListener {
+                override fun createSessionFailed(e: Exception?) {
+                    handler.post {
+                        onStepChanged(BleProvStep.FAILED, "Error en sesión Security 1: PIN de posesión incorrecto (${e?.message ?: "Revisa el PIN"})")
                     }
                 }
 
-                override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
-                    if (status != BluetoothGatt.GATT_SUCCESS || gatt == null) {
-                        handler.post {
-                            onStepChanged(BleProvStep.FAILED, "No se pudieron descubrir los servicios GATT.")
-                        }
-                        return
-                    }
-
+                override fun wifiConfigSent() {
                     handler.post {
-                        onStepChanged(BleProvStep.PROVISIONING, "Enviando credenciales WiFi a la torre...")
+                        onStepChanged(BleProvStep.PROVISIONING, "Credenciales transferidas a la torre. Conectando al router...")
                     }
+                }
 
-                    // Aprovisionamiento simulado / fallback cuando las características específicas
-                    // completan su ciclo en el firmware ESP32.
-                    // El firmware ESP32 WiFiProv gestiona la recepción y conexión.
-                    handler.postDelayed({
-                        handler.post {
-                            onStepChanged(BleProvStep.SUCCESS, "Credenciales enviadas con éxito. La torre conectará a '$ssid'.")
-                            try {
-                                gatt.disconnect()
-                                gatt.close()
-                            } catch (_: Exception) {}
-                            activeGatt = null
+                override fun wifiConfigFailed(e: Exception?) {
+                    handler.post {
+                        onStepChanged(BleProvStep.FAILED, "Fallo al enviar configuración WiFi: ${e?.message}")
+                    }
+                }
+
+                override fun wifiConfigApplied() {
+                    handler.post {
+                        onStepChanged(BleProvStep.PROVISIONING, "Configuración aplicada. Comprobando enlace de la torre...")
+                    }
+                }
+
+                override fun wifiConfigApplyFailed(e: Exception?) {
+                    handler.post {
+                        onStepChanged(BleProvStep.FAILED, "La torre no pudo aplicar la configuración WiFi: ${e?.message}")
+                    }
+                }
+
+                override fun provisioningFailedFromDevice(reason: ESPConstants.ProvisionFailureReason?) {
+                    handler.post {
+                        val motivo = when (reason) {
+                            ESPConstants.ProvisionFailureReason.AUTH_FAILED -> "Contraseña de red WiFi incorrecta."
+                            ESPConstants.ProvisionFailureReason.DEVICE_DISCONNECTED -> "La torre se desconectó antes de confirmar el enlace."
+                            else -> "La torre no pudo conectar a la red WiFi ($reason)."
                         }
-                    }, 2000)
+                        onStepChanged(BleProvStep.FAILED, motivo)
+                    }
+                }
+
+                override fun deviceProvisioningSuccess() {
+                    handler.post {
+                        onStepChanged(BleProvStep.SUCCESS, "¡Torre conectada a la red WiFi '$ssid' exitosamente!")
+                    }
+                }
+
+                override fun onProvisioningFailed(e: Exception?) {
+                    handler.post {
+                        onStepChanged(BleProvStep.FAILED, "Error de aprovisionamiento: ${e?.message}")
+                    }
                 }
             })
         } catch (e: SecurityException) {
-            onStepChanged(BleProvStep.FAILED, "Permiso Bluetooth no concedido.")
+            onStepChanged(BleProvStep.FAILED, "Permisos de Bluetooth revocados.")
         } catch (e: Exception) {
             onStepChanged(BleProvStep.FAILED, "Excepción al conectar BLE: ${e.message}")
         }
@@ -212,9 +222,8 @@ class BleProvisioningManager(private val context: Context) {
     fun close() {
         stopScan()
         try {
-            activeGatt?.close()
-        } catch (_: SecurityException) {
+            currentEspDevice?.disconnectDevice()
         } catch (_: Exception) {}
-        activeGatt = null
+        currentEspDevice = null
     }
 }

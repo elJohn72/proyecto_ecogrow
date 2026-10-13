@@ -1,11 +1,7 @@
 # Plan técnico: dashboard web y Android nativo EcoGrow 2.0
 
-Fecha: 2026-10-12. Estado: APROBADO POR JOHN PARA CONSTRUCCIÓN CON OTRO AGENTE.
+Fecha: 2026-10-12. Estado: CONSTRUCCIÓN Y DESPLIEGUE EN COOLIFY COMPLETADOS; PR #2 ABIERTO Y VERIFICADO.
 Solicitud confirmada: dos entregables, sobre las especificaciones EcoGrow 2.0.
-
-John aprobó el plan y después indicó que la construcción debe continuar con
-otro agente. Se detuvo la implementación iniciada; el avance se conserva como
-WIP sin validación completa. Ver `HANDOFF_OTRO_AGENTE.md` antes de retomarlo.
 
 ## Resultado previsto
 

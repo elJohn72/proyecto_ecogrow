@@ -203,9 +203,16 @@ def sensores():
     )
 
 
+def _extract_token(req):
+    token = req.headers.get("X-API-Token", "").strip()
+    if not token and req.headers.get("Authorization", "").startswith("Bearer "):
+        token = req.headers.get("Authorization", "")[7:].strip()
+    return token
+
+
 @sensores_bp.route("/api/sensores/lectura", methods=("POST",))
 def api_sensor_reading():
-    api_token = request.headers.get("X-API-Token", "").strip()
+    api_token = _extract_token(request)
     if api_token != current_app.config["SENSOR_API_TOKEN"]:
         return jsonify({"ok": False, "error": "Token de dispositivo invalido."}), 401
 
@@ -240,7 +247,7 @@ def api_sensor_reading():
 
 @sensores_bp.route("/api/iot/sync", methods=("POST",))
 def api_iot_sync():
-    api_token = request.headers.get("X-API-Token", "").strip()
+    api_token = _extract_token(request)
     if api_token != current_app.config["SENSOR_API_TOKEN"]:
         return jsonify({"ok": False, "error": "Token de dispositivo invalido."}), 401
 
@@ -283,7 +290,44 @@ def api_iot_sync():
     except Error as exc:
         return jsonify({"ok": False, "error": f"No se pudo sincronizar el dispositivo: {exc}"}), 500
 
-    return jsonify({"ok": True, **result}), 200
+    torre_id = result.get("torre_id")
+    # Manejar confirmación de comando previo (ACK)
+    last_cmd_id = payload.get("last_command_id")
+    if last_cmd_id and torre_id:
+        try:
+            from services import mobile_service
+            mobile_service.record_command_ack(
+                torre_id,
+                last_cmd_id,
+                str(payload.get("last_command_status", "EXECUTED")),
+            )
+        except Exception:
+            pass
+
+    # Entregar comando pendiente si existe y no ha expirado
+    command_payload = None
+    if torre_id:
+        try:
+            import time
+            from services import mobile_service
+            active_cmd = mobile_service.get_active_command(torre_id)
+            if active_cmd and active_cmd.get("status") == "pending":
+                command_payload = {
+                    "id": active_cmd["id"],
+                    "action": active_cmd["action"],
+                    "created_at": active_cmd["created_at"],
+                    "expires_at": active_cmd["expires_at"],
+                    "ttl_sec": active_cmd["ttl_sec"],
+                    "now": int(time.time()),
+                }
+        except Exception:
+            pass
+
+    response_data = {"ok": True, **result}
+    if command_payload:
+        response_data["command"] = command_payload
+
+    return jsonify(response_data), 200
 
 
 @sensores_bp.route("/monitoreo/rele/<int:torre_id>", methods=("POST",))

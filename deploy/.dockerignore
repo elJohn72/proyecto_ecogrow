@@ -1,0 +1,6 @@
+# Environment and secrets
+.env
+.env.*
+*.pem
+*.key
+*.cert

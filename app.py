@@ -68,7 +68,21 @@ register_context_processors(app)
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "ecogrow"}, 200
+    db_ok = False
+    try:
+        from Conexión.conexion import check_database_readiness
+        db_ok = check_database_readiness()
+    except Exception:
+        db_ok = False
+
+    is_testing = bool(app.config.get("TESTING"))
+    status = "ok" if (db_ok or is_testing) else "unhealthy"
+    code = 200 if (db_ok or is_testing) else 503
+    return {
+        "status": status,
+        "service": "ecogrow",
+        "database": "connected" if db_ok else "mocked" if is_testing else "unreachable",
+    }, code
 
 
 @app.after_request

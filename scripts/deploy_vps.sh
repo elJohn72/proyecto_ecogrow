@@ -32,11 +32,12 @@ COUNT=0
 HEALTHY=false
 
 while [[ $COUNT -lt $MAX_RETRIES ]]; do
-    if docker compose -f "${DEPLOY_DIR}/docker-compose.yml" ps app | grep -q "healthy"; then
+    APP_STATUS=$(docker compose -f "${DEPLOY_DIR}/docker-compose.yml" ps app --format '{{.Health}}' 2>/dev/null || true)
+    if [[ "$APP_STATUS" == "healthy" ]]; then
         HEALTHY=true
         break
     fi
-    echo "Esperando que el servicio 'app' esté saludable... ($((COUNT+1))/$MAX_RETRIES)"
+    echo "Esperando que el servicio 'app' esté saludable (estado actual: '${APP_STATUS:-iniciando}')... ($((COUNT+1))/$MAX_RETRIES)"
     sleep 3
     COUNT=$((COUNT+1))
 done

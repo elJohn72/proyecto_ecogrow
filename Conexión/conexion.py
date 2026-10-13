@@ -263,6 +263,18 @@ def _connect(include_database: bool = True):
         return mysql.connector.connect(**fallback_config)
 
 
+def check_database_readiness() -> bool:
+    try:
+        conn = _connect(include_database=True)
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+        conn.close()
+        return True
+    except Exception:
+        return False
+
+
 def create_mysql_tables() -> None:
     if MYSQL_CONFIG["auto_create_database"]:
         server_connection = _connect(include_database=False)
