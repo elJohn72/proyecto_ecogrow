@@ -15,11 +15,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.json.JSONObject
 
 @Composable
 fun TowerDetailScreen(
-    detail: JSONObject,
+    detail: TowerDetailModel,
     busy: Boolean,
     onRefresh: () -> Unit,
     onBack: () -> Unit,
@@ -30,33 +29,8 @@ fun TowerDetailScreen(
     var showPumpConfirmDialog by remember { mutableStateOf<Boolean?>(null) }
     var showBootInfoDialog by remember { mutableStateOf(false) }
 
-    val name = detail.optString("name", "Torre EcoGrow")
-    val code = detail.optString("code", "")
-    val lastSeen = detail.optString("last_seen", "")
-    val isOnline = detail.optBoolean("online", false)
-
-    val sensors = detail.optJSONObject("sensors") ?: JSONObject()
-    val pump = detail.optJSONObject("pump") ?: JSONObject()
-    val recipe = detail.optJSONObject("recipe") ?: JSONObject()
-    val alertText = detail.optString("alert", "")
-
-    // Lecturas físicas reales (sin inventar datos)
-    val waterLevelPct = if (sensors.has("nivel_pct") && !sensors.isNull("nivel_pct")) sensors.optDouble("nivel_pct") else null
-    val waterLiters = if (sensors.has("litros") && !sensors.isNull("litros")) sensors.optDouble("litros") else null
-    val isCalibrated = detail.optBoolean("deposito_calibrado", waterLiters != null)
-    val ph = if (sensors.has("ph") && !sensors.isNull("ph")) sensors.optDouble("ph") else null
-    val tdsPpm = if (sensors.has("tds_ppm") && !sensors.isNull("tds_ppm")) sensors.optDouble("tds_ppm") else null
-    val tempWaterC = if (sensors.has("temperatura_agua_c") && !sensors.isNull("temperatura_agua_c")) sensors.optDouble("temperatura_agua_c") else null
-
-    // Estado físico reportado de bomba
-    val pumpReported = pump.optString("reported", "").lowercase()
-    val isPumpOn = pumpReported == "on"
-    val pumpMode = pump.optString("mode", "AUTO").uppercase()
-    val pendingCmd = pump.optString("pending_command", "")
-
-    // Bloqueo de seguridad: si el nivel de agua está bajo (< 15%) o si el sensor reporta water_level_ok == false
-    val waterLevelOk = detail.optBoolean("water_level_ok", (waterLevelPct ?: 100.0) >= 15.0)
-    val isSafetyLocked = !waterLevelOk
+    val isWaterLow = (detail.sensors.nivelPct != null && detail.sensors.nivelPct <= 15.0)
+    val isSafetyLocked = detail.stale || isWaterLow
 
     Scaffold(
         topBar = {
@@ -71,26 +45,29 @@ fun TowerDetailScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         IconButton(onClick = onBack) {
-                            Text("←", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            Text("←", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                         }
                         Column {
-                            Text(name, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.primary)
-                            if (code.isNotBlank()) {
-                                Text("Código: $code", fontSize = 11.sp, color = Color.Gray)
-                            }
+                            Text(
+                                detail.name,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp,
+                                color = Color(0xFF195C3D)
+                            )
+                            Text("Código: ${detail.code}", fontSize = 11.sp, color = Color.Gray)
                         }
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         IconButton(onClick = { showBootInfoDialog = true }) {
-                            Text("ℹ️")
+                            Text("ℹ️", fontSize = 16.sp)
                         }
                         FilledTonalButton(
                             onClick = onRefresh,
                             enabled = !busy,
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                         ) {
                             Text(if (busy) "..." else "↻")
                         }
@@ -108,15 +85,15 @@ fun TowerDetailScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // =========================================================================
-            // 1. BARRA DE ESTADO DE CONEXIÓN Y ÚLTIMA LECTURA
+            // 1. ESTADO DE TELEMETRÍA Y CONEXIÓN
             // =========================================================================
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = if (isOnline) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                color = if (!detail.stale) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -125,135 +102,165 @@ fun TowerDetailScreen(
                             Modifier
                                 .size(10.dp)
                                 .clip(CircleShape)
-                                .background(if (isOnline) Color(0xFF2E7D32) else Color(0xFFC62828))
+                                .background(if (!detail.stale) Color(0xFF2E7D32) else Color(0xFFE65100))
                         )
                         Text(
-                            if (isOnline) "Torre en Línea" else "Sin Conexión con la Torre",
+                            if (!detail.stale) "Torre en Línea" else "Telemetría Desactualizada",
                             fontWeight = FontWeight.Bold,
-                            color = if (isOnline) Color(0xFF1B5E20) else Color(0xFFB71C1C),
+                            color = if (!detail.stale) Color(0xFF1B5E20) else Color(0xFFBF360C),
                             fontSize = 13.sp
                         )
                     }
-                    if (lastSeen.isNotBlank()) {
-                        Text(
-                            "Última lectura: $lastSeen",
-                            fontSize = 11.sp,
-                            color = if (isOnline) Color(0xFF2E7D32) else Color(0xFFB71C1C)
-                        )
-                    }
+                    Text(
+                        detail.formattedLastSeen(),
+                        fontSize = 11.sp,
+                        color = if (!detail.stale) Color(0xFF2E7D32) else Color(0xFFBF360C)
+                    )
                 }
             }
 
             // =========================================================================
-            // 2. NIVEL DE AGUA Y VOLUMEN (DEPÓSITO)
+            // 2. ALERTAS DEL SISTEMA
             // =========================================================================
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
-            ) {
-                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+            if (detail.alerts.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            "Depósito de Agua",
-                            style = MaterialTheme.typography.titleMedium,
+                            "⚠️ Alertas Activas (${detail.alerts.size})",
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = Color(0xFFB3261E),
+                            fontSize = 14.sp
                         )
-                        if (waterLevelPct != null) {
+                        detail.alerts.forEach { alert ->
                             Text(
-                                "${String.format("%.1f", waterLevelPct)}%",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 22.sp,
-                                color = if (waterLevelPct < 20.0) Color(0xFFC62828) else MaterialTheme.colorScheme.primary
+                                "• ${alert.message}",
+                                fontSize = 12.sp,
+                                color = Color(0xFF7F0000)
                             )
-                        } else {
-                            Text("Sin datos recientes", fontSize = 13.sp, color = Color.Gray)
-                        }
-                    }
-
-                    // Barra de Nivel
-                    if (waterLevelPct != null) {
-                        LinearProgressIndicator(
-                            progress = { (waterLevelPct / 100.0).toFloat().coerceIn(0f, 1f) },
-                            modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)),
-                            color = if (waterLevelPct < 20.0) Color(0xFFC62828) else Color(0xFF1976D2),
-                            trackColor = Color(0xFFE0E0E0)
-                        )
-                    }
-
-                    // Litros y Calibración
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (waterLiters != null && isCalibrated) {
-                            Text("Volumen Calibrado: ${String.format("%.1f", waterLiters)} Litros", fontSize = 13.sp, color = Color(0xFF445544))
-                        } else {
-                            Text("⚠️ Volumen sin calibrar (solo porcentaje)", fontSize = 12.sp, color = Color(0xFFE65100))
-                        }
-
-                        if (isSafetyLocked) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = Color(0xFFFFEBEE)
-                            ) {
-                                Text("NIVEL CRÍTICO", modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = Color(0xFFC62828), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            }
                         }
                     }
                 }
             }
 
             // =========================================================================
-            // 3. PARÁMETROS QUÍMICOS Y TEMPERATURA
-            // =========================================================================
-            Text("Condiciones de la Solución Nutritiva", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                // pH
-                SensorMetricCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Acidez (pH)",
-                    valueText = ph?.let { String.format("%.2f", it) } ?: "--",
-                    unit = "",
-                    isOptimal = ph != null && ph in 5.5..6.5,
-                    optimalRange = "Ideal: 5.5 - 6.5"
-                )
-
-                // TDS
-                SensorMetricCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Nutrientes (TDS)",
-                    valueText = tdsPpm?.let { String.format("%.0f", it) } ?: "--",
-                    unit = "ppm",
-                    isOptimal = tdsPpm != null && tdsPpm in 500.0..950.0,
-                    optimalRange = "Receta: 560-840"
-                )
-
-                // Temperatura
-                SensorMetricCard(
-                    modifier = Modifier.weight(1f),
-                    title = "Temp. Agua",
-                    valueText = tempWaterC?.let { String.format("%.1f", it) } ?: "--",
-                    unit = "°C",
-                    isOptimal = tempWaterC != null && tempWaterC in 18.0..24.0,
-                    optimalRange = "Ideal: 18 - 22°C"
-                )
-            }
-
-            // =========================================================================
-            // 4. CONTROL DE BOMBA Y BLOQUEO DE SEGURIDAD
+            // 3. NIVEL DE AGUA Y VOLUMEN (DEPÓSITO)
             // =========================================================================
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Depósito de Solución", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF172B22))
+                        Text(
+                            detail.sensors.nivelFormatted(),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = if (isWaterLow) Color(0xFFB3261E) else Color(0xFF087F8C)
+                        )
+                    }
+
+                    // Barra visual de nivel
+                    val progress = ((detail.sensors.nivelPct ?: 0.0) / 100.0).toFloat().coerceIn(0f, 1f)
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(10.dp)
+                            .clip(RoundedCornerShape(5.dp)),
+                        color = if (isWaterLow) Color(0xFFB3261E) else Color(0xFF087F8C),
+                        trackColor = Color(0xFFEEEEEE)
+                    )
+
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Volumen Calibrado:", fontSize = 12.sp, color = Color.Gray)
+                        Text(
+                            detail.sensors.litrosFormatted(),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF333333)
+                        )
+                    }
+
+                    if (isWaterLow) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFFFEBEE),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                "⚠️ Nivel crítico (≤ 15%). La bomba no puede encenderse para prevenir marcha en seco.",
+                                color = Color(0xFFB3261E),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(10.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // =========================================================================
+            // 4. PARÁMETROS QUÍMICOS Y TEMPERATURA
+            // =========================================================================
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text("Condición del Agua", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF172B22))
+
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        MetricCard(
+                            modifier = Modifier.weight(1f),
+                            label = "pH Solución",
+                            value = detail.sensors.phFormatted(),
+                            subtext = "Ideal: 5.5 - 6.5",
+                            color = Color(0xFF195C3D)
+                        )
+                        MetricCard(
+                            modifier = Modifier.weight(1f),
+                            label = "TDS / Nutrientes",
+                            value = detail.sensors.tdsFormatted(),
+                            subtext = "Sensor analógico",
+                            color = Color(0xFF087F8C)
+                        )
+                        MetricCard(
+                            modifier = Modifier.weight(1f),
+                            label = "Temp. Agua",
+                            value = detail.sensors.tempFormatted(),
+                            subtext = "DS18B20",
+                            color = Color(0xFF946200)
+                        )
+                    }
+                }
+            }
+
+            // =========================================================================
+            // 5. CONTROL DE BOMBA Y MODO DE RIEGO
+            // =========================================================================
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Row(
@@ -261,170 +268,184 @@ fun TowerDetailScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text("Bomba de Cascada", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text(
-                                if (isPumpOn) "🟢 Estado Físico: ENCENDIDA" else "⚪ Estado Físico: APAGADA",
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (isPumpOn) Color(0xFF2E7D32) else Color(0xFF666666),
-                                fontSize = 13.sp
-                            )
-                        }
+                        Text("Bomba Principal", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF172B22))
 
-                        if (pendingCmd.isNotBlank()) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = Color(0xFFFFF3E0)
-                            ) {
-                                Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 2.dp, color = Color(0xFFE65100))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("Orden pendiente ($pendingCmd)", fontSize = 10.sp, color = Color(0xFFE65100))
-                                }
-                            }
-                        }
-                    }
-
-                    if (isSafetyLocked) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFFFFEBEE),
-                            modifier = Modifier.fillMaxWidth()
+                            color = if (detail.pump.isPhysicallyOn) Color(0xFFE8F5E9) else Color(0xFFF5F5F5)
                         ) {
                             Text(
-                                "⚠️ Bloqueo de seguridad activo: La bomba no puede encenderse porque el nivel de agua es insuficiente.",
-                                modifier = Modifier.padding(10.dp),
-                                color = Color(0xFFC62828),
-                                fontSize = 12.sp
+                                if (detail.pump.isPhysicallyOn) "BOMBA ACTIVA" else if (detail.pump.isPhysicallyOff) "BOMBA DETENIDA" else "SIN REPORTE FÍSICO",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (detail.pump.isPhysicallyOn) Color(0xFF2E7D32) else Color(0xFF666666),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
                     }
 
-                    // Botones de acción manual
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Button(
-                            onClick = { showPumpConfirmDialog = true },
-                            enabled = !busy && !isSafetyLocked && !isPumpOn,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF195C3D)),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1f)
+                    if (detail.pump.isPending) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFFFF8E1),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("▶ Iniciar Riego", fontWeight = FontWeight.Bold)
-                        }
-
-                        Button(
-                            onClick = { showPumpConfirmDialog = false },
-                            enabled = !busy && isPumpOn,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("⏹ Detener Bomba", fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color(0xFFF57F17))
+                                Text(
+                                    "Orden en tránsito: esperando confirmación física del ESP32...",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFFF57F17),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
 
                     // Selector de Modo (AUTO / MANUAL)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(
-                            selected = pumpMode == "AUTO",
-                            onClick = { onModeControl("AUTO") },
-                            label = { Text("Modo AUTO (Ciclo)") },
-                            modifier = Modifier.weight(1f)
-                        )
-                        FilterChip(
-                            selected = pumpMode == "MANUAL",
-                            onClick = { onModeControl("MANUAL") },
-                            label = { Text("Modo MANUAL") },
-                            modifier = Modifier.weight(1f)
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Modo Operativo:", fontSize = 13.sp, color = Color(0xFF555555))
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = detail.pump.mode == "AUTO",
+                                onClick = { if (detail.pump.mode != "AUTO") onModeControl("AUTO") },
+                                label = { Text("AUTO") }
+                            )
+                            FilterChip(
+                                selected = detail.pump.mode == "MANUAL",
+                                onClick = { if (detail.pump.mode != "MANUAL") onModeControl("MANUAL") },
+                                label = { Text("MANUAL") }
+                            )
+                        }
+                    }
+
+                    // Botones de acción de bomba
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = { showPumpConfirmDialog = true },
+                            enabled = !busy && !isSafetyLocked && !detail.pump.isPhysicallyOn,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF195C3D))
+                        ) {
+                            Text("Encender")
+                        }
+
+                        OutlinedButton(
+                            onClick = { showPumpConfirmDialog = false },
+                            enabled = !busy && detail.pump.isPhysicallyOn,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Apagar", color = Color(0xFFB3261E))
+                        }
+                    }
+
+                    if (isSafetyLocked) {
+                        Text(
+                            text = if (detail.stale) "* Encendido bloqueado: telemetría desactualizada." else "* Encendido bloqueado: nivel de agua crítico.",
+                            fontSize = 11.sp,
+                            color = Color(0xFFB3261E)
                         )
                     }
                 }
             }
 
             // =========================================================================
-            // 5. RECETA DE CULTIVO
+            // 6. RECETA DE CULTIVO
             // =========================================================================
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Receta de Cultivo Activa", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    val recipeName = recipe.optString("name", "Lechuga")
-                    Text("Cultivo actual: $recipeName", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text("Receta de Cultivo Activa", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF172B22))
 
-                    val recipes = listOf("Lechuga (10/20m)", "Espinaca (10/25m)", "Albahaca (12/20m)", "Frutilla (15/30m)")
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        recipes.take(2).forEachIndexed { idx, rName ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                detail.recipe?.crop ?: "Sin cultivo activo",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF195C3D)
+                            )
+                            Text(
+                                "Fase: ${detail.recipe?.phase ?: "General"}",
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+
+                    Text("Cambiar perfil nutricional y cascada:", fontSize = 12.sp, color = Color(0xFF555555))
+
+                    val recetas = listOf("Lechuga (0)", "Espinaca (1)", "Albahaca (2)", "Frutilla (3)")
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        recetas.forEachIndexed { idx, nombre ->
                             OutlinedButton(
                                 onClick = { onRecipeControl(idx) },
+                                enabled = !busy,
                                 modifier = Modifier.weight(1f),
-                                enabled = !busy
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
+                                shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text(rName, fontSize = 11.sp)
+                                Text(nombre.split(" ")[0], fontSize = 11.sp)
                             }
                         }
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        recipes.drop(2).forEachIndexed { idx, rName ->
-                            OutlinedButton(
-                                onClick = { onRecipeControl(idx + 2) },
-                                modifier = Modifier.weight(1f),
-                                enabled = !busy
-                            ) {
-                                Text(rName, fontSize = 11.sp)
-                            }
-                        }
-                    }
-                }
-            }
-
-            // =========================================================================
-            // 6. ALERTAS ACTIVAS
-            // =========================================================================
-            if (alertText.isNotBlank()) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFF1F5F1),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(Modifier.padding(14.dp)) {
-                        Text("Notificación del Sistema", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(4.dp))
-                        Text(alertText, fontSize = 13.sp, color = Color(0xFF333333))
                     }
                 }
             }
         }
     }
 
-    // Diálogo de Confirmación de Bomba
-    showPumpConfirmDialog?.let { wantTurnOn ->
+    // Diálogo modal de confirmación antes de accionar la bomba
+    showPumpConfirmDialog?.let { turnOn ->
         AlertDialog(
             onDismissRequest = { showPumpConfirmDialog = null },
             title = {
-                Text(if (wantTurnOn) "¿Iniciar Cascada de Riego?" else "¿Detener la Bomba?")
+                Text(
+                    if (turnOn) "Confirmar Encendido de Bomba" else "Confirmar Apagado de Bomba",
+                    fontWeight = FontWeight.Bold
+                )
             },
             text = {
                 Text(
-                    if (wantTurnOn)
-                        "La bomba comenzará a bombear solución nutritiva hacia las raíces de las plantas en la torre vertical."
-                    else
-                        "La cascada se detendrá. En modo manual permanecerá apagada hasta tu próxima orden."
+                    if (turnOn) "¿Deseas solicitar el encendido de la cascada vertical de la torre? Se verificará el nivel de agua antes de la confirmación física."
+                    else "¿Deseas solicitar el apagado de la bomba?"
                 )
             },
             confirmButton = {
                 Button(
                     onClick = {
                         showPumpConfirmDialog = null
-                        onPumpControl(wantTurnOn)
+                        onPumpControl(turnOn)
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (wantTurnOn) Color(0xFF195C3D) else Color(0xFFC62828)
+                        containerColor = if (turnOn) Color(0xFF195C3D) else Color(0xFFB3261E)
                     )
                 ) {
-                    Text(if (wantTurnOn) "Sí, Iniciar" else "Sí, Detener")
+                    Text("Confirmar")
                 }
             },
             dismissButton = {
@@ -435,21 +456,33 @@ fun TowerDetailScreen(
         )
     }
 
-    // Diálogo Informativo de Recuperación y Botón BOOT
+    // Diálogo informativo del botón físico BOOT
     if (showBootInfoDialog) {
         AlertDialog(
             onDismissRequest = { showBootInfoDialog = false },
-            title = { Text("Recuperación Física de la Torre") },
+            title = { Text("Recuperación Física (Botón BOOT / GPIO 0)", fontWeight = FontWeight.Bold) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Instrucciones del botón físico BOOT (GPIO 0):", fontWeight = FontWeight.Bold)
-                    Text("• 3 a 8 segundos: Reconfigurar WiFi (Conserva el PIN PoP de la etiqueta y calibraciones).")
-                    Text("• 12+ segundos: Restablecimiento de fábrica (Borra NVS por completo).")
-                    Text("Servidor de telemetría: Coolify (Let's Encrypt TLS)")
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "EcoGrow implementa dos niveles de recuperación física mediante el botón BOOT del ESP32:",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "1. Reconfigurar WiFi (Pulsar 3 a 8 segundos):\nBorra la red WiFi y reactiva el anuncio BLE sin perder la identidad de la torre ni el PIN PoP de la etiqueta.",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF087F8C)
+                    )
+                    Text(
+                        "2. Restablecimiento de Fábrica (Pulsar continuo >= 12 segundos):\nBorra toda la memoria NVS, incluyendo la clave PoP y calibraciones. Requiere generar nueva etiqueta en taller.",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFFB3261E)
+                    )
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showBootInfoDialog = false }) {
+                Button(onClick = { showBootInfoDialog = false }) {
                     Text("Entendido")
                 }
             }
@@ -458,36 +491,25 @@ fun TowerDetailScreen(
 }
 
 @Composable
-private fun SensorMetricCard(
+private fun MetricCard(
     modifier: Modifier = Modifier,
-    title: String,
-    valueText: String,
-    unit: String,
-    isOptimal: Boolean,
-    optimalRange: String
+    label: String,
+    value: String,
+    subtext: String,
+    color: Color
 ) {
-    Card(
+    Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFF7FAF7)
     ) {
-        Column(Modifier.padding(12.dp)) {
-            Text(title, fontSize = 11.sp, color = Color(0xFF666666))
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(valueText, fontWeight = FontWeight.Bold, fontSize = 20.sp, color = MaterialTheme.colorScheme.primary)
-                if (unit.isNotBlank()) {
-                    Spacer(Modifier.width(2.dp))
-                    Text(unit, fontSize = 11.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 2.dp))
-                }
-            }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                if (isOptimal) "✓ $optimalRange" else optimalRange,
-                fontSize = 10.sp,
-                color = if (isOptimal) Color(0xFF2E7D32) else Color(0xFFE65100),
-                fontWeight = if (isOptimal) FontWeight.Bold else FontWeight.Normal
-            )
+        Column(
+            Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(label, fontSize = 11.sp, color = Color.Gray)
+            Text(value, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = color)
+            Text(subtext, fontSize = 9.sp, color = Color(0xFF888888))
         }
     }
 }

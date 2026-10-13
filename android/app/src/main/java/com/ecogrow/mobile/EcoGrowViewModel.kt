@@ -9,72 +9,68 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
-
-data class Tower(val id: Int, val name: String, val code: String, val localIp: String? = null)
 
 enum class CurrentView {
+    LOGIN,
     HOME,
     DETAIL,
-    ADD_TOWER,
-    LOGIN
+    ADD_TOWER
 }
 
 data class ScreenState(
-    val currentView: CurrentView = CurrentView.HOME,
+    val currentView: CurrentView = CurrentView.LOGIN,
     val busy: Boolean = false,
     val authenticated: Boolean = false,
     val user: String = "",
     val towers: List<Tower> = emptyList(),
-    val detail: JSONObject? = null,
+    val selectedTowerId: Int? = null,
+    val detail: TowerDetailModel? = null,
     val error: String? = null,
-    val notice: String? = null
+    val notice: String? = null,
+    val endpoint: String = DEFAULT_API_ENDPOINT
 )
 
 class EcoGrowViewModel(application: Application) : AndroidViewModel(application) {
-    private val prefs = application.getSharedPreferences("ecogrow_mobile_prefs", Context.MODE_PRIVATE)
-    private val state = MutableStateFlow(ScreenState())
+    private val appPrefs = application.getSharedPreferences("ecogrow_mobile_prefs", Context.MODE_PRIVATE)
+    private var api: EcoGrowApi
+
+    private val state = MutableStateFlow(
+        ScreenState(
+            endpoint = appPrefs.getString("saved_endpoint", DEFAULT_API_ENDPOINT) ?: DEFAULT_API_ENDPOINT
+        )
+    )
     val ui = state.asStateFlow()
 
-    private var api: EcoGrowApi? = null
-    private var local: LocalTowerApi? = null
-
     init {
-        loadSavedTowers()
+        val initialEndpoint = state.value.endpoint
+        api = EcoGrowApi(application, initialEndpoint, BuildConfig.DEBUG)
+        checkExistingSession()
     }
 
-    private fun loadSavedTowers() {
-        val savedJson = prefs.getString("saved_towers_json", "[]") ?: "[]"
-        try {
-            val arr = JSONArray(savedJson)
-            val list = mutableListOf<Tower>()
-            for (i in 0 until arr.length()) {
-                val obj = arr.getJSONObject(i)
-                list.add(
-                    Tower(
-                        id = obj.optInt("id", i + 1),
-                        name = obj.optString("name", "Torre EcoGrow"),
-                        code = obj.optString("code", ""),
-                        localIp = if (obj.has("local_ip")) obj.optString("local_ip") else null
-                    )
-                )
-            }
-            state.value = state.value.copy(towers = list)
-        } catch (_: Exception) {}
-    }
-
-    private fun saveTowers(list: List<Tower>) {
-        val arr = JSONArray()
-        list.forEach { t ->
-            val obj = JSONObject()
-            obj.put("id", t.id)
-            obj.put("name", t.name)
-            obj.put("code", t.code)
-            t.localIp?.let { obj.put("local_ip", it) }
-            arr.put(obj)
+    private fun checkExistingSession() {
+        viewModelScope.launch {
+            try {
+                if (api.hasActiveSession()) {
+                    val sessionResp = withContext(Dispatchers.IO) { api.getSession() }
+                    val isAuth = sessionResp.optBoolean("authenticated", false)
+                    if (isAuth) {
+                        val userName = sessionResp.optJSONObject("user")?.optString("name") ?: ""
+                        state.value = state.value.copy(
+                            authenticated = true,
+                            user = userName,
+                            currentView = CurrentView.HOME
+                        )
+                        loadCloudTowers()
+                        return@launch
+                    }
+                }
+            } catch (_: Exception) {}
+            // Si no hay sesión válida, mostrar pantalla de Login
+            state.value = state.value.copy(
+                authenticated = false,
+                currentView = CurrentView.LOGIN
+            )
         }
-        prefs.edit().putString("saved_towers_json", arr.toString()).apply()
     }
 
     private fun action(block: suspend () -> Unit) {
@@ -85,15 +81,15 @@ class EcoGrowViewModel(application: Application) : AndroidViewModel(application)
                 block()
             } catch (e: Exception) {
                 if (e is ApiFailure && e.status == 401) {
-                    api?.clear()
+                    api.clear()
                     state.value = state.value.copy(
                         authenticated = false,
-                        error = "La sesión terminó. Vuelve a ingresar.",
+                        error = "La sesión ha terminado. Por favor vuelve a ingresar con tu cuenta.",
                         currentView = CurrentView.LOGIN
                     )
                 } else {
                     val msg = if (e is ApiFailure || e is IllegalArgumentException) e.message
-                    else "Sin conexión con la torre o servidor. Verifica la red y vuelve a intentar."
+                    else "No se pudo comunicar con el servidor (${state.value.endpoint}). Verifica tu conexión a internet."
                     state.value = state.value.copy(error = msg)
                 }
             } finally {
@@ -106,143 +102,170 @@ class EcoGrowViewModel(application: Application) : AndroidViewModel(application)
         state.value = state.value.copy(currentView = view, error = null, notice = null)
     }
 
-    fun onTowerProvisioned(towerName: String, pop: String, ip: String?) {
-        val currentTowers = state.value.towers.toMutableList()
-        val nextId = (currentTowers.maxOfOrNull { it.id } ?: 0) + 1
-        val newTower = Tower(
-            id = nextId,
-            name = towerName,
-            code = "EG-${towerName.takeLast(4)}",
-            localIp = ip ?: "192.168.4.1"
-        )
-        if (currentTowers.none { it.name == towerName }) {
-            currentTowers.add(newTower)
-            state.value = state.value.copy(towers = currentTowers)
-            saveTowers(currentTowers)
-        }
+    fun login(mail: String, pass: String, customEndpoint: String? = null) = action {
+        val targetEndpoint = (customEndpoint?.takeIf { it.isNotBlank() } ?: state.value.endpoint).trim()
+        val validated = validatedEndpoint(targetEndpoint, BuildConfig.DEBUG)
 
-        // Conectar automáticamente a la nueva torre para ver su dashboard
-        val targetIp = ip ?: "http://192.168.4.1"
-        connectLocal(user = "admin", password = pop, baseUrl = targetIp)
-    }
+        api = EcoGrowApi(getApplication(), validated, BuildConfig.DEBUG)
+        appPrefs.edit().putString("saved_endpoint", validated).apply()
+        state.value = state.value.copy(endpoint = validated)
 
-    fun login(endpoint: String, mail: String, password: String) = action {
-        api?.clear()
-        local = null
-        val client = EcoGrowApi(endpoint, BuildConfig.DEBUG)
-        api = client
         val response = withContext(Dispatchers.IO) {
-            client.get("session")
-            client.post("login", JSONObject().put("mail", mail.trim()).put("password", password))
+            api.login(mail.trim(), pass)
         }
-        val isAuth = response.optBoolean("authenticated")
+        val isAuth = response.optBoolean("authenticated", false)
+        if (!isAuth) throw ApiFailure(401, "Credenciales incorrectas.")
+
         val userName = response.optJSONObject("user")?.optString("name") ?: ""
-        state.value = state.value.copy(authenticated = isAuth, user = userName, currentView = CurrentView.HOME)
+        state.value = state.value.copy(
+            authenticated = true,
+            user = userName,
+            currentView = CurrentView.HOME,
+            error = null
+        )
         loadCloudTowers()
     }
 
-    private suspend fun loadCloudTowers() {
-        val client = api ?: return
-        val json = withContext(Dispatchers.IO) { client.get("towers") }.getJSONArray("towers")
-        val towersList = (0 until json.length()).map {
-            val t = json.getJSONObject(it)
-            Tower(t.getInt("id"), t.getString("name"), t.getString("code"))
+    fun logout() = action {
+        withContext(Dispatchers.IO) {
+            runCatching { api.logout() }
+        }
+        api.clear()
+        state.value = state.value.copy(
+            authenticated = false,
+            user = "",
+            towers = emptyList(),
+            detail = null,
+            selectedTowerId = null,
+            currentView = CurrentView.LOGIN,
+            notice = "Has cerrado sesión correctamente."
+        )
+    }
+
+    suspend fun loadCloudTowers() {
+        val towersList = withContext(Dispatchers.IO) {
+            api.listTowers()
         }
         state.value = state.value.copy(towers = towersList)
-        saveTowers(towersList)
-        if (towersList.size == 1) {
-            loadDetail(towersList.first().id)
+        if (towersList.size == 1 && state.value.currentView == CurrentView.HOME) {
+            // Si solo hay una torre y estamos en Home, podemos pre-cargar su ID
+            state.value = state.value.copy(selectedTowerId = towersList.first().id)
         }
     }
 
     fun refresh() = action {
-        val id = state.value.detail?.optInt("id", 0) ?: 0
-        if (id == 0 && local == null) {
-            if (api != null) loadCloudTowers() else loadSavedTowers()
-        } else {
-            loadDetail(id)
+        when (state.value.currentView) {
+            CurrentView.DETAIL -> {
+                val id = state.value.selectedTowerId
+                if (id != null) {
+                    loadDetail(id)
+                } else {
+                    loadCloudTowers()
+                }
+            }
+            else -> {
+                loadCloudTowers()
+            }
         }
     }
 
     fun select(id: Int) = action {
+        state.value = state.value.copy(selectedTowerId = id)
         loadDetail(id)
     }
 
     private suspend fun loadDetail(id: Int) {
-        val detail = withContext(Dispatchers.IO) {
-            local?.detail() ?: api!!.get("towers/$id")
+        val detailModel = withContext(Dispatchers.IO) {
+            api.getTowerDetail(id)
         }
-        state.value = state.value.copy(detail = detail, currentView = CurrentView.DETAIL)
+        state.value = state.value.copy(
+            detail = detailModel,
+            selectedTowerId = id,
+            currentView = CurrentView.DETAIL
+        )
     }
 
     fun back() {
         state.value = state.value.copy(
             detail = null,
+            selectedTowerId = null,
+            currentView = CurrentView.HOME,
             error = null,
-            notice = null,
-            currentView = CurrentView.HOME
+            notice = null
         )
     }
 
-    fun pump(on: Boolean) = action {
-        val id = state.value.detail?.optInt("id", 0) ?: 0
-        val result = withContext(Dispatchers.IO) {
-            local?.request("pump", JSONObject().put("on", on))
-                ?: api!!.post("towers/$id/pump", JSONObject().put("state", if (on) "on" else "off"))
+    fun pump(turnOn: Boolean) = action {
+        val towerId = state.value.selectedTowerId
+            ?: throw IllegalStateException("No hay torre seleccionada.")
+        val detail = state.value.detail
+
+        if (turnOn) {
+            if (detail != null && detail.stale) {
+                throw IllegalStateException("Telemetría desactualizada (> 2 min sin reporte). Por seguridad se requiere una lectura reciente para encender la bomba.")
+            }
+            val level = detail?.sensors?.nivelPct
+            if (level != null && level <= 15.0) {
+                throw IllegalStateException("Nivel de agua crítico (≤ 15%). Marcha en seco bloqueada por seguridad.")
+            }
         }
-        loadDetail(id)
-        state.value = state.value.copy(
-            notice = result.optString("message", "Orden de bomba enviada correctamente.")
-        )
-    }
 
-    fun connectLocal(user: String = "admin", password: String = "ecogrow20", baseUrl: String = "http://192.168.4.1") = action {
-        api?.clear()
-        api = null
-        val normalizedUrl = if (baseUrl.startsWith("http")) baseUrl else "http://$baseUrl"
-        local = LocalTowerApi(user, password, normalizedUrl)
-        loadDetail(0)
-        val host = normalizedUrl.removePrefix("http://").removePrefix("https://").trimEnd('/')
-        state.value = state.value.copy(
-            authenticated = true,
-            user = "Torre Local ($host)",
-            currentView = CurrentView.DETAIL
-        )
-    }
-
-    fun mode(mode: String) = action {
-        val id = state.value.detail?.optInt("id", 0) ?: 0
-        val result = withContext(Dispatchers.IO) {
-            local?.request("mode", JSONObject().put("mode", mode))
-                ?: api!!.post("towers/$id/mode", JSONObject().put("mode", mode))
+        val res = withContext(Dispatchers.IO) {
+            api.commandPump(towerId, if (turnOn) "on" else "off")
         }
-        loadDetail(id)
-        state.value = state.value.copy(
-            notice = result.optString("message", "Modo cambiado a $mode. Esperando ciclo de la torre.")
-        )
+        val msg = res.optString("message", "Orden enviada al servidor.")
+        state.value = state.value.copy(notice = msg)
+        loadDetail(towerId)
     }
 
-    fun recipe(index: Int) = action {
-        val id = state.value.detail?.optInt("id", 0) ?: 0
-        val result = withContext(Dispatchers.IO) {
-            local?.request("recipe", JSONObject().put("recipe_idx", index))
-                ?: api!!.post("towers/$id/recipe", JSONObject().put("recipe_idx", index))
+    fun mode(newMode: String) = action {
+        val towerId = state.value.selectedTowerId
+            ?: throw IllegalStateException("No hay torre seleccionada.")
+        val res = withContext(Dispatchers.IO) {
+            api.commandMode(towerId, newMode)
         }
-        loadDetail(id)
-        state.value = state.value.copy(
-            notice = result.optString("message", "Receta de cultivo actualizada en la torre.")
-        )
+        val msg = res.optString("message", "Modo $newMode solicitado.")
+        state.value = state.value.copy(notice = msg)
+        loadDetail(towerId)
     }
 
-    fun logout() = action {
-        try {
-            withContext(Dispatchers.IO) { api?.post("logout", JSONObject()) }
-        } finally {
-            api?.clear()
-            api = null
-            local = null
-            state.value = ScreenState(currentView = CurrentView.HOME)
-            loadSavedTowers()
+    fun recipe(recipeIdx: Int) = action {
+        val towerId = state.value.selectedTowerId
+            ?: throw IllegalStateException("No hay torre seleccionada.")
+        val res = withContext(Dispatchers.IO) {
+            api.commandRecipe(towerId, recipeIdx)
+        }
+        val msg = res.optString("message", "Receta $recipeIdx solicitada.")
+        state.value = state.value.copy(notice = msg)
+        loadDetail(towerId)
+    }
+
+    fun onTowerProvisionedAndBind(
+        code: String,
+        name: String,
+        onSuccess: (Tower) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                state.value = state.value.copy(busy = true)
+                val newTower = withContext(Dispatchers.IO) {
+                    api.bindTower(code, name, "Laboratorio")
+                }
+                loadCloudTowers()
+                state.value = state.value.copy(
+                    selectedTowerId = newTower.id,
+                    notice = "Torre '${newTower.name}' vinculada exitosamente."
+                )
+                onSuccess(newTower)
+            } catch (e: Exception) {
+                val err = if (e is ApiFailure) e.message ?: "Error al vincular la torre."
+                else "No se pudo vincular la torre con la API remota. Verifica tu conexión."
+                state.value = state.value.copy(error = err)
+                onError(err)
+            } finally {
+                state.value = state.value.copy(busy = false)
+            }
         }
     }
 }

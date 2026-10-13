@@ -120,6 +120,36 @@ class MobileApiTest(unittest.TestCase):
             self.assertEqual(res_recipe.status_code, 202)
             self.assertEqual(res_recipe.json["desired"], "2")
 
+    def test_bind_tower_requires_authentication(self):
+        csrf = self.client.get("/api/mobile/session").json["csrf_token"]
+        response = self.client.post("/api/mobile/towers/bind", json={"code": "ECOGROW-10"}, headers={"X-CSRF-Token": csrf})
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json["error"], "auth_required")
+
+    def test_bind_tower_invalid_payload(self):
+        headers = self.logged_in()
+        for payload in ({}, {"code": ""}, {"code": "A"}, {"code": " " * 5}):
+            response = self.client.post("/api/mobile/towers/bind", json=payload, headers=headers)
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json["error"], "invalid_payload")
+
+    def test_bind_tower_success(self):
+        headers = self.logged_in()
+        expected = {"id": 12, "name": "Torre Norte", "code": "ECOGROW-12"}
+        with patch.object(service, "bind_tower", return_value=expected) as mock_bind:
+            response = self.client.post("/api/mobile/towers/bind", json={"code": "ECOGROW-12", "name": "Torre Norte"}, headers=headers)
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.json["ok"])
+        self.assertEqual(response.json["tower"], expected)
+        mock_bind.assert_called_once_with(1, "ECOGROW-12", "Torre Norte", "")
+
+    def test_bind_tower_claimed_by_other_user(self):
+        headers = self.logged_in()
+        with patch("Conexión.conexion.register_torre", side_effect=ValueError("Ese codigo de torre ya pertenece a otro usuario.")):
+            response = self.client.post("/api/mobile/towers/bind", json={"code": "ECOGROW-99"}, headers=headers)
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json["error"], "tower_already_claimed")
+
 
 class MobileServiceTest(unittest.TestCase):
     def reading(self, level=70, age=0):

@@ -1,7 +1,6 @@
 package com.ecogrow.mobile
 
 import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,7 +14,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -26,7 +27,6 @@ fun TowersHomeScreen(
     busy: Boolean,
     onSelectTower: (Int) -> Unit,
     onAddTowerClick: () -> Unit,
-    onConnectLocalClick: () -> Unit,
     onRefresh: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -44,30 +44,40 @@ fun TowersHomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Image(
+                                painter = painterResource(R.drawable.ecogrow_symbol),
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Text(
+                                "EcoGrow",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF195C3D)
+                            )
+                        }
                         Text(
-                            "EcoGrow 2.0",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            if (user.isNotBlank()) "Operador: $user" else "Torres Hidropónicas Inteligentes",
+                            if (user.isNotBlank()) "Operador: $user" else "Gestión de Torres Hidropónicas",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF666666)
                         )
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         FilledTonalButton(
                             onClick = onRefresh,
                             enabled = !busy,
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
-                            Text(if (busy) "..." else "↻")
+                            Text(if (busy) "..." else "↻ Refrescar")
                         }
 
                         TextButton(onClick = onLogout) {
-                            Text("Salir", color = Color(0xFF888888), fontSize = 12.sp)
+                            Text("Salir", color = Color(0xFF888888), fontSize = 13.sp)
                         }
                     }
                 }
@@ -76,7 +86,7 @@ fun TowersHomeScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onAddTowerClick,
-                containerColor = MaterialTheme.colorScheme.primary,
+                containerColor = Color(0xFF195C3D),
                 contentColor = Color.White,
                 shape = RoundedCornerShape(16.dp),
                 icon = { Text("＋", fontSize = 20.sp, fontWeight = FontWeight.Bold) },
@@ -91,12 +101,14 @@ fun TowersHomeScreen(
                 .padding(horizontal = 18.dp, vertical = 14.dp)
         ) {
             if (busy) {
-                LinearProgressIndicator(Modifier.fillMaxWidth().padding(bottom = 12.dp))
+                LinearProgressIndicator(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    color = Color(0xFF195C3D)
+                )
             }
 
-            // =========================================================================
-            // LISTA DE TORRES O ESTADO VACÍO
-            // =========================================================================
             if (towers.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -115,18 +127,22 @@ fun TowersHomeScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            Image(painterResource(R.drawable.ecogrow_symbol), contentDescription = null, modifier = Modifier.size(64.dp))
+                            Image(
+                                painterResource(R.drawable.ecogrow_symbol),
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp)
+                            )
                             Text(
                                 "No hay torres vinculadas todavía",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                                color = Color(0xFF195C3D)
                             )
                             Text(
-                                "Configura tu primera torre EcoGrow usando el asistente paso a paso por Bluetooth o prueba directamente en la red local.",
+                                "Configura tu primera torre EcoGrow usando el asistente guiado por Bluetooth para conectarla a tu WiFi y comenzar a monitorearla desde cualquier lugar.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color(0xFF666666),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                textAlign = TextAlign.Center
                             )
 
                             Spacer(Modifier.height(8.dp))
@@ -134,24 +150,19 @@ fun TowersHomeScreen(
                             Button(
                                 onClick = onAddTowerClick,
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF195C3D))
                             ) {
                                 Text("＋ Vincular Primera Torre", fontWeight = FontWeight.Bold)
-                            }
-
-                            OutlinedButton(
-                                onClick = onConnectLocalClick,
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text("Probar en Red Local (192.168.4.1)")
                             }
                         }
                     }
                 }
             } else {
                 Row(
-                    Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -159,7 +170,7 @@ fun TowersHomeScreen(
                         "Mis Torres Hidropónicas (${towers.size})",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF333333)
+                        color = Color(0xFF172B22)
                     )
                 }
 
@@ -167,62 +178,73 @@ fun TowersHomeScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(towers) { tower ->
-                        TowerCardItem(
-                            tower = tower,
-                            onClick = { onSelectTower(tower.id) }
-                        )
+                    items(towers, key = { it.id }) { tower ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelectTower(tower.id) },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .padding(18.dp)
+                                    .fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(46.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFE8F5E9)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Image(
+                                            painter = painterResource(R.drawable.ecogrow_symbol),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+
+                                    Column {
+                                        Text(
+                                            tower.name,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp,
+                                            color = Color(0xFF172B22)
+                                        )
+                                        Text(
+                                            "Código: ${tower.code}",
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF888888)
+                                        )
+                                    }
+                                }
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = Color(0xFFF1F8F5)
+                                    ) {
+                                        Text(
+                                            "Abrir →",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color(0xFF195C3D),
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
-
-                    item {
-                        Spacer(Modifier.height(80.dp)) // Espacio para el FloatingActionButton
-                    }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TowerCardItem(
-    tower: Tower,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(painterResource(R.drawable.ecogrow_symbol), contentDescription = null, modifier = Modifier.size(32.dp))
-                }
-
-                Column {
-                    Text(tower.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF222222))
-                    Text("Código: ${tower.code}", fontSize = 12.sp, color = Color(0xFF777777))
-                }
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Ver Detalle", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                Text("→", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             }
         }
     }

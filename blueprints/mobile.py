@@ -103,6 +103,17 @@ def logout():
     return jsonify(session_payload())
 
 
+@mobile_bp.post("/towers/bind")
+@authenticated
+def bind_tower():
+    data = payload()
+    code = data.get("code")
+    name = data.get("name", "")
+    location = data.get("location", "")
+    tower_info = service.bind_tower(int(current_user.get_id()), code, name, location)
+    return jsonify(ok=True, tower=tower_info, message="Torre vinculada exitosamente a tu cuenta."), 201
+
+
 @mobile_bp.get("/towers")
 @authenticated
 def towers():
