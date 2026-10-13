@@ -281,29 +281,40 @@ def tower_summary(row):
     return {"id": row["id_torre"], "name": row["nombre"], "code": row["codigo_unico"]}
 
 
-def bind_tower(user_id: int, code: str, name: str = "", location: str = ""):
+def bind_tower(user_id: int, code: str, pop: str = "", name: str = "", location: str = ""):
     if not code or not isinstance(code, str) or not code.strip():
         raise MobileError("invalid_payload", "El código único de la torre es obligatorio.", 400)
     clean_code = str(code).strip().upper()
     if len(clean_code) < 3 or len(clean_code) > 64:
         raise MobileError("invalid_payload", "El código de la torre debe tener entre 3 y 64 caracteres.", 400)
+
+    clean_pop = str(pop).strip().upper() if pop else ""
+    if not clean_pop:
+        raise MobileError("pop_required", "La prueba de posesión (PIN PoP) de la torre es obligatoria.", 400)
+
     clean_name = str(name).strip()[:100] if name else f"Torre {clean_code[-4:]}"
     clean_loc = str(location).strip()[:100] if location else ""
 
     try:
-        from Conexión.conexion import register_torre, fetch_torre
+        from Conexión.conexion import claim_dispositivo_torre
     except ModuleNotFoundError:
-        from ..Conexión.conexion import register_torre, fetch_torre
+        from ..Conexión.conexion import claim_dispositivo_torre
 
     try:
-        tower_id = register_torre(clean_code, clean_name, clean_loc, user_id)
+        result = claim_dispositivo_torre(user_id, clean_code, clean_pop, clean_name, clean_loc)
+        return result
     except ValueError as exc:
-        raise MobileError("tower_already_claimed", str(exc), 409) from exc
+        msg = str(exc)
+        if "ya pertenece a otro usuario" in msg or "ya ha sido reclamado" in msg:
+            raise MobileError("tower_already_claimed", msg, 409) from exc
+        elif "posesión" in msg or "PoP" in msg:
+            raise MobileError("invalid_pop_proof", msg, 403) from exc
+        elif "no registrado" in msg or "inexistente" in msg:
+            raise MobileError("unregistered_device", msg, 404) from exc
+        else:
+            raise MobileError("invalid_payload", msg, 400) from exc
     except Exception as exc:
         raise MobileError("storage_failed", f"No se pudo vincular la torre: {exc}", 500) from exc
-
-    row = fetch_torre(tower_id)
-    return tower_summary(row) if row else {"id": tower_id, "name": clean_name, "code": clean_code}
 
 
 def list_towers(user_id):

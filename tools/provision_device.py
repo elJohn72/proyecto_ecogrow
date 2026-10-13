@@ -40,14 +40,17 @@ def derive_ble_name(mac_normalized: str) -> str:
     return f"PROV_EcoGrow_{parts[4]}{parts[5]}"
 
 
-def build_provisioning_payload(ble_name: str, pop: str) -> dict:
+def build_provisioning_payload(ble_name: str, pop: str, code: str = "") -> dict:
     """Construye el payload oficial JSON para aprovisionamiento BLE de EcoGrow."""
-    return {
+    payload = {
         "ver": "v1",
         "name": ble_name,
         "pop": pop.strip().upper(),
         "transport": "ble",
     }
+    if code:
+        payload["code"] = code.strip().upper()
+    return payload
 
 
 def parse_qr_or_pin(input_str: str) -> str:
@@ -65,6 +68,24 @@ def parse_qr_or_pin(input_str: str) -> str:
     return token
 
 
+def parse_qr_payload(input_str: str) -> dict:
+    """Extrae el payload completo (pop, code, name) de un JSON o PIN."""
+    clean = input_str.strip()
+    if clean.startswith("{") and clean.endswith("}"):
+        try:
+            data = json.loads(clean)
+            return {
+                "pop": str(data.get("pop", "")).strip().upper(),
+                "code": str(data.get("code", "")).strip().upper(),
+                "name": str(data.get("name", "")).strip(),
+                "ver": str(data.get("ver", "v1")).strip(),
+            }
+        except json.JSONDecodeError:
+            pass
+    token = re.sub(r"[^23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjklmnpqrstuvwxyz]", "", clean).upper()
+    return {"pop": token, "code": "", "name": "", "ver": "v1"}
+
+
 def extract_pop_from_svg(svg_content: str) -> str | None:
     """Extrae el PIN PoP de un archivo SVG de etiqueta previamente generado."""
     # Buscar en comentario estructurado o en elemento pin-text
@@ -80,6 +101,24 @@ def extract_pop_from_svg(svg_content: str) -> str | None:
     match_pin = re.search(r'class="pin-text"[^>]*>([23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8})<', svg_content)
     if match_pin:
         return match_pin.group(1).strip().upper()
+
+    return None
+
+
+def extract_code_from_svg(svg_content: str) -> str | None:
+    """Extrae el código único de torre de un archivo SVG de etiqueta previamente generado."""
+    match_payload = re.search(r'<!--\s*ECOGROW-QR-PAYLOAD:\s*(\{.*?\})\s*-->', svg_content)
+    if match_payload:
+        try:
+            data = json.loads(match_payload.group(1))
+            if "code" in data:
+                return str(data["code"]).strip().upper()
+        except json.JSONDecodeError:
+            pass
+
+    match_code = re.search(r'NÚMERO DE SERIE:[^<]*<text[^>]*class="value"[^>]*>([^<]+)<', svg_content)
+    if match_code:
+        return match_code.group(1).strip().upper()
 
     return None
 
@@ -116,7 +155,7 @@ def generate_qr_svg_elements(payload_str: str, size: float = 120.0) -> tuple[int
 
 def generate_svg_label(mac: str, ble_name: str, pop: str, serial: str) -> str:
     """Genera una etiqueta vectorial SVG oficial con código QR matricial real y PIN legible."""
-    payload_dict = build_provisioning_payload(ble_name, pop)
+    payload_dict = build_provisioning_payload(ble_name, pop, serial)
     payload_json = json.dumps(payload_dict)
 
     _, qr_elements = generate_qr_svg_elements(payload_json, size=120.0)
@@ -281,12 +320,45 @@ class Esp32SerialClient:
         data = json.loads(resp[len(prefix) :].strip())
         return bool(data.get("match", False))
 
+    def set_code(self, code: str) -> str:
+        """Instala el código único de torre en la NVS del ESP32 mediante ECOGROW:SET_CODE:<code>."""
+        clean_code = code.strip().upper()
+        resp = self.send_command(f"ECOGROW:SET_CODE:{clean_code}")
+        prefix = "ECOGROW:SET_CODE_OK:"
+        if not resp.startswith(prefix):
+            raise ValueError(f"El ESP32 rechazó el código de torre: {resp}")
+        data = json.loads(resp[len(prefix) :].strip())
+        return data.get("code", clean_code)
+
+    def verify_code(self, code: str) -> bool:
+        """Verifica que el código coincida en el hardware mediante ECOGROW:VERIFY_CODE:<code>."""
+        clean_code = code.strip().upper()
+        resp = self.send_command(f"ECOGROW:VERIFY_CODE:{clean_code}")
+        prefix = "ECOGROW:VERIFY_CODE:"
+        if not resp.startswith(prefix):
+            raise ValueError(f"Respuesta inválida al verificar código: {resp}")
+        data = json.loads(resp[len(prefix) :].strip())
+        return bool(data.get("match", False))
+
+    def set_device_token(self, token: str) -> bool:
+        """Instala el token individual de dispositivo en NVS mediante ECOGROW:SET_DEVICE_TOKEN:<token>."""
+        clean_token = token.strip()
+        resp = self.send_command(f"ECOGROW:SET_DEVICE_TOKEN:{clean_token}")
+        prefix = "ECOGROW:SET_TOKEN_OK:"
+        if not resp.startswith(prefix):
+            raise ValueError(f"El ESP32 rechazó el token de dispositivo: {resp}")
+        data = json.loads(resp[len(prefix) :].strip())
+        return bool(data.get("set", False))
+
 
 def provision_hardware_device(
     port: str | None = None,
     desired_pop: str | None = None,
+    desired_code: str | None = None,
+    desired_token: str | None = None,
     force: bool = False,
     out_dir: str = "docs/soporte/etiquetas",
+    sync_db: bool = True,
 ) -> dict:
     """Ejecuta el flujo completo de aprovisionamiento de taller con verificación en hardware."""
     # 1. Determinar puerto
@@ -309,25 +381,43 @@ def provision_hardware_device(
 
         # 3. Decidir PoP a instalar o conservar
         if has_valid_pop and not force and not desired_pop:
-            # Reutilizar identidad existente sin sobreescribir
             target_pop = existing_pop
             action_taken = "identidad_existente_conservada"
         else:
-            # Generar o aplicar nueva PoP
             target_pop = desired_pop.strip().upper() if desired_pop else generate_secure_pop(8)
             client.set_pop(target_pop)
             action_taken = "nueva_identidad_instalada"
 
-        # 4. Verificación obligatoria de coincidencia en hardware (Readback Verification)
+        # 4. Verificación obligatoria de coincidencia PoP en hardware
         match_ok = client.verify_pop(target_pop)
         if not match_ok:
             raise RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que la PoP no coincide con el valor programado.")
 
-        # 5. Generar y guardar etiqueta SVG con QR real y permisos 0600
-        serial_no = f"EG-TORRE-{mac.replace(':', '')[-6:]}"
+        # 5. Programar y verificar código único de torre canónico
+        serial_no = (desired_code or ident.get("code") or f"EG-TORRE-{mac.replace(':', '')[-6:]}").strip().upper()
+        client.set_code(serial_no)
+        code_match = client.verify_code(serial_no)
+        if not code_match:
+            raise RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que el código no coincide.")
+
+        # 6. Programar token individual de dispositivo
+        dev_token = (desired_token or secrets.token_hex(24)).strip()
+        client.set_device_token(dev_token)
+
+        # 7. Generar y guardar etiqueta SVG con QR real y permisos 0600
         svg_content = generate_svg_label(mac, ble_name, target_pop, serial_no)
         out_filename = os.path.join(out_dir, f"{ble_name}_etiqueta.svg")
         save_secure_label(out_filename, svg_content)
+
+        # 8. Registro opcional en base de datos de fábrica
+        db_registered = False
+        if sync_db:
+            try:
+                from Conexión.conexion import register_dispositivo_fabrica
+                register_dispositivo_fabrica(serial_no, mac, target_pop, dev_token, force=force)
+                db_registered = True
+            except Exception:
+                pass
 
         return {
             "status": "success",
@@ -337,8 +427,10 @@ def provision_hardware_device(
             "ble_name": ble_name,
             "serial": serial_no,
             "pop": target_pop,
+            "device_token": dev_token,
             "label_file": out_filename,
             "verified": True,
+            "db_registered": db_registered,
         }
     finally:
         client.close()
@@ -347,20 +439,26 @@ def provision_hardware_device(
 def verify_hardware_device(
     port: str | None = None,
     pop: str | None = None,
+    code: str | None = None,
     label_path: str | None = None,
 ) -> dict:
-    """Verifica que el ESP32 conectado coincida con un PIN PoP o con un archivo de etiqueta."""
+    """Verifica que el ESP32 conectado coincida con un PIN PoP, código o con un archivo de etiqueta."""
     expected_pop = None
+    expected_code = None
     if label_path:
         if not os.path.isfile(label_path):
             raise FileNotFoundError(f"Archivo de etiqueta no encontrado: {label_path}")
         with open(label_path, "r", encoding="utf-8") as f:
             content = f.read()
         expected_pop = extract_pop_from_svg(content)
+        expected_code = extract_code_from_svg(content)
         if not expected_pop:
             raise ValueError(f"No se pudo extraer la PoP del archivo de etiqueta '{label_path}'.")
-    elif pop:
-        expected_pop = pop.strip().upper()
+    else:
+        if pop:
+            expected_pop = pop.strip().upper()
+        if code:
+            expected_code = code.strip().upper()
 
     selected_port = port
     if not selected_port:
@@ -376,11 +474,11 @@ def verify_hardware_device(
         mac = normalize_mac(ident["mac"])
         ble_name = ident.get("ble_name", derive_ble_name(mac))
         device_pop = ident.get("pop", "")
+        device_code = ident.get("code", "")
 
-        if expected_pop:
-            match = client.verify_pop(expected_pop)
-        else:
-            match = len(device_pop) == 8
+        match_pop = client.verify_pop(expected_pop) if expected_pop else (len(device_pop) == 8)
+        match_code = client.verify_code(expected_code) if expected_code else True
+        match = match_pop and match_code
 
         return {
             "port": selected_port,
@@ -388,22 +486,41 @@ def verify_hardware_device(
             "ble_name": ble_name,
             "device_pop": device_pop,
             "expected_pop": expected_pop,
+            "device_code": device_code,
+            "expected_code": expected_code,
             "match": match,
         }
     finally:
         client.close()
 
 
-def generate_offline_label(mac: str, pop: str | None = None, serial: str | None = None, out_dir: str = "docs/soporte/etiquetas") -> dict:
+def generate_offline_label(
+    mac: str,
+    pop: str | None = None,
+    serial: str | None = None,
+    device_token: str | None = None,
+    out_dir: str = "docs/soporte/etiquetas",
+    sync_db: bool = True,
+) -> dict:
     """Genera una etiqueta en modo offline (para pruebas unitarias y entornos sin hardware físico)."""
     mac_norm = normalize_mac(mac)
     ble_name = derive_ble_name(mac_norm)
     pop_token = pop.strip().upper() if pop else generate_secure_pop(8)
     serial_no = serial or f"EG-TORRE-{mac_norm.replace(':', '')[-6:]}"
+    dev_token = device_token or secrets.token_hex(24)
 
     svg_content = generate_svg_label(mac_norm, ble_name, pop_token, serial_no)
     out_filename = os.path.join(out_dir, f"{ble_name}_etiqueta.svg")
     save_secure_label(out_filename, svg_content)
+
+    db_registered = False
+    if sync_db:
+        try:
+            from Conexión.conexion import register_dispositivo_fabrica
+            register_dispositivo_fabrica(serial_no, mac_norm, pop_token, dev_token, force=True)
+            db_registered = True
+        except Exception:
+            pass
 
     return {
         "status": "success",
@@ -411,7 +528,9 @@ def generate_offline_label(mac: str, pop: str | None = None, serial: str | None 
         "ble_name": ble_name,
         "serial": serial_no,
         "pop": pop_token,
+        "device_token": dev_token,
         "label_file": out_filename,
+        "db_registered": db_registered,
     }
 
 

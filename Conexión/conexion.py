@@ -1,5 +1,7 @@
+import hashlib
 import os
 from pathlib import Path
+import secrets
 
 import mysql.connector
 from mysql.connector import Error, ProgrammingError
@@ -532,6 +534,7 @@ def create_mysql_tables() -> None:
             _ensure_lecturas_schema(cursor)
             _ensure_cosechas_schema(cursor)
             _ensure_comandos_schema(cursor)
+            _ensure_dispositivos_schema(cursor)
             _ensure_configuracion_schema(cursor)
         database_connection.commit()
     finally:
@@ -696,6 +699,34 @@ def _ensure_comandos_schema(cursor) -> None:
         )
         try:
             cursor.execute("CREATE INDEX idx_cmd_torre_estado ON dispositivo_comandos (torre_id, estado)")
+        except Error:
+            pass
+
+
+def _ensure_dispositivos_schema(cursor) -> None:
+    cursor.execute("SHOW TABLES LIKE 'dispositivos_iot'")
+    if not cursor.fetchone():
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS dispositivos_iot (
+                id_dispositivo INT AUTO_INCREMENT PRIMARY KEY,
+                codigo_torre VARCHAR(64) NOT NULL UNIQUE,
+                mac VARCHAR(20) NOT NULL UNIQUE,
+                pop_hash VARCHAR(128) NOT NULL,
+                device_token VARCHAR(128) NOT NULL UNIQUE,
+                estado VARCHAR(32) NOT NULL DEFAULT 'fabrica',
+                reclamado_por INT NULL,
+                reclamado_en DATETIME NULL,
+                creado_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT fk_disp_usuario
+                    FOREIGN KEY (reclamado_por) REFERENCES usuarios(id_usuario)
+                    ON DELETE SET NULL
+            )
+            """
+        )
+        try:
+            cursor.execute("CREATE INDEX idx_disp_token ON dispositivos_iot (device_token)")
+            cursor.execute("CREATE INDEX idx_disp_codigo ON dispositivos_iot (codigo_torre)")
         except Error:
             pass
 
@@ -1626,6 +1657,188 @@ def register_torre(codigo_unico: str, nombre: str, ubicacion: str, usuario_id: i
         _create_control_defaults_for_torre(existente["id_torre"])
         return existente["id_torre"]
     return insert_torre(codigo_normalizado, nombre, ubicacion, usuario_id)
+
+
+def register_dispositivo_fabrica(
+    codigo_torre: str,
+    mac: str,
+    pop: str,
+    device_token: str | None = None,
+    force: bool = False,
+) -> dict:
+    create_mysql_tables()
+    codigo_norm = codigo_torre.strip().upper()
+    clean_mac = "".join(c for c in mac if c in "0123456789ABCDEFabcdef").upper()
+    if len(clean_mac) == 12:
+        mac_norm = ":".join(clean_mac[i : i + 2] for i in range(0, 12, 2))
+    else:
+        mac_norm = mac.strip().upper()
+
+    clean_pop = pop.strip().upper()
+    if len(clean_pop) != 8:
+        raise ValueError("La clave PoP debe tener exactamente 8 caracteres Base32.")
+
+    pop_hash = hashlib.sha256(clean_pop.encode("utf-8")).hexdigest()
+    token = device_token.strip() if device_token else secrets.token_hex(24)
+
+    conn = _connect(include_database=True)
+    try:
+        conn.autocommit = False
+        with conn.cursor(dictionary=True) as cursor:
+            cursor.execute(
+                "SELECT * FROM dispositivos_iot WHERE codigo_torre = %s OR mac = %s FOR UPDATE",
+                (codigo_norm, mac_norm),
+            )
+            existing = cursor.fetchone()
+            if existing:
+                if existing.get("estado") == "reclamada" and not force:
+                    raise ValueError(f"El dispositivo '{codigo_norm}' ya fue reclamado por un usuario.")
+                cursor.execute(
+                    """
+                    UPDATE dispositivos_iot
+                    SET codigo_torre = %s, mac = %s, pop_hash = %s, device_token = %s, estado = 'fabrica', reclamado_por = NULL, reclamado_en = NULL
+                    WHERE id_dispositivo = %s
+                    """,
+                    (codigo_norm, mac_norm, pop_hash, token, existing["id_dispositivo"]),
+                )
+                disp_id = existing["id_dispositivo"]
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO dispositivos_iot (codigo_torre, mac, pop_hash, device_token, estado)
+                    VALUES (%s, %s, %s, %s, 'fabrica')
+                    """,
+                    (codigo_norm, mac_norm, pop_hash, token),
+                )
+                disp_id = cursor.lastrowid
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    return {
+        "id_dispositivo": disp_id,
+        "codigo_torre": codigo_norm,
+        "mac": mac_norm,
+        "device_token": token,
+        "estado": "fabrica",
+    }
+
+
+def claim_dispositivo_torre(
+    user_id: int,
+    codigo_torre: str,
+    pop_proof: str,
+    nombre: str = "",
+    ubicacion: str = "",
+) -> dict:
+    create_mysql_tables()
+    codigo_norm = codigo_torre.strip().upper()
+    pop_norm = pop_proof.strip().upper()
+
+    if not codigo_norm:
+        raise ValueError("El código de la torre es obligatorio.")
+    if not pop_norm:
+        raise ValueError("La prueba de posesión (PIN PoP) es obligatoria.")
+
+    conn = _connect(include_database=True)
+    try:
+        conn.autocommit = False
+        with conn.cursor(dictionary=True) as cursor:
+            # 1. Bloqueo a nivel de fila del dispositivo en inventario de fábrica
+            cursor.execute(
+                "SELECT * FROM dispositivos_iot WHERE codigo_torre = %s FOR UPDATE",
+                (codigo_norm,),
+            )
+            disp = cursor.fetchone()
+            if not disp:
+                raise ValueError(f"Dispositivo '{codigo_norm}' no registrado en fábrica o inexistente.")
+
+            # 2. Verificar si ya fue reclamado por otro usuario
+            if disp["estado"] == "reclamada" and disp["reclamado_por"] is not None:
+                if int(disp["reclamado_por"]) != int(user_id):
+                    raise ValueError("Ese dispositivo ya ha sido reclamado por otro usuario.")
+
+            # 3. Validar prueba de posesión (PoP)
+            expected_hash = disp["pop_hash"]
+            proof_hash = hashlib.sha256(pop_norm.encode("utf-8")).hexdigest()
+            if not secrets.compare_digest(expected_hash, proof_hash):
+                raise ValueError("Prueba de posesión inválida: el PIN PoP no coincide con el hardware.")
+
+            # 4. Crear o actualizar fila en tabla 'torres'
+            cursor.execute(
+                "SELECT id_torre, usuario_id FROM torres WHERE codigo_unico = %s FOR UPDATE",
+                (codigo_norm,),
+            )
+            torre_row = cursor.fetchone()
+            clean_name = nombre.strip() if nombre else f"Torre {codigo_norm[-4:]}"
+            clean_loc = ubicacion.strip() if ubicacion else ""
+
+            if torre_row:
+                if int(torre_row["usuario_id"]) != int(user_id):
+                    raise ValueError("Ese codigo de torre ya pertenece a otro usuario.")
+                cursor.execute(
+                    """
+                    UPDATE torres
+                    SET nombre = %s, ubicacion = %s, estado = 'registrada'
+                    WHERE id_torre = %s
+                    """,
+                    (clean_name, clean_loc, torre_row["id_torre"]),
+                )
+                torre_id = torre_row["id_torre"]
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO torres (codigo_unico, nombre, ubicacion, usuario_id, estado)
+                    VALUES (%s, %s, %s, %s, 'registrada')
+                    """,
+                    (codigo_norm, clean_name, clean_loc, user_id),
+                )
+                torre_id = cursor.lastrowid
+
+            # 5. Marcar dispositivo como reclamado atómicamente
+            cursor.execute(
+                """
+                UPDATE dispositivos_iot
+                SET estado = 'reclamada', reclamado_por = %s, reclamado_en = NOW()
+                WHERE id_dispositivo = %s
+                """,
+                (user_id, disp["id_dispositivo"]),
+            )
+
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    _create_control_defaults_for_torre(torre_id)
+    return {"id": torre_id, "name": clean_name, "code": codigo_norm}
+
+
+def fetch_dispositivo_by_token(token: str) -> dict | None:
+    if not token or not str(token).strip():
+        return None
+    create_mysql_tables()
+    return _execute(
+        "SELECT * FROM dispositivos_iot WHERE device_token = %s LIMIT 1",
+        (str(token).strip(),),
+        fetchone=True,
+    )
+
+
+def fetch_dispositivo_by_codigo(codigo: str) -> dict | None:
+    if not codigo or not str(codigo).strip():
+        return None
+    create_mysql_tables()
+    return _execute(
+        "SELECT * FROM dispositivos_iot WHERE codigo_torre = %s LIMIT 1",
+        (str(codigo).strip().upper(),),
+        fetchone=True,
+    )
 
 
 def update_torre_estado(torre_id: int, estado: str) -> None:

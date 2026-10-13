@@ -133,22 +133,45 @@ class MobileApiTest(unittest.TestCase):
             self.assertEqual(response.status_code, 400)
             self.assertEqual(response.json["error"], "invalid_payload")
 
+        # Sin PoP
+        response = self.client.post("/api/mobile/towers/bind", json={"code": "ECOGROW-10"}, headers=headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json["error"], "pop_required")
+
     def test_bind_tower_success(self):
         headers = self.logged_in()
         expected = {"id": 12, "name": "Torre Norte", "code": "ECOGROW-12"}
         with patch.object(service, "bind_tower", return_value=expected) as mock_bind:
-            response = self.client.post("/api/mobile/towers/bind", json={"code": "ECOGROW-12", "name": "Torre Norte"}, headers=headers)
+            response = self.client.post(
+                "/api/mobile/towers/bind",
+                json={"code": "ECOGROW-12", "pop": "ABCDEFGH", "name": "Torre Norte"},
+                headers=headers,
+            )
         self.assertEqual(response.status_code, 201)
         self.assertTrue(response.json["ok"])
         self.assertEqual(response.json["tower"], expected)
-        mock_bind.assert_called_once_with(1, "ECOGROW-12", "Torre Norte", "")
+        mock_bind.assert_called_once_with(1, "ECOGROW-12", "ABCDEFGH", "Torre Norte", "")
 
     def test_bind_tower_claimed_by_other_user(self):
         headers = self.logged_in()
-        with patch("Conexión.conexion.register_torre", side_effect=ValueError("Ese codigo de torre ya pertenece a otro usuario.")):
-            response = self.client.post("/api/mobile/towers/bind", json={"code": "ECOGROW-99"}, headers=headers)
+        with patch("Conexión.conexion.claim_dispositivo_torre", side_effect=ValueError("Ese dispositivo ya ha sido reclamado por otro usuario.")):
+            response = self.client.post("/api/mobile/towers/bind", json={"code": "ECOGROW-99", "pop": "ABCDEFGH"}, headers=headers)
         self.assertEqual(response.status_code, 409)
         self.assertEqual(response.json["error"], "tower_already_claimed")
+
+    def test_bind_tower_unregistered_device(self):
+        headers = self.logged_in()
+        with patch("Conexión.conexion.claim_dispositivo_torre", side_effect=ValueError("Dispositivo 'ECOGROW-99' no registrado en fábrica o inexistente.")):
+            response = self.client.post("/api/mobile/towers/bind", json={"code": "ECOGROW-99", "pop": "ABCDEFGH"}, headers=headers)
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json["error"], "unregistered_device")
+
+    def test_bind_tower_invalid_pop_proof(self):
+        headers = self.logged_in()
+        with patch("Conexión.conexion.claim_dispositivo_torre", side_effect=ValueError("Prueba de posesión inválida: el PIN PoP no coincide con el hardware.")):
+            response = self.client.post("/api/mobile/towers/bind", json={"code": "ECOGROW-99", "pop": "WRONGPOP"}, headers=headers)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json["error"], "invalid_pop_proof")
 
 
 class MobileServiceTest(unittest.TestCase):

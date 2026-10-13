@@ -1,6 +1,5 @@
 package com.ecogrow.mobile
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -21,15 +20,12 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun LoginScreen(
-    currentEndpoint: String,
     busy: Boolean,
     errorMessage: String?,
-    onLogin: (mail: String, pass: String, customEndpoint: String?) -> Unit
+    onLogin: (mail: String, pass: String) -> Unit
 ) {
     var mail by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
-    var showAdvanced by remember { mutableStateOf(false) }
-    var endpointInput by remember { mutableStateOf(currentEndpoint) }
 
     Box(
         modifier = Modifier
@@ -112,10 +108,7 @@ fun LoginScreen(
                 )
 
                 Button(
-                    onClick = {
-                        val custom = if (showAdvanced && endpointInput != DEFAULT_API_ENDPOINT) endpointInput else null
-                        onLogin(mail, pass, custom)
-                    },
+                    onClick = { onLogin(mail, pass) },
                     enabled = !busy && mail.isNotBlank() && pass.isNotBlank(),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -131,44 +124,6 @@ fun LoginScreen(
                         )
                     } else {
                         Text("Iniciar Sesión", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    }
-                }
-
-                // Opción colapsable para configuración técnica opcional
-                TextButton(onClick = { showAdvanced = !showAdvanced }) {
-                    Text(
-                        if (showAdvanced) "▲ Ocultar opciones avanzadas" else "▼ Opciones de servidor",
-                        fontSize = 12.sp,
-                        color = Color(0xFF888888)
-                    )
-                }
-
-                AnimatedVisibility(visible = showAdvanced) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFFF9F9F9), RoundedCornerShape(12.dp))
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            "Servidor API Remota (HTTPS Obligatorio):",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF555555)
-                        )
-                        OutlinedTextField(
-                            value = endpointInput,
-                            onValueChange = { endpointInput = it },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp)
-                        )
-                        Text(
-                            "Por defecto utiliza el servidor seguro en Coolify. No requiere cambios para uso normal.",
-                            fontSize = 10.sp,
-                            color = Color.Gray
-                        )
                     }
                 }
             }

@@ -89,7 +89,7 @@ class EcoGrowViewModel(application: Application) : AndroidViewModel(application)
                     )
                 } else {
                     val msg = if (e is ApiFailure || e is IllegalArgumentException) e.message
-                    else "No se pudo comunicar con el servidor (${state.value.endpoint}). Verifica tu conexión a internet."
+                    else "No se pudo comunicar con el servidor. Verifica tu conexión a internet."
                     state.value = state.value.copy(error = msg)
                 }
             } finally {
@@ -102,13 +102,9 @@ class EcoGrowViewModel(application: Application) : AndroidViewModel(application)
         state.value = state.value.copy(currentView = view, error = null, notice = null)
     }
 
-    fun login(mail: String, pass: String, customEndpoint: String? = null) = action {
-        val targetEndpoint = (customEndpoint?.takeIf { it.isNotBlank() } ?: state.value.endpoint).trim()
-        val validated = validatedEndpoint(targetEndpoint, BuildConfig.DEBUG)
-
-        api = EcoGrowApi(getApplication(), validated, BuildConfig.DEBUG)
-        appPrefs.edit().putString("saved_endpoint", validated).apply()
-        state.value = state.value.copy(endpoint = validated)
+    fun login(mail: String, pass: String) = action {
+        val targetEndpoint = DEFAULT_API_ENDPOINT
+        api = EcoGrowApi(getApplication(), targetEndpoint, BuildConfig.DEBUG)
 
         val response = withContext(Dispatchers.IO) {
             api.login(mail.trim(), pass)
@@ -242,6 +238,7 @@ class EcoGrowViewModel(application: Application) : AndroidViewModel(application)
 
     fun onTowerProvisionedAndBind(
         code: String,
+        pop: String,
         name: String,
         onSuccess: (Tower) -> Unit,
         onError: (String) -> Unit
@@ -250,7 +247,7 @@ class EcoGrowViewModel(application: Application) : AndroidViewModel(application)
             try {
                 state.value = state.value.copy(busy = true)
                 val newTower = withContext(Dispatchers.IO) {
-                    api.bindTower(code, name, "Laboratorio")
+                    api.bindTower(code, pop, name, "Laboratorio")
                 }
                 loadCloudTowers()
                 state.value = state.value.copy(
@@ -267,5 +264,9 @@ class EcoGrowViewModel(application: Application) : AndroidViewModel(application)
                 state.value = state.value.copy(busy = false)
             }
         }
+    }
+
+    suspend fun getTowerDetailAsync(towerId: Int): TowerDetailModel? = withContext(Dispatchers.IO) {
+        runCatching { api.getTowerDetail(towerId) }.getOrNull()
     }
 }

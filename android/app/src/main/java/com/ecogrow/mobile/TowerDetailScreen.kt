@@ -29,6 +29,14 @@ fun TowerDetailScreen(
     var showPumpConfirmDialog by remember { mutableStateOf<Boolean?>(null) }
     var showBootInfoDialog by remember { mutableStateOf(false) }
 
+    // Sondeo periódico de telemetría remota cada 10s mientras la pantalla esté activa
+    LaunchedEffect(detail.id) {
+        while (true) {
+            kotlinx.coroutines.delay(10000L)
+            onRefresh()
+        }
+    }
+
     val isWaterLow = (detail.sensors.nivelPct != null && detail.sensors.nivelPct <= 15.0)
     val isSafetyLocked = detail.stale || isWaterLow
 

@@ -222,9 +222,10 @@ class EcoGrowApi(
         return list
     }
 
-    fun bindTower(code: String, name: String, location: String = ""): Tower {
+    fun bindTower(code: String, pop: String, name: String, location: String = ""): Tower {
         val body = JSONObject()
             .put("code", code.trim().uppercase())
+            .put("pop", pop.trim().uppercase())
             .put("name", name.trim())
             .put("location", location.trim())
         val res = post("towers/bind", body)

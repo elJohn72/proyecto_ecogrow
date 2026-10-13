@@ -66,7 +66,8 @@ enum class AddTowerStep {
 fun AddTowerScreen(
     bleManager: BleProvisioningManager?,
     onCancel: () -> Unit,
-    onTowerAddedAndBound: (towerCode: String, towerName: String, onComplete: (Boolean, String?) -> Unit) -> Unit
+    onTowerAddedAndBound: (towerCode: String, popProof: String, towerName: String, onComplete: (Boolean, String?, Int?) -> Unit) -> Unit,
+    onFetchTowerDetail: (suspend (Int) -> TowerDetailModel?)? = null
 ) {
     val context = LocalContext.current
     var currentStep by remember { mutableStateOf(AddTowerStep.INSTRUCTIONS) }
@@ -74,6 +75,7 @@ fun AddTowerScreen(
     // Estados conservados entre pasos
     var discoveredTowers by remember { mutableStateOf<List<DiscoveredTower>>(emptyList()) }
     var selectedTower by remember { mutableStateOf<DiscoveredTower?>(null) }
+    var canonicalTowerCode by remember { mutableStateOf("") }
     var popInput by remember { mutableStateOf("") }
     var customTowerName by remember { mutableStateOf("") }
     var discoveredWifis by remember { mutableStateOf<List<DiscoveredWifi>>(emptyList()) }
@@ -91,10 +93,15 @@ fun AddTowerScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showQrCameraScanner by remember { mutableStateOf(false) }
 
-    // Estado del paso 8 (Vinculación Cloud)
+    // Estado del paso 8 (Vinculación Cloud y Telemetría en Tiempo Real)
     var isBindingCloud by remember { mutableStateOf(false) }
     var cloudBindSuccess by remember { mutableStateOf(false) }
     var cloudBindError by remember { mutableStateOf<String?>(null) }
+    var boundTowerId by remember { mutableStateOf<Int?>(null) }
+    var isPollingTelemetry by remember { mutableStateOf(false) }
+    var telemetryConfirmed by remember { mutableStateOf(false) }
+    var firstTelemetryData by remember { mutableStateOf<TowerDetailModel?>(null) }
+    var pollingTimeout by remember { mutableStateOf(false) }
 
     // Permisos Bluetooth
     val requiredPermissions = remember {
@@ -185,8 +192,25 @@ fun AddTowerScreen(
         QrCameraScannerDialog(
             onQrScanned = { raw ->
                 showQrCameraScanner = false
-                val sanitized = BleProvisioningManager.sanitizePop(raw)
-                popInput = sanitized
+                try {
+                    val trimmed = raw.trim()
+                    if (trimmed.startsWith("{")) {
+                        val json = org.json.JSONObject(trimmed)
+                        if (json.has("code")) {
+                            canonicalTowerCode = json.getString("code")
+                        }
+                        if (json.has("pop")) {
+                            popInput = BleProvisioningManager.sanitizePop(json.getString("pop"))
+                        }
+                        if (json.has("name") && customTowerName.isBlank()) {
+                            customTowerName = json.getString("name")
+                        }
+                    } else {
+                        popInput = BleProvisioningManager.sanitizePop(raw)
+                    }
+                } catch (_: Exception) {
+                    popInput = BleProvisioningManager.sanitizePop(raw)
+                }
                 errorMessage = null
             },
             onDismiss = { showQrCameraScanner = false }
@@ -530,6 +554,16 @@ fun AddTowerScreen(
                         }
 
                         OutlinedTextField(
+                            value = canonicalTowerCode,
+                            onValueChange = { canonicalTowerCode = it.trim().uppercase() },
+                            label = { Text("Código de la Torre (ej: EG-TORRE-01 o EG-TORRE-A1B2C3)") },
+                            placeholder = { Text(selectedTower?.let { "EG-TORRE-${it.name.takeLast(4)}" } ?: "EG-TORRE-01") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        OutlinedTextField(
                             value = popInput,
                             onValueChange = {
                                 popInput = BleProvisioningManager.sanitizePop(it)
@@ -839,20 +873,51 @@ fun AddTowerScreen(
                 }
 
                 // =========================================================================
-                // PASO 8: CONFIRMACIÓN Y VINCULACIÓN EN CLOUD SEPARADA
+                // PASO 8: CONFIRMACIÓN Y VINCULACIÓN EN CLOUD SEPARADA CON TELEMETRÍA REAL
                 // =========================================================================
                 AddTowerStep.SUCCESS -> {
-                    val towerCode = selectedTower?.let { "EG-${it.name.takeLast(4)}" } ?: "ECOGROW-01"
-                    val towerName = customTowerName.ifBlank { "Torre ${towerCode.takeLast(4)}" }
+                    val derivedCode = canonicalTowerCode.ifBlank {
+                        selectedTower?.let { "EG-TORRE-${it.name.takeLast(4)}" } ?: "EG-TORRE-01"
+                    }
+                    val towerName = customTowerName.ifBlank { "Torre ${derivedCode.takeLast(4)}" }
 
                     LaunchedEffect(Unit) {
                         if (!cloudBindSuccess && !isBindingCloud) {
                             isBindingCloud = true
                             cloudBindError = null
-                            onTowerAddedAndBound(towerCode, towerName) { ok, err ->
+                            onTowerAddedAndBound(derivedCode, popInput, towerName) { ok, err, newId ->
                                 isBindingCloud = false
                                 cloudBindSuccess = ok
                                 cloudBindError = err
+                                boundTowerId = newId
+                            }
+                        }
+                    }
+
+                    // Polling para confirmar la primera telemetría real recibida en el backend
+                    LaunchedEffect(cloudBindSuccess, boundTowerId) {
+                        val towerId = boundTowerId
+                        if (cloudBindSuccess && towerId != null && onFetchTowerDetail != null && !telemetryConfirmed) {
+                            isPollingTelemetry = true
+                            var attempts = 0
+                            while (attempts < 10 && !telemetryConfirmed) {
+                                kotlinx.coroutines.delay(3000L)
+                                attempts++
+                                try {
+                                    val detail = onFetchTowerDetail.invoke(towerId)
+                                    if (detail != null && !detail.stale && detail.updatedAt != null) {
+                                        firstTelemetryData = detail
+                                        telemetryConfirmed = true
+                                        isPollingTelemetry = false
+                                        break
+                                    }
+                                } catch (_: Exception) {
+                                    // reintento continuo en siguiente iteración
+                                }
+                            }
+                            if (!telemetryConfirmed) {
+                                isPollingTelemetry = false
+                                pollingTimeout = true
                             }
                         }
                     }
@@ -867,14 +932,14 @@ fun AddTowerScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             Text(
-                                "🎉 ¡WiFi Configurado Exitosamente!",
+                                "🎉 ¡Configuración Completada!",
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF1B5E20)
                             )
 
                             Text(
-                                "Tu torre ${selectedTower?.name ?: "EcoGrow"} se conectó correctamente a tu router WiFi doméstico.",
+                                "Tu torre ${selectedTower?.name ?: derivedCode} se conectó a tu router WiFi y está vinculada a tu cuenta de operador.",
                                 style = MaterialTheme.typography.bodyMedium
                             )
 
@@ -890,11 +955,30 @@ fun AddTowerScreen(
                                     if (isBindingCloud) {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                             CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Color(0xFF087F8C))
-                                            Text("⏳ 3. Vinculando torre a tu cuenta en el servidor remoto...", fontSize = 13.sp, color = Color(0xFF087F8C))
+                                            Text("⏳ 3. Vinculando torre a tu cuenta con prueba criptográfica PoP...", fontSize = 13.sp, color = Color(0xFF087F8C))
                                         }
                                     } else if (cloudBindSuccess) {
-                                        Text("✓ 3. Torre vinculada a tu cuenta de operador en Coolify", fontSize = 13.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.SemiBold)
-                                        Text("📡 4. La torre comenzará a sincronizar telemetría periódica (ciclo de 10s)", fontSize = 12.sp, color = Color(0xFF555555))
+                                        Text("✓ 3. Torre vinculada a tu cuenta con autenticación PoP verificada", fontSize = 13.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.SemiBold)
+
+                                        if (telemetryConfirmed && firstTelemetryData != null) {
+                                            val t = firstTelemetryData!!
+                                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Text("✓ 4. Primera telemetría en tiempo real recibida:", fontSize = 13.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.SemiBold)
+                                                Text(
+                                                    "Nivel: ${t.sensors.nivelFormatted()} (${t.sensors.litrosFormatted()}) · pH: ${t.sensors.phFormatted()} · TDS: ${t.sensors.tdsFormatted()} · Temp: ${t.sensors.tempFormatted()}",
+                                                    fontSize = 12.sp,
+                                                    color = Color(0xFF195C3D),
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        } else if (pollingTimeout) {
+                                            Text("⏳ 4. ESP32 conectado al router. Transmitirá en su próximo ciclo de 10s. Puedes ingresar al dashboard para supervisarla.", fontSize = 12.sp, color = Color(0xFF555555))
+                                        } else {
+                                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = Color(0xFF195C3D))
+                                                Text("📡 4. Esperando primera telemetría del ciclo de 10s desde el Coolify remoto...", fontSize = 12.sp, color = Color(0xFF555555))
+                                            }
+                                        }
                                     } else if (cloudBindError != null) {
                                         Text("⚠️ 3. Error al vincular con la cuenta: $cloudBindError", fontSize = 12.sp, color = Color(0xFFB3261E))
                                     }
@@ -908,7 +992,7 @@ fun AddTowerScreen(
                                 modifier = Modifier.fillMaxWidth().height(50.dp),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("🚀 Abrir Mis Torres", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text("🚀 Entrar al Dashboard", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             }
                         }
                     }

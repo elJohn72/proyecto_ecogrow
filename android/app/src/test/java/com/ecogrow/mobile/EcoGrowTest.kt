@@ -156,7 +156,7 @@ class EcoGrowTest {
         assertEquals("Torre Alfa", list[0].name)
         assertEquals("EG-A1B2", list[0].code)
 
-        val bound = api.bindTower("EG-C3D4", "Torre Beta")
+        val bound = api.bindTower("EG-C3D4", "ABCDEF12", "Torre Beta")
         assertEquals(2, bound.id)
         assertEquals("Torre Beta", bound.name)
         assertEquals("EG-C3D4", bound.code)

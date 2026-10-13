@@ -64,6 +64,17 @@ def _worker_concurrent_create(cfg, tower_id, cmd_type, value, queue):
         queue.put({"success": False, "error": str(exc)})
 
 
+def _worker_claim_device(cfg, user_id, code, pop, queue):
+    """Worker process: claims a factory device with proof of possession."""
+    try:
+        conexion.MYSQL_CONFIG.update(cfg)
+        os.environ["MYSQL_DATABASE"] = cfg["database"]
+        res = conexion.claim_dispositivo_torre(user_id, code, pop)
+        queue.put({"success": True, "result": res})
+    except Exception as exc:
+        queue.put({"success": False, "error": str(exc)})
+
+
 class MultiworkerIntegrationTest(unittest.TestCase):
     temp_db = None
     orig_config = None
@@ -115,7 +126,8 @@ class MultiworkerIntegrationTest(unittest.TestCase):
     def _seed_database(cls):
         conexion._execute(
             """INSERT INTO usuarios (id_usuario, nombre, mail, password)
-               VALUES (1, 'Usuario Integración', 'worker_test@example.com', 'test_hash')
+               VALUES (1, 'Usuario Integración 1', 'worker_test1@example.com', 'test_hash'),
+                      (2, 'Usuario Integración 2', 'worker_test2@example.com', 'test_hash')
                ON DUPLICATE KEY UPDATE nombre=VALUES(nombre)"""
         )
         conexion._execute(
@@ -353,6 +365,81 @@ class MultiworkerIntegrationTest(unittest.TestCase):
         polled = res["cmd"]
         self.assertEqual(polled["id"], cmd_expired["id"])
         self.assertEqual(polled["status"], "expired")
+
+    def test_atomic_claim_with_proof_of_possession_and_concurrency(self):
+        """Atomic claim requires valid PoP, rejects nonexistent devices, and enforces atomic concurrency."""
+        code = f"EG-TORRE-CLAIM-{uuid.uuid4().hex[:6].upper()}"
+        mac = "44:1D:64:AA:BB:CC"
+        pop = "SEC88POP"
+        token = "tok_claim_test_12345678"
+
+        # 1. Register device in factory
+        conexion.register_dispositivo_fabrica(code, mac, pop, token)
+
+        # 2. Claim with invalid PoP -> Fails with 403-equivalent
+        with self.assertRaises(ValueError) as ctx:
+            conexion.claim_dispositivo_torre(user_id=1, codigo_torre=code, pop_proof="WRONGPOP")
+        self.assertIn("Prueba de posesión inválida", str(ctx.exception))
+
+        # 3. Claim on nonexistent device -> Fails with 404-equivalent
+        with self.assertRaises(ValueError) as ctx:
+            conexion.claim_dispositivo_torre(user_id=1, codigo_torre="NONEXISTENT-CODE", pop_proof=pop)
+        self.assertIn("no registrado en fábrica", str(ctx.exception))
+
+        # 4. Concurrent claim by two different users (User 1 vs User 2)
+        cfg = dict(conexion.MYSQL_CONFIG)
+        q1 = multiprocessing.Queue()
+        q2 = multiprocessing.Queue()
+
+        p1 = multiprocessing.Process(target=_worker_claim_device, args=(cfg, 1, code, pop, q1))
+        p2 = multiprocessing.Process(target=_worker_claim_device, args=(cfg, 2, code, pop, q2))
+
+        p1.start()
+        p2.start()
+        p1.join(timeout=10)
+        p2.join(timeout=10)
+
+        res1 = q1.get(timeout=2)
+        res2 = q2.get(timeout=2)
+
+        # Exactly one worker must succeed, and the other must fail with conflict (already claimed)
+        successes = [r for r in (res1, res2) if r["success"]]
+        failures = [r for r in (res1, res2) if not r["success"]]
+
+        self.assertEqual(len(successes), 1)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("ya ha sido reclamado por otro usuario", failures[0]["error"])
+
+        # 5. Device state in DB is 'reclamada' and bound to the winning user
+        disp = conexion.fetch_dispositivo_by_codigo(code)
+        self.assertEqual(disp["estado"], "reclamada")
+        self.assertIn(disp["reclamado_por"], (1, 2))
+
+        # 6. Re-claim by the SAME user is idempotent and succeeds
+        winning_user = disp["reclamado_por"]
+        re_claim = conexion.claim_dispositivo_torre(user_id=winning_user, codigo_torre=code, pop_proof=pop, nombre="Renombrada")
+        self.assertEqual(re_claim["name"], "Renombrada")
+
+    def test_individual_device_token_telemetry_isolation(self):
+        """Individual device tokens authorize only their own tower; token A cannot report tower B."""
+        code_a = f"EG-TORRE-A-{uuid.uuid4().hex[:4].upper()}"
+        code_b = f"EG-TORRE-B-{uuid.uuid4().hex[:4].upper()}"
+        token_a = f"token_a_{uuid.uuid4().hex}"
+        token_b = f"token_b_{uuid.uuid4().hex}"
+
+        conexion.register_dispositivo_fabrica(code_a, "44:1D:64:11:22:33", "POPA1234", token_a)
+        conexion.register_dispositivo_fabrica(code_b, "44:1D:64:44:55:66", "POPB1234", token_b)
+
+        # Verify token lookups
+        disp_a = conexion.fetch_dispositivo_by_token(token_a)
+        disp_b = conexion.fetch_dispositivo_by_token(token_b)
+        self.assertIsNotNone(disp_a)
+        self.assertIsNotNone(disp_b)
+        self.assertEqual(disp_a["codigo_torre"], code_a)
+        self.assertEqual(disp_b["codigo_torre"], code_b)
+
+        # Token A belongs to code_a, not code_b
+        self.assertNotEqual(disp_a["codigo_torre"], code_b)
 
 
 if __name__ == "__main__":

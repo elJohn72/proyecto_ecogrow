@@ -374,15 +374,41 @@ void handleRecipeControl(){
 }
 
 // ------------------------------------------------------------------------------
+// IDENTIDAD CANÓNICA Y CREDENCIAL CLOUD INDIVIDUAL DEL DISPOSITIVO
+// ------------------------------------------------------------------------------
+String getTorreCodigo() {
+  String code = prefs.getString("torre_code", "");
+  if (code.length() > 0) return code;
+#ifdef ECOGROW_TORRE_CODIGO
+  return String(ECOGROW_TORRE_CODIGO);
+#else
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
+  char buf[32];
+  snprintf(buf, sizeof(buf), "EG-TORRE-%02X%02X%02X", mac[3], mac[4], mac[5]);
+  return String(buf);
+#endif
+}
+
+String getDeviceToken() {
+  String token = prefs.getString("device_token", "");
+  if (token.length() > 0) return token;
+  token = prefs.getString("api_token", "");
+  if (token.length() > 0) return token;
+#ifdef ECOGROW_SENSOR_API_TOKEN
+  return String(ECOGROW_SENSOR_API_TOKEN);
+#else
+  return String("");
+#endif
+}
+
+// ------------------------------------------------------------------------------
 // ENLACE Y SINCRONIZACIÓN REMOTA CON BACKEND / COOLIFY
 // ------------------------------------------------------------------------------
 void sincronizarConVps() {
   if (WiFi.status() != WL_CONNECTED) return;
 
-  String token = prefs.getString("api_token", "");
-  if (token.length() == 0) {
-    token = String(ECOGROW_SENSOR_API_TOKEN);
-  }
+  String token = getDeviceToken();
   // Fail-closed ante credenciales incompletas o vacías
   if (token.length() == 0 || token == "PENDIENTE" || token == "SIN_DATO") {
     Serial.println("[VPS Sync] Token de autenticación no configurado. Sincronización omitida (fail-closed).");
@@ -415,7 +441,7 @@ void sincronizarConVps() {
   http.setTimeout(6000);
 
   JsonDocument txDoc;
-  txDoc["torre_codigo"] = ECOGROW_TORRE_CODIGO;
+  txDoc["torre_codigo"] = getTorreCodigo();
   txDoc["dispositivo"] = "esp32_ecogrow2";
   txDoc["rele_principal"] = estadoBomba;
   if (!isnan(tempAguaC)) txDoc["temperatura_agua"] = tempAguaC;
@@ -643,8 +669,37 @@ void procesarComandosTallerSerial() {
       char macStr[18];
       snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
       String pop = prefs.getString("pop", "");
-      Serial.printf("ECOGROW:IDENT:{\"mac\":\"%s\",\"ble_name\":\"%s\",\"pop\":\"%s\",\"has_pop\":%s}\n",
-                    macStr, ble_service_name, pop.c_str(), pop.length() >= 8 ? "true" : "false");
+      String code = getTorreCodigo();
+      String devToken = getDeviceToken();
+      Serial.printf("ECOGROW:IDENT:{\"mac\":\"%s\",\"ble_name\":\"%s\",\"code\":\"%s\",\"pop\":\"%s\",\"has_pop\":%s,\"has_token\":%s}\n",
+                    macStr, ble_service_name, code.c_str(), pop.c_str(),
+                    pop.length() >= 8 ? "true" : "false", devToken.length() >= 16 ? "true" : "false");
+    } else if (line.startsWith("ECOGROW:SET_CODE:")) {
+      String newCode = line.substring(17);
+      newCode.trim();
+      newCode.toUpperCase();
+      if (newCode.length() >= 3 && newCode.length() <= 64) {
+        prefs.putString("torre_code", newCode);
+        Serial.printf("ECOGROW:SET_CODE_OK:{\"code\":\"%s\"}\n", newCode.c_str());
+      } else {
+        Serial.println("ECOGROW:SET_CODE_ERR:{\"error\":\"Código inválido (longitud entre 3 y 64)\"}");
+      }
+    } else if (line.startsWith("ECOGROW:VERIFY_CODE:")) {
+      String checkCode = line.substring(20);
+      checkCode.trim();
+      checkCode.toUpperCase();
+      String storedCode = getTorreCodigo();
+      bool match = (storedCode == checkCode);
+      Serial.printf("ECOGROW:VERIFY_CODE:{\"match\":%s}\n", match ? "true" : "false");
+    } else if (line.startsWith("ECOGROW:SET_DEVICE_TOKEN:")) {
+      String newToken = line.substring(25);
+      newToken.trim();
+      if (newToken.length() >= 16) {
+        prefs.putString("device_token", newToken);
+        Serial.println("ECOGROW:SET_TOKEN_OK:{\"set\":true}");
+      } else {
+        Serial.println("ECOGROW:SET_TOKEN_ERR:{\"error\":\"Token inválido (mínimo 16 caracteres)\"}");
+      }
     } else if (line.startsWith("ECOGROW:SET_POP:")) {
       String newPop = line.substring(16);
       newPop.trim();

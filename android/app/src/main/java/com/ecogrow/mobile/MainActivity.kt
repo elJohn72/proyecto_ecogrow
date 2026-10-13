@@ -29,11 +29,10 @@ class MainActivity : ComponentActivity() {
                     when (state.currentView) {
                         CurrentView.LOGIN -> {
                             LoginScreen(
-                                currentEndpoint = state.endpoint,
                                 busy = state.busy,
                                 errorMessage = state.error,
-                                onLogin = { mail, pass, custom ->
-                                    vm.login(mail, pass, custom)
+                                onLogin = { mail, pass ->
+                                    vm.login(mail, pass)
                                 }
                             )
                         }
@@ -73,13 +72,17 @@ class MainActivity : ComponentActivity() {
                             AddTowerScreen(
                                 bleManager = bleManager,
                                 onCancel = { vm.navigateTo(CurrentView.HOME) },
-                                onTowerAddedAndBound = { code, name, onComplete ->
+                                onTowerAddedAndBound = { code, pop, name, onComplete ->
                                     vm.onTowerProvisionedAndBind(
                                         code = code,
+                                        pop = pop,
                                         name = name,
-                                        onSuccess = { onComplete(true, null) },
-                                        onError = { err -> onComplete(false, err) }
+                                        onSuccess = { tower -> onComplete(true, null, tower.id) },
+                                        onError = { err -> onComplete(false, err, null) }
                                     )
+                                },
+                                onFetchTowerDetail = { towerId ->
+                                    vm.getTowerDetailAsync(towerId)
                                 }
                             )
                         }

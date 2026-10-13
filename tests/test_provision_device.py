@@ -127,6 +127,17 @@ class TestLabelAndQrGeneration(unittest.TestCase):
 class TestSerialProtocolAndHardwareProvisioning(unittest.TestCase):
     """Pruebas del protocolo serie y flujos de aprovisionamiento en hardware."""
 
+    def setUp(self):
+        patcher_code = patch("tools.provision_device.Esp32SerialClient.set_code", return_value="CODE_OK")
+        patcher_vcode = patch("tools.provision_device.Esp32SerialClient.verify_code", return_value=True)
+        patcher_token = patch("tools.provision_device.Esp32SerialClient.set_device_token", return_value=True)
+        self.mock_set_code = patcher_code.start()
+        self.mock_verify_code = patcher_vcode.start()
+        self.mock_set_token = patcher_token.start()
+        self.addCleanup(patcher_code.stop)
+        self.addCleanup(patcher_vcode.stop)
+        self.addCleanup(patcher_token.stop)
+
     def test_esp32_serial_client_communication(self):
         mock_serial = MagicMock()
         mock_serial.is_open = True

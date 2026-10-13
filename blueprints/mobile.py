@@ -108,9 +108,10 @@ def logout():
 def bind_tower():
     data = payload()
     code = data.get("code")
+    pop = data.get("pop", "")
     name = data.get("name", "")
     location = data.get("location", "")
-    tower_info = service.bind_tower(int(current_user.get_id()), code, name, location)
+    tower_info = service.bind_tower(int(current_user.get_id()), code, pop, name, location)
     return jsonify(ok=True, tower=tower_info, message="Torre vinculada exitosamente a tu cuenta."), 201
 
 
