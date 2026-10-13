@@ -19,8 +19,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar el código de la aplicación
-COPY . .
+# Copiar explícitamente los módulos de aplicación sin incluir artefactos locales ni secretos
+COPY app.py .
+COPY models.py .
+COPY domain/ ./domain/
+COPY services/ ./services/
+COPY blueprints/ ./blueprints/
+COPY templates/ ./templates/
+COPY static/ ./static/
+COPY Conexión/ ./Conexión/
+COPY database/ ./database/
 
 # Crear usuario sin privilegios para ejecutar la app
 RUN useradd -m -u 1001 ecogrow && chown -R ecogrow:ecogrow /app

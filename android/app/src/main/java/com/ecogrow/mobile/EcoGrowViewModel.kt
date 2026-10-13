@@ -38,7 +38,11 @@ class EcoGrowViewModel : ViewModel() {
     }
     private suspend fun loadTowers() {
         val json = withContext(Dispatchers.IO) { api!!.get("towers") }.getJSONArray("towers")
-        state.value = state.value.copy(towers = (0 until json.length()).map { val t = json.getJSONObject(it); Tower(t.getInt("id"), t.getString("name"), t.getString("code")) })
+        val towersList = (0 until json.length()).map { val t = json.getJSONObject(it); Tower(t.getInt("id"), t.getString("name"), t.getString("code")) }
+        state.value = state.value.copy(towers = towersList)
+        if (towersList.size == 1) {
+            loadDetail(towersList.first().id)
+        }
     }
     fun refresh() = action { val id = state.value.detail?.getInt("id"); if (id == null) loadTowers() else loadDetail(id) }
     fun select(id: Int) = action { loadDetail(id) }

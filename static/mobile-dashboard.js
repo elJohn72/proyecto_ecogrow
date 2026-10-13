@@ -70,7 +70,7 @@
     text('reading-time', `Última actualización: ${when(detail.updated_at)}`);
     text('pump-reported', pump(detail.pump?.reported));
     text('pump-desired', pump(detail.pump?.desired));
-    text('pump-command', { pending: 'Pendiente de confirmación', unconfirmed: 'Sin acuse del dispositivo', unknown: 'Sin orden', confirmed: 'Confirmada por el dispositivo', rejected: 'Rechazada', expired: 'Vencida' }[detail.pump?.status] || 'SIN_DATO');
+    text('pump-command', { pending: 'Pendiente de confirmación', unconfirmed: 'Sin acuse del dispositivo', unknown: 'Sin orden', confirmed: 'Confirmada por el dispositivo', executed: 'Confirmada por el dispositivo', rejected: 'Rechazada', expired: 'Vencida' }[detail.pump?.status] || 'SIN_DATO');
     text('pump-blocked', detail.stale ? 'Encendido bloqueado: se necesita telemetría reciente. Puedes solicitar el apagado.' : detail.capabilities?.pump_control ? 'El servidor valida el nivel mínimo configurado. La torre debe recibir la orden y reportar su estado.' : 'Control no disponible para esta torre.');
     text('recipe', detail.recipe ? [detail.recipe.crop, detail.recipe.phase].filter(Boolean).join(' · ') || 'Receta sin nombre' : 'Sin receta disponible.');
     text('recipe-note', detail.recipe?.notes || 'La edición de recetas requiere integración confirmada con el dispositivo.');

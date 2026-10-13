@@ -1,0 +1,46 @@
+# Git & CI
+.git
+.github
+.gitignore
+
+# Python virtual environment & caches
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+*$py.class
+.pytest_cache
+.coverage
+htmlcov
+
+# Environment and secrets - NUNCA incluir en la imagen
+.env
+.env.*
+deploy/.env
+deploy/.env.*
+*.pem
+*.key
+*.cert
+*.crt
+
+# Hardware / Embedded firmware
+platformio/
+.pio/
+platformio/esp32_ecogrow2/include/config.h
+
+# Android app & Gradle
+android/
+.gradle/
+local.properties
+
+# Documentation & Specs
+specs/
+docs/
+.specify/
+
+# Local databases & logs
+*.db
+*.sqlite3
+instance/
+*.log

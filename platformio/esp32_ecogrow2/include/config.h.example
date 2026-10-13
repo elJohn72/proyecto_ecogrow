@@ -4,8 +4,14 @@
 #define ECOGROW_AP_PASSWORD ""
 #define ECOGROW_STA_NAME ""
 #define ECOGROW_STA_PASSWORD ""
-#define ECOGROW_CONTROL_USER ""
-#define ECOGROW_CONTROL_PASSWORD ""
+#define ECOGROW_CONTROL_USER "admin"
+#define ECOGROW_CONTROL_PASSWORD "ecogrow20"
+
+// Enlace remoto con el servidor / Coolify
+#define ECOGROW_BACKEND_URL "http://179.236.74.107:8000"
+#define ECOGROW_SENSOR_API_TOKEN "ecogrow_sensor_secret_token_2026"
+#define ECOGROW_TORRE_CODIGO "TORRE-001"
+
 // Medir el depósito real y validar sensores antes de habilitar estas capacidades.
 #define ECOGROW_TANK_HEIGHT_CM 40.0f
 #define ECOGROW_TANK_MIN_DISTANCE_CM 10.0f

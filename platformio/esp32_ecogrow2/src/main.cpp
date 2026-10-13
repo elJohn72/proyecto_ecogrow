@@ -16,6 +16,8 @@
 #include <WiFi.h>
 #include <WiFiProv.h>
 #include <WebServer.h>
+#include <HTTPClient.h>
+#include <WiFiClient.h>
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <OneWire.h>
@@ -111,11 +113,29 @@ float valorPh = NAN;
 float nivelAguaPct = NAN; // Porcentaje de llenado (0 a 100%)
 float litrosActuales = NAN; // Volumen en litros
 
-// Temporizadores
+const char* BLE_POP = "ecogrow20"; // Proof of Possession / PIN BLE y contraseña por defecto
+
+#ifndef ECOGROW_BACKEND_URL
+#define ECOGROW_BACKEND_URL "http://179.236.74.107:8000"
+#endif
+
+#ifndef ECOGROW_SENSOR_API_TOKEN
+#define ECOGROW_SENSOR_API_TOKEN "ecogrow_sensor_secret_token_2026"
+#endif
+
+#ifndef ECOGROW_TORRE_CODIGO
+#define ECOGROW_TORRE_CODIGO "TORRE-001"
+#endif
+
+// Temporizadores y Sincronización Remota
 unsigned long timestampCiclo = 0;
 unsigned long duracionCicloMs = 0;
 unsigned long ultimoMuestreoSensores = 0;
 const unsigned long INTERVALO_SENSADO_MS = 2500;
+unsigned long ultimoSyncVps = 0;
+const unsigned long INTERVALO_SYNC_VPS_MS = 10000;
+String ultimoComandoId = "";
+String estadoUltimoComando = "NONE";
 
 // ------------------------------------------------------------------------------
 // PWA MÓVIL EN PROGMEM
@@ -246,11 +266,13 @@ bool authorized() {
   server.sendHeader("Cache-Control", "no-store");
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.sendHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Origin");
-  // Si no se configuró usuario en config.h, se permite el control directo en la red local
-  if (strlen(ECOGROW_CONTROL_USER) == 0) return true;
-  if (strlen(ECOGROW_CONTROL_PASSWORD) < 8) return true;
-  if (!server.authenticate(ECOGROW_CONTROL_USER, ECOGROW_CONTROL_PASSWORD)) {
-    server.requestAuthentication(); return false;
+  // Seguridad fail-closed: si no se configuró credencial explícita en config.h,
+  // se exige usuario 'admin' y contraseña igual al PIN de posesión BLE (BLE_POP).
+  const char* expectedUser = (strlen(ECOGROW_CONTROL_USER) > 0) ? ECOGROW_CONTROL_USER : "admin";
+  const char* expectedPass = (strlen(ECOGROW_CONTROL_PASSWORD) >= 8) ? ECOGROW_CONTROL_PASSWORD : BLE_POP;
+  if (!server.authenticate(expectedUser, expectedPass)) {
+    server.requestAuthentication();
+    return false;
   }
   return true;
 }
@@ -311,6 +333,115 @@ void handleRecipeControl(){
   recetaActivaIdx=d["recipe_idx"].as<int>();tiempoOnMinutos=RECETAS[recetaActivaIdx].timerOnMin;tiempoOffMinutos=RECETAS[recetaActivaIdx].timerOffMin;
   prefs.putUChar("recipe",recetaActivaIdx);prefs.putUInt("t_on",tiempoOnMinutos);prefs.putUInt("t_off",tiempoOffMinutos);
   apagarBomba();timestampCiclo=millis();duracionCicloMs=tiempoOffMinutos*60000UL;sendStatus();
+}
+
+// ------------------------------------------------------------------------------
+// ENLACE Y SINCRONIZACIÓN REMOTA CON BACKEND / COOLIFY
+// ------------------------------------------------------------------------------
+void sincronizarConVps() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  WiFiClient client;
+  HTTPClient http;
+
+  String endpoint = String(ECOGROW_BACKEND_URL) + "/api/iot/sync";
+  if (!http.begin(client, endpoint)) {
+    return;
+  }
+
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("X-API-Token", ECOGROW_SENSOR_API_TOKEN);
+  http.setTimeout(4000);
+
+  JsonDocument txDoc;
+  txDoc["torre_codigo"] = ECOGROW_TORRE_CODIGO;
+  txDoc["dispositivo"] = "esp32_ecogrow2";
+  txDoc["rele_principal"] = estadoBomba;
+  if (!isnan(tempAguaC)) txDoc["temperatura_agua"] = tempAguaC;
+  if (!isnan(valorPh)) txDoc["ph"] = valorPh;
+  if (!isnan(valorTdsPpm)) txDoc["tds_ppm"] = valorTdsPpm;
+  if (!isnan(nivelAguaPct)) txDoc["nivel_agua"] = nivelAguaPct;
+  txDoc["modo"] = (modoActual == MODO_AUTO) ? "automatico" : "manual";
+  txDoc["receta_idx"] = recetaActivaIdx;
+  if (ultimoComandoId.length() > 0) {
+    txDoc["last_command_id"] = ultimoComandoId;
+    txDoc["last_command_status"] = estadoUltimoComando;
+  }
+
+  String payload;
+  serializeJson(txDoc, payload);
+
+  int httpCode = http.POST(payload);
+  if (httpCode == 200 || httpCode == 201) {
+    String resp = http.getString();
+    JsonDocument rxDoc;
+    if (!deserializeJson(rxDoc, resp)) {
+      if (rxDoc["command"].is<JsonObject>()) {
+        JsonObject cmd = rxDoc["command"];
+        String cmdId = cmd["id"].as<String>();
+        long expiresAt = cmd["expires_at"].as<long>();
+        long nowEpoch = cmd["now"].as<long>();
+
+        if (cmdId != ultimoComandoId) {
+          if (expiresAt > 0 && nowEpoch > expiresAt) {
+            Serial.printf("[VPS Command] Comando %s expirado. Descartado.\n", cmdId.c_str());
+            ultimoComandoId = cmdId;
+            estadoUltimoComando = "EXPIRED";
+          } else {
+            String action = cmd["action"].as<String>();
+            Serial.printf("[VPS Command] Recibida orden: %s (id: %s)\n", action.c_str(), cmdId.c_str());
+            if (action == "PUMP_ON") {
+              if (nivelAguaOk) {
+                encenderBomba();
+                modoActual = MODO_MANUAL;
+                timestampCiclo = millis();
+                duracionCicloMs = tiempoOnMinutos * 60000UL;
+                estadoUltimoComando = "EXECUTED";
+              } else {
+                estadoUltimoComando = "REJECTED_LOW_WATER";
+                Serial.println("[VPS Command] Rechazado: Nivel insuficiente o no calibrado");
+              }
+            } else if (action == "PUMP_OFF") {
+              apagarBomba();
+              timestampCiclo = millis();
+              duracionCicloMs = tiempoOffMinutos * 60000UL;
+              estadoUltimoComando = "EXECUTED";
+            } else if (action == "SET_MODE") {
+              String m = cmd["mode"].as<String>();
+              if (m == "AUTO") {
+                modoActual = MODO_AUTO;
+                apagarBomba();
+                timestampCiclo = millis();
+                duracionCicloMs = tiempoOffMinutos * 60000UL;
+                estadoUltimoComando = "EXECUTED";
+              } else if (m == "MANUAL") {
+                modoActual = MODO_MANUAL;
+                apagarBomba();
+                timestampCiclo = millis();
+                estadoUltimoComando = "EXECUTED";
+              }
+            } else if (action == "SET_RECIPE") {
+              int rIdx = cmd["recipe_idx"].as<int>();
+              if (validRecipe(rIdx, TOTAL_RECETAS)) {
+                recetaActivaIdx = rIdx;
+                tiempoOnMinutos = RECETAS[recetaActivaIdx].timerOnMin;
+                tiempoOffMinutos = RECETAS[recetaActivaIdx].timerOffMin;
+                prefs.putUChar("recipe", recetaActivaIdx);
+                prefs.putUInt("t_on", tiempoOnMinutos);
+                prefs.putUInt("t_off", tiempoOffMinutos);
+                apagarBomba();
+                timestampCiclo = millis();
+                duracionCicloMs = tiempoOffMinutos * 60000UL;
+                estadoUltimoComando = "EXECUTED";
+              }
+            }
+            ultimoComandoId = cmdId;
+          }
+        }
+      }
+    }
+  }
+  http.end();
 }
 
 void SysProvEvent(arduino_event_t *sys_event) {
@@ -385,10 +516,9 @@ void setup() {
   uint8_t mac[6];
   WiFi.macAddress(mac);
   snprintf(ble_service_name, sizeof(ble_service_name), "PROV_EcoGrow_%02X%02X", mac[4], mac[5]);
-  const char* ble_pop = "ecogrow20"; // Proof of Possession / PIN
 
   // beginProvision inicia BLE sin liberar memoria BT para evitar error ESP_ERR_INVALID_STATE (259)
-  WiFiProv.beginProvision(WIFI_PROV_SCHEME_BLE, WIFI_PROV_SCHEME_HANDLER_NONE, WIFI_PROV_SECURITY_1, ble_pop, ble_service_name, NULL, NULL, false);
+  WiFiProv.beginProvision(WIFI_PROV_SCHEME_BLE, WIFI_PROV_SCHEME_HANDLER_NONE, WIFI_PROV_SECURITY_1, BLE_POP, ble_service_name, NULL, NULL, false);
 
   // WiFi Dual fallback si hay credenciales configuradas
   if (strlen(password_ap)>=12) {
@@ -485,30 +615,28 @@ void loop() {
   }
   estadoPrevModo = lecturaModo;
 
-  unsigned long ahora = millis();
+  uint32_t ahora = millis();
 
   // Muestreo de sensores cada 2.5 segundos
   if (ahora - ultimoMuestreoSensores >= INTERVALO_SENSADO_MS) {
     ultimoMuestreoSensores = ahora;
     nivelAguaPct = medirNivelUltrasonico(litrosActuales);
     verificarSeguridadAgua();
-    tempAguaC=waterSensors.getTempCByIndex(0);
-    if(tempAguaC==DEVICE_DISCONNECTED_C || tempAguaC<0 || tempAguaC>60) tempAguaC=NAN;
+    tempAguaC = waterSensors.getTempCByIndex(0);
+    if (tempAguaC == DEVICE_DISCONNECTED_C || tempAguaC < 0 || tempAguaC > 60) tempAguaC = NAN;
     waterSensors.requestTemperatures();
     valorTdsPpm = leerTdsCompensado(tempAguaC);
     valorPh     = leerPhSolucion();
   }
 
-  if (estadoBomba && millis()-timestampCiclo > tiempoOnMinutos*60000UL) { apagarBomba(); timestampCiclo=millis(); duracionCicloMs=tiempoOffMinutos*60000UL; }
-  // Máquina de estados de la cascada vertical
+  // Máquina de estados de la cascada vertical (segura frente a rollover y sin saltos de reposo)
   if (modoActual == MODO_AUTO) {
-    if (ahora - timestampCiclo >= duracionCicloMs) {
-      timestampCiclo = ahora;
-
+    if (cycleElapsed(ahora, timestampCiclo, duracionCicloMs)) {
+      timestampCiclo = millis();
       if (estadoBomba) {
         apagarBomba();
         duracionCicloMs = tiempoOffMinutos * 60000UL;
-        Serial.println("[AUTO] Cascada finalizada. Iniciando oxigenación radicular.");
+        Serial.println("[AUTO] Cascada finalizada. Iniciando oxigenación y reposo radicular.");
       } else {
         if (nivelAguaOk) {
           encenderBomba();
@@ -520,5 +648,18 @@ void loop() {
         }
       }
     }
+  } else {
+    // MODO MANUAL: protección de apagado por tiempo máximo de seguridad
+    if (manualLimitExceeded(estadoBomba, ahora, timestampCiclo, tiempoOnMinutos * 60000UL)) {
+      apagarBomba();
+      timestampCiclo = millis();
+      Serial.println("[MANUAL] Límite de tiempo máximo alcanzado. Bomba apagada por seguridad.");
+    }
+  }
+
+  // Sincronización periódica con el backend / VPS
+  if (ahora - ultimoSyncVps >= INTERVALO_SYNC_VPS_MS) {
+    ultimoSyncVps = ahora;
+    sincronizarConVps();
   }
 }

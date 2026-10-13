@@ -5,6 +5,8 @@ confirmation. Tank capacity is an uncalibrated default, not a volume measurement
 """
 import math
 import secrets
+import time
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from werkzeug.security import check_password_hash
@@ -17,6 +19,48 @@ except ModuleNotFoundError:
     from ..domain.hidroponia_torre import merge_control_with_phase_profile
 
 STALE_SECONDS = 120
+_pending_commands = {}
+
+
+def create_pump_command(tower_id, desired_state, ttl_sec=60):
+    now = int(time.time())
+    cmd_id = f"cmd_{uuid.uuid4().hex[:8]}"
+    cmd = {
+        "id": cmd_id,
+        "action": "PUMP_ON" if desired_state == "on" else "PUMP_OFF",
+        "desired": desired_state,
+        "created_at": now,
+        "expires_at": now + ttl_sec,
+        "ttl_sec": ttl_sec,
+        "status": "pending",
+    }
+    _pending_commands[tower_id] = cmd
+    return cmd
+
+
+def get_active_command(tower_id):
+    cmd = _pending_commands.get(tower_id)
+    if not cmd:
+        return None
+    if cmd["status"] == "pending" and time.time() > cmd["expires_at"]:
+        cmd["status"] = "expired"
+    return cmd
+
+
+def record_command_ack(tower_id, cmd_id, ack_status):
+    cmd = _pending_commands.get(tower_id)
+    if cmd and (cmd["id"] == cmd_id or not cmd_id):
+        normalized = ack_status.lower()
+        if "executed" in normalized or "ok" in normalized:
+            cmd["status"] = "executed"
+        elif "expired" in normalized:
+            cmd["status"] = "expired"
+        elif "reject" in normalized:
+            cmd["status"] = "rejected"
+        else:
+            cmd["status"] = normalized
+        return cmd
+    return None
 
 
 class MobileError(Exception):
@@ -110,10 +154,10 @@ def reading_timestamp(row):
 def sensors(row):
     row = row or {}
     level = finite(row.get("nivel_agua"))
-    return {"ph": finite(row.get("ph")), "tds_ppm": None,
+    return {"ph": finite(row.get("ph")), "tds_ppm": finite(row.get("tds_ppm")),
             "ec_ms_cm": finite(row.get("ec")),
             "nivel_pct": level if level is not None and 0 <= level <= 100 else None,
-            "litros": None, "temperatura_agua_c": finite(row.get("temperatura_agua"))}
+            "litros": finite(row.get("litros")), "temperatura_agua_c": finite(row.get("temperatura_agua"))}
 
 
 def configuration(tower_id):
@@ -144,12 +188,28 @@ def tower_detail(tower_id, user_id):
     events = _execute("SELECT id_evento,accion_recomendada,motivo,creado_en FROM eventos_control WHERE torre_id=%s ORDER BY creado_en DESC LIMIT 20", (tower_id,), fetchall=True)
     config = configuration(tower_id)
     inactive = tower.get("estado") == "inactivo"
-    desired = {"encendida": "on", "apagada": "off"}.get(pump.get("estado")) if pump else None
+
+    active_cmd = get_active_command(tower_id)
+    if active_cmd:
+        desired = active_cmd["desired"]
+        cmd_status = active_cmd["status"]
+        if active_cmd.get("status") == "executed":
+            reported = active_cmd["desired"]
+        elif pump and str(pump.get("ultimo_comando", "")).startswith("reporte_"):
+            reported = {"encendida": "on", "apagada": "off"}.get(pump.get("estado"))
+        else:
+            reported = None
+    else:
+        desired = {"encendida": "on", "apagada": "off"}.get(pump.get("estado")) if pump else None
+        reported = {"encendida": "on", "apagada": "off"}.get(pump.get("estado")) if pump and str(pump.get("ultimo_comando", "")).startswith("reporte_") else None
+        cmd_status = "pending" if pump and pump.get("ultimo_comando") == "mobile_dashboard" else "unconfirmed" if pump else "unknown"
+
     effective = merge_control_with_phase_profile(config, cycle["fase"], cycle["cultivo_nombre"]) if config and cycle else config
     return {**tower_summary(tower), "source": "remote", "sensors": sensors(latest),
         "updated_at": timestamp(reading_timestamp(latest)), "stale": is_stale(reading_timestamp(latest)),
-        "pump": {"desired": desired, "reported": None, "mode": pump.get("modo") if pump else None,
-            "status": "pending" if pump and pump.get("ultimo_comando") == "mobile_dashboard" else "unconfirmed" if pump else "unknown"},
+        "pump": {"desired": desired, "reported": reported, "mode": pump.get("modo") if pump else None,
+            "status": cmd_status, "command_id": active_cmd["id"] if active_cmd else None,
+            "expires_at": active_cmd["expires_at"] if active_cmd else None},
         "irrigation": irrigation_payload(irrigation),
         "cycle": {"id": cycle["id_ciclo"], "phase": cycle["fase"], "crop": cycle["cultivo_nombre"]} if cycle else None,
         "recipe": {"phase": cycle["fase"], "crop": cycle["cultivo_nombre"], "notes": effective.get("perfil_notas", "") if effective else ""} if cycle else None,
@@ -157,7 +217,7 @@ def tower_detail(tower_id, user_id):
         "events": [{"id": r["id_evento"], "action": r["accion_recomendada"], "reason": r["motivo"], "created_at": timestamp(r["creado_en"])} for r in events],
         "history": [{"updated_at": timestamp(reading_timestamp(r)), "sensors": sensors(r)} for r in history],
         "capabilities": {"pump_control": bool(pump) and not inactive, "irrigation_edit": bool(irrigation) and not inactive,
-            "recipe_edit": False, "local_connection": False, "tds": False, "liters": False, "pump_reported": False}}
+            "recipe_edit": False, "local_connection": False, "tds": True, "liters": bool(config and config.get("deposito_litros")), "pump_reported": reported is not None}}
 
 
 def command_pump(tower_id, user_id, state):
@@ -174,9 +234,11 @@ def command_pump(tower_id, user_id, state):
         minimum = finite(config.get("nivel_minimo"))
         if level is None or minimum is None or not 0 <= minimum < 100 or level <= minimum:
             raise MobileError("unsafe_level", "Nivel de agua inválido o insuficiente.", 409)
+    cmd = create_pump_command(tower_id, state)
     _execute("""UPDATE actuadores_torre SET estado=%s,modo='manual',ultimo_comando='mobile_dashboard',actualizado_en=CURRENT_TIMESTAMP
         WHERE torre_id=%s AND tipo='bomba_principal'""", ("encendida" if state == "on" else "apagada", tower_id))
     return {"accepted": True, "desired": state, "reported": None, "status": "pending",
+            "command_id": cmd["id"], "expires_at": cmd["expires_at"],
             "message": "Orden guardada; falta confirmación del dispositivo."}
 
 
