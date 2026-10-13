@@ -203,9 +203,16 @@ def sensores():
     )
 
 
+def _extract_token(req):
+    token = req.headers.get("X-API-Token", "").strip()
+    if not token and req.headers.get("Authorization", "").startswith("Bearer "):
+        token = req.headers.get("Authorization", "")[7:].strip()
+    return token
+
+
 @sensores_bp.route("/api/sensores/lectura", methods=("POST",))
 def api_sensor_reading():
-    api_token = request.headers.get("X-API-Token", "").strip()
+    api_token = _extract_token(request)
     if api_token != current_app.config["SENSOR_API_TOKEN"]:
         return jsonify({"ok": False, "error": "Token de dispositivo invalido."}), 401
 
@@ -240,7 +247,7 @@ def api_sensor_reading():
 
 @sensores_bp.route("/api/iot/sync", methods=("POST",))
 def api_iot_sync():
-    api_token = request.headers.get("X-API-Token", "").strip()
+    api_token = _extract_token(request)
     if api_token != current_app.config["SENSOR_API_TOKEN"]:
         return jsonify({"ok": False, "error": "Token de dispositivo invalido."}), 401
 
