@@ -21,6 +21,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar explícitamente los módulos de aplicación sin incluir artefactos locales ni secretos
 COPY app.py .
+COPY form.py .
+COPY __init__.py .
+COPY forms/ ./forms/
 COPY models/ ./models/
 COPY domain/ ./domain/
 COPY services/ ./services/
@@ -28,6 +31,7 @@ COPY blueprints/ ./blueprints/
 COPY templates/ ./templates/
 COPY static/ ./static/
 COPY Conexión/ ./Conexión/
+COPY conexion/ ./conexion/
 COPY database/ ./database/
 
 # Crear usuario sin privilegios para ejecutar la app
