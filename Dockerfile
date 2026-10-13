@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar explícitamente los módulos de aplicación sin incluir artefactos locales ni secretos
 COPY app.py .
-COPY models.py .
+COPY models/ ./models/
 COPY domain/ ./domain/
 COPY services/ ./services/
 COPY blueprints/ ./blueprints/
