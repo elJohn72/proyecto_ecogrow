@@ -87,3 +87,35 @@ Estado general: **EN PROCESO DE ENTREGA FINAL Y DESPLIEGUE EN COOLIFY**
   - Tests Android: `testDebugUnitTest` pasando y `assembleDebug` completado exitosamente.
   - Compilación Firmware PlatformIO: Exitosa con TLS `WiFiClientSecure` y `ISRG_ROOT_X1_CA`.
   - Servidor Coolify: Certificado TLS Let's Encrypt activo y verificado por HTTPS (HTTP/2 200 OK).
+
+---
+
+## Tarea 7: Remediación de la 3ª Revisión (Seguridad, Persistencia y Consistencia) [COMPLETADO]
+- **Objetivo:** Resolver los 5 hallazgos críticos de la tercera auditoría en `docs/auditoria/REVISION_TERCERA_2026-10-13.md`.
+- **Acciones Realizadas:**
+  1. **PIN/PoP Impredecible por Dispositivo:**
+     - En `platformio/esp32_ecogrow2/src/main.cpp`: generación aleatoria con `esp_random()` (charset base32 de 8 caracteres) persistida en NVS (`prefs.putString("pop", ...)`).
+     - Eliminada derivación basada en dirección MAC y nombre BLE.
+     - Eliminada impresión del PIN/PoP en registros Serial / consola.
+     - En Android `MainActivity.kt`: placeholder actualizado para indicar PIN físico de la etiqueta de la torre; no autosugerencia.
+  2. **ACK Limitado a la Torre Propietaria:**
+     - En `services/mobile_service.py:record_command_ack`: validación estricta de `cmd_id` no vacío, verificación de pertenencia `WHERE id_comando=%s AND torre_id=%s AND estado='pending'`.
+     - Validación de transiciones a estados permitidos (`executed`, `rejected`, `expired`).
+     - Rechazo de confirmaciones cruzadas entre torres y eliminación de actualizaciones wildcard.
+  3. **Persistencia como Única Fuente de Verdad:**
+     - Eliminado almacenamiento en memoria `_pending_commands`.
+     - Implementada transacción atómica `_execute_transaction` en `Conexión/conexion.py` que ejecuta el marcado `superseded` y el `INSERT` dentro de la misma transacción con rollback ante fallos.
+     - Errores de almacenamiento lanzan `MobileError("command_storage_failed", ..., 503)` sin devolver estados ficticios de `pending`.
+     - Ordenamiento determinista en `get_active_command` y `get_active_pump_command` por `(creado_en DESC, id_comando DESC)`.
+  4. **Separación de Estado Físico de Bomba y Comandos:**
+     - `pump.reported` desacoplado de órdenes `SET_MODE` y `SET_RECIPE`: solo refleja `"on"`, `"off"` o `None` proveniente de telemetría de actuador (`reporte_esp32`) o de órdenes de bomba ejecutadas.
+     - `SET_MODE` y `SET_RECIPE` se gestionan en sus dominios de modo y receta sin alterar el estado reportado ni deseado de la bomba.
+  5. **Volumen Solo con Calibración Explícita:**
+     - Agregada columna `deposito_calibrado BOOLEAN NOT NULL DEFAULT FALSE` en `configuracion_control` (`database/schema.sql` y `conexion.py`).
+     - En `sync_iot_device`: si no llega volumen directo, solo se calcula a partir del porcentaje si `deposito_calibrado` es verdadero. Caso contrario, se preserva `None` (`SIN_DATO`).
+     - Capability `liters` en `tower_detail` exige `deposito_calibrado` activo.
+- **Evidencia de Verificación:**
+  - Tests Python: 48/48 tests pasando (+5 tests nuevos cubriendo aislamiento multi-torre, rollback/503, separación bomba/modo y calibración de volumen).
+  - Tests Android: `testDebugUnitTest` pasando al 100%.
+  - Compilación Firmware PlatformIO: Exitosa (Flash: 91.9%, RAM: 18.5%).
+  - `git diff --check`: 0 errores.

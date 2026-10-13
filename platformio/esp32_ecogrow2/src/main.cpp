@@ -581,17 +581,27 @@ void setup() {
   WiFi.macAddress(mac);
   snprintf(ble_service_name, sizeof(ble_service_name), "PROV_EcoGrow_%02X%02X", mac[4], mac[5]);
 
-  // Clave PoP única: si existe en NVS se utiliza, si no se deriva de la dirección MAC física
+  // Clave PoP criptográficamente impredecible por dispositivo:
+  // Si no existe o tiene longitud insuficiente en NVS, se genera aleatoriamente con esp_random()
+  // y se persiste en NVS. No se deriva de la dirección MAC, nombre BLE ni datos públicos.
+  // Nunca se imprime en texto plano en registros/consola serial.
   String nvs_pop = prefs.getString("pop", "");
-  if (nvs_pop.length() > 0) {
-    snprintf(ble_pop_global, sizeof(ble_pop_global), "%s", nvs_pop.c_str());
-  } else {
-    snprintf(ble_pop_global, sizeof(ble_pop_global), "EG-%02X%02X", mac[4], mac[5]);
+  if (nvs_pop.length() < 8) {
+    const char charset[] = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+    char generated_pop[9];
+    for (int i = 0; i < 8; i++) {
+      uint32_t r = esp_random();
+      generated_pop[i] = charset[r % (sizeof(charset) - 1)];
+    }
+    generated_pop[8] = '\0';
+    prefs.putString("pop", generated_pop);
+    nvs_pop = String(generated_pop);
   }
+  snprintf(ble_pop_global, sizeof(ble_pop_global), "%s", nvs_pop.c_str());
 
   // beginProvision inicia BLE sin liberar memoria BT para evitar error ESP_ERR_INVALID_STATE (259)
   WiFiProv.beginProvision(WIFI_PROV_SCHEME_BLE, WIFI_PROV_SCHEME_HANDLER_NONE, WIFI_PROV_SECURITY_1, ble_pop_global, ble_service_name, NULL, NULL, false);
-  Serial.printf("[BLE Prov] Anuncio BLE: %s | PIN PoP dispositivo: %s\n", ble_service_name, ble_pop_global);
+  Serial.printf("[BLE Prov] Anuncio BLE: %s | Servicio BLE activo (Security 1 con PIN de posesión único por dispositivo)\n", ble_service_name);
 
   // WiFi Dual fallback si hay credenciales configuradas
   if (strlen(password_ap)>=12) {

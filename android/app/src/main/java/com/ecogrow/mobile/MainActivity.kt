@@ -849,7 +849,7 @@ private fun BleProvisioningDialog(
                         value = pop,
                         onValueChange = { pop = it },
                         label = { Text("PIN / Clave PoP de la Torre") },
-                        placeholder = { Text("PIN único (ej: EG-A1B2)") },
+                        placeholder = { Text("PIN de la etiqueta física de la torre") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         enabled = provStep != BleProvStep.PROVISIONING

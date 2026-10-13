@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS configuracion_control (
     torre_id INT NOT NULL UNIQUE,
     module_size_mm INT NOT NULL DEFAULT 80,
     deposito_litros DECIMAL(6,2) NOT NULL DEFAULT 5.00,
+    deposito_calibrado BOOLEAN NOT NULL DEFAULT FALSE,
     bomba_modelo VARCHAR(120) NOT NULL DEFAULT 'Aqua One Maxi 103',
     head_height_m DECIMAL(5,2) NOT NULL DEFAULT 1.40,
     ph_min DECIMAL(4,2) NOT NULL DEFAULT 6.50,

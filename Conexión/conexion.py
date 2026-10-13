@@ -69,6 +69,7 @@ MYSQL_CONFIG = {
 CONTROL_DEFAULTS = {
     "module_size_mm": 80,
     "deposito_litros": 5.0,
+    "deposito_calibrado": False,
     "bomba_modelo": "Aqua One Maxi 103",
     "head_height_m": 1.4,
     "ph_min": 5.5,
@@ -396,6 +397,7 @@ def create_mysql_tables() -> None:
                     torre_id INT NOT NULL UNIQUE,
                     module_size_mm INT NOT NULL DEFAULT 80,
                     deposito_litros DECIMAL(6,2) NOT NULL DEFAULT 5.00,
+                    deposito_calibrado BOOLEAN NOT NULL DEFAULT FALSE,
                     bomba_modelo VARCHAR(120) NOT NULL DEFAULT 'Aqua One Maxi 103',
                     head_height_m DECIMAL(5,2) NOT NULL DEFAULT 1.40,
                     ph_min DECIMAL(4,2) NOT NULL DEFAULT 6.50,
@@ -530,6 +532,7 @@ def create_mysql_tables() -> None:
             _ensure_lecturas_schema(cursor)
             _ensure_cosechas_schema(cursor)
             _ensure_comandos_schema(cursor)
+            _ensure_configuracion_schema(cursor)
         database_connection.commit()
     finally:
         database_connection.close()
@@ -697,6 +700,17 @@ def _ensure_comandos_schema(cursor) -> None:
             pass
 
 
+def _ensure_configuracion_schema(cursor) -> None:
+    cursor.execute("SHOW COLUMNS FROM configuracion_control LIKE 'deposito_calibrado'")
+    if not cursor.fetchone():
+        try:
+            cursor.execute(
+                "ALTER TABLE configuracion_control ADD COLUMN deposito_calibrado BOOLEAN NOT NULL DEFAULT FALSE AFTER deposito_litros"
+            )
+        except Error:
+            pass
+
+
 def _create_control_defaults_for_torre(torre_id: int) -> None:
     create_mysql_tables()
     connection = _connect(include_database=True)
@@ -708,6 +722,7 @@ def _create_control_defaults_for_torre(torre_id: int) -> None:
                     torre_id,
                     module_size_mm,
                     deposito_litros,
+                    deposito_calibrado,
                     bomba_modelo,
                     head_height_m,
                     ph_min,
@@ -727,7 +742,7 @@ def _create_control_defaults_for_torre(torre_id: int) -> None:
                     consenso_pid_weight,
                     consenso_fuzzy_weight
                 )
-                SELECT %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                SELECT %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 WHERE NOT EXISTS (
                     SELECT 1 FROM configuracion_control WHERE torre_id = %s
                 )
@@ -736,6 +751,7 @@ def _create_control_defaults_for_torre(torre_id: int) -> None:
                     torre_id,
                     CONTROL_DEFAULTS["module_size_mm"],
                     CONTROL_DEFAULTS["deposito_litros"],
+                    CONTROL_DEFAULTS.get("deposito_calibrado", False),
                     CONTROL_DEFAULTS["bomba_modelo"],
                     CONTROL_DEFAULTS["head_height_m"],
                     CONTROL_DEFAULTS["ph_min"],
@@ -1121,6 +1137,29 @@ def _execute(query: str, params=None, *, fetchone: bool = False, fetchall: bool 
                 return cursor.fetchall()
             connection.commit()
             return cursor.lastrowid
+    finally:
+        connection.close()
+
+
+def _execute_transaction(operations: list[tuple[str, tuple | list]]):
+    """Executes a list of (query, params) atomically in a single transaction.
+    Rolls back completely if any query raises an exception.
+    """
+    connection = _connect(include_database=True)
+    try:
+        with connection.cursor(dictionary=True) as cursor:
+            results = []
+            for query, params in operations:
+                cursor.execute(query, params or ())
+                results.append(cursor.rowcount)
+            connection.commit()
+            return results
+    except Exception:
+        try:
+            connection.rollback()
+        except Exception:
+            pass
+        raise
     finally:
         connection.close()
 
@@ -2269,8 +2308,12 @@ def sync_iot_device(
     _create_control_defaults_for_torre(torre_id)
 
     if volumen_litros is None and nivel_agua is not None and 0 <= nivel_agua <= 100:
-        cfg = _execute("SELECT deposito_litros FROM configuracion_control WHERE torre_id = %s LIMIT 1", (torre_id,), fetchone=True)
-        if cfg and cfg.get("deposito_litros"):
+        cfg = _execute(
+            "SELECT deposito_litros, deposito_calibrado FROM configuracion_control WHERE torre_id = %s LIMIT 1",
+            (torre_id,),
+            fetchone=True,
+        )
+        if cfg and cfg.get("deposito_calibrado") and cfg.get("deposito_litros"):
             try:
                 cap = float(cfg["deposito_litros"])
                 if cap > 0:
