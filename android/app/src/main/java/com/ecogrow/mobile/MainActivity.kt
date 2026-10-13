@@ -365,8 +365,8 @@ private fun HomeConnectionScreen(
             }
 
             AnimatedVisibility(visible = showCloudLogin) {
-                var endpoint by remember { mutableStateOf("") }
-                var mail by remember { mutableStateOf("") }
+                var endpoint by remember { mutableStateOf("http://w3bmo8epk9iedi7gkqchdpru.179.236.74.107.sslip.io") }
+                var mail by remember { mutableStateOf("prueba@ecogrow.local") }
                 var password by remember { mutableStateOf("") }
 
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
