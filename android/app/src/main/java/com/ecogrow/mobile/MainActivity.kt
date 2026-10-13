@@ -66,18 +66,7 @@ class MainActivity : ComponentActivity() {
         bleManager = BleProvisioningManager(this)
 
         setContent {
-            val customTheme = lightColorScheme(
-                primary = Color(0xFF195C3D),
-                onPrimary = Color.White,
-                primaryContainer = Color(0xFFD8EEDB),
-                onPrimaryContainer = Color(0xFF072113),
-                secondary = Color(0xFF4C6652),
-                background = Color(0xFFF7FAF7),
-                surface = Color.White,
-                surfaceVariant = Color(0xFFEEF3EE)
-            )
-
-            MaterialTheme(colorScheme = customTheme) {
+            EcoGrowTheme {
                 val vm: EcoGrowViewModel = viewModel()
                 val state by vm.ui.collectAsStateWithLifecycle()
                 var showLoginDialog by remember { mutableStateOf(false) }

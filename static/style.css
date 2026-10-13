@@ -1,11 +1,17 @@
 :root {
-    --primary: #0f766e;
-    --primary-dark: #115e59;
-    --ink: #0f172a;
-    --mist: #f4f7f3;
+    --water: #087f8c;
+    --success: #195c3d;
+    --warning: #946200;
+    --danger: #b3261e;
+    --surface: #ffffff;
+    --outline: #718077;
+    --primary: #195c3d;
+    --primary-dark: #12432c;
+    --ink: #172b22;
+    --mist: #f7faf7;
     --sand: #eef2e8;
     --ember: #f97316;
-    --moss: #2f5d50;
+    --moss: #195c3d;
     --bg-gradient: linear-gradient(180deg, #f7fbf6 0%, #e2e8e0 100%);
     --card-bg: rgba(255, 255, 255, 0.85);
     --border-color: rgba(255, 255, 255, 0.6);
@@ -1366,3 +1372,6 @@ body {
         font-size: 2.2rem;
     }
 }
+
+/* Símbolo oficial de EcoGrow; proporción propia y fondo transparente. */
+.site-brand__logo { width: 3.2rem; height: 3.2rem; object-fit: contain; flex-shrink: 0; }

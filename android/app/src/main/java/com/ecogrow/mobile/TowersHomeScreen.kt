@@ -1,5 +1,7 @@
 package com.ecogrow.mobile
 
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -43,7 +45,7 @@ fun TowersHomeScreen(
                 ) {
                     Column {
                         Text(
-                            "🌱 EcoGrow 2.0",
+                            "EcoGrow 2.0",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -113,7 +115,7 @@ fun TowersHomeScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            Text("🌾", fontSize = 48.sp)
+                            Image(painterResource(R.drawable.ecogrow_symbol), contentDescription = null, modifier = Modifier.size(64.dp))
                             Text(
                                 "No hay torres vinculadas todavía",
                                 style = MaterialTheme.typography.titleMedium,
@@ -209,7 +211,7 @@ private fun TowerCardItem(
                         .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("🌱", fontSize = 22.sp)
+                    Image(painterResource(R.drawable.ecogrow_symbol), contentDescription = null, modifier = Modifier.size(32.dp))
                 }
 
                 Column {
