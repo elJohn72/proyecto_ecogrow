@@ -285,5 +285,77 @@ class TestSerialProtocolAndHardwareProvisioning(unittest.TestCase):
             mock_verify.assert_called_once_with("MATCH999")
 
 
+class TestSecretConfidentiality(unittest.TestCase):
+    """Pruebas de confidencialidad: asegurar que la PoP no se filtra en logs, stdout ni excepciones."""
+
+    def test_timeout_error_sanitizes_pop_in_exception(self):
+        mock_serial = MagicMock()
+        mock_serial.is_open = True
+        mock_serial.readline.return_value = b""  # Simular silencio del ESP32
+
+        client = Esp32SerialClient(port="/dev/mock_esp32", timeout=0.1)
+        client.ser = mock_serial
+
+        secret_pop = "TOPSECR8"
+        with self.assertRaises(TimeoutError) as ctx:
+            client.set_pop(secret_pop)
+
+        err_msg = str(ctx.exception)
+        # Debe contener comando sanitizado con asteriscos y NO el secreto
+        self.assertIn("ECOGROW:SET_POP:***", err_msg)
+        self.assertNotIn(secret_pop, err_msg)
+
+    @patch("tools.provision_device.Esp32SerialClient.connect")
+    @patch("tools.provision_device.Esp32SerialClient.get_identity")
+    @patch("tools.provision_device.Esp32SerialClient.set_pop")
+    @patch("tools.provision_device.Esp32SerialClient.verify_pop")
+    @patch("tools.provision_device.Esp32SerialClient.close")
+    def test_readback_failure_does_not_contain_pop(
+        self, mock_close, mock_verify, mock_set, mock_ident, mock_connect
+    ):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mock_ident.return_value = {
+                "mac": "44:1D:64:F8:70:C4",
+                "ble_name": "PROV_EcoGrow_70C4",
+                "pop": "",
+                "has_pop": False,
+            }
+            mock_set.return_value = "SECRET88"
+            mock_verify.return_value = False
+
+            with self.assertRaises(RuntimeError) as ctx:
+                provision_hardware_device(
+                    port="/dev/ttyUSB0",
+                    desired_pop="SECRET88",
+                    out_dir=tmpdir,
+                )
+
+            err_msg = str(ctx.exception)
+            self.assertIn("FALLO CRÍTICO DE VERIFICACIÓN", err_msg)
+            self.assertNotIn("SECRET88", err_msg)
+
+    def test_cli_generate_stdout_does_not_contain_pop_by_default(self):
+        import io
+        import sys
+        from tools.provision_device import main
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            secret = "HIDDEN99"
+            test_args = [
+                "provision_device.py",
+                "generate",
+                "--mac", "44:1D:64:F8:70:C4",
+                "--pop", secret,
+                "--out", tmpdir,
+            ]
+            captured_stdout = io.StringIO()
+            with patch.object(sys, "argv", test_args), patch("sys.stdout", captured_stdout):
+                main()
+
+            output = captured_stdout.getvalue()
+            self.assertIn("CONFIDENCIAL", output)
+            self.assertNotIn(secret, output)
+
+
 if __name__ == "__main__":
     unittest.main()

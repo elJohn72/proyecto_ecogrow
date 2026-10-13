@@ -243,7 +243,8 @@ class Esp32SerialClient:
             if line.startswith("ECOGROW:"):
                 return line
 
-        raise TimeoutError(f"Tiempo de espera agotado ({self.timeout}s) sin respuesta del ESP32 para: {cmd}")
+        sanitized_cmd = re.sub(r":(SET_POP|VERIFY_POP):.*", r":\1:***", cmd.strip())
+        raise TimeoutError(f"Tiempo de espera agotado ({self.timeout}s) sin respuesta del ESP32 para: {sanitized_cmd}")
 
     def get_identity(self) -> dict:
         """Consulta la identidad real del dispositivo mediante ECOGROW:IDENT?."""
@@ -320,7 +321,7 @@ def provision_hardware_device(
         # 4. Verificación obligatoria de coincidencia en hardware (Readback Verification)
         match_ok = client.verify_pop(target_pop)
         if not match_ok:
-            raise RuntimeError(f"FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que la PoP no coincide con '{target_pop}'.")
+            raise RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que la PoP no coincide con el valor programado.")
 
         # 5. Generar y guardar etiqueta SVG con QR real y permisos 0600
         serial_no = f"EG-TORRE-{mac.replace(':', '')[-6:]}"
@@ -442,11 +443,16 @@ def main():
     gen_parser.add_argument("--serial", help="Número de serie físico (opcional)")
     gen_parser.add_argument("--out", default="docs/soporte/etiquetas", help="Carpeta destino para guardar la etiqueta SVG")
 
+    # Argumento común opcional para entornos de taller autorizados
+    for p in [prov_parser, ver_parser, read_parser, gen_parser]:
+        p.add_argument("--reveal-pop", action="store_true", help="Mostrar PIN PoP en terminal (desactivado por defecto por seguridad)")
+
     args = parser.parse_args()
 
     if args.command == "provision":
         try:
             res = provision_hardware_device(port=args.port, desired_pop=args.pop, force=args.force, out_dir=args.out)
+            pop_display = res['pop'] if getattr(args, 'reveal_pop', False) else "[CONFIDENCIAL · Resguardado en etiqueta SVG (0600)]"
             print("=" * 60)
             print("🌱 APROVISIONAMIENTO DE FÁBRICA EXITOSO (HARDWARE VERIFICADO)")
             print("=" * 60)
@@ -454,7 +460,7 @@ def main():
             print(f"Dispositivo BLE: {res['ble_name']}")
             print(f"MAC:             {res['mac']}")
             print(f"Número de Serie: {res['serial']}")
-            print(f"PIN PoP Único:   {res['pop']}")
+            print(f"PIN PoP:         {pop_display}")
             print(f"Acción:          {res['action']}")
             print(f"Verificación:    Hardware NVS coincide al 100%")
             print(f"Etiqueta SVG:    {res['label_file']} (Permisos: 0600)")
@@ -473,12 +479,9 @@ def main():
             print(f"Dispositivo BLE: {res['ble_name']}")
             print(f"MAC:             {res['mac']}")
             if res.get("expected_pop"):
-                print(f"PoP Esperada:    {res['expected_pop']}")
-                print(f"PoP en Hardware: {res['device_pop']}")
                 print(f"Resultado:       {'✅ COINCIDENCIA CONFIRMADA' if res['match'] else '❌ DISCREPANCIA DETECTADA'}")
             else:
-                print(f"PoP en Hardware: {res['device_pop']}")
-                print(f"Estado:          {'✅ PoP Válida en NVS' if res['match'] else '❌ Sin PoP en NVS'}")
+                print(f"Estado NVS:      {'✅ PoP Válida en NVS' if res['match'] else '❌ Sin PoP en NVS'}")
             print("=" * 60)
             if not res["match"]:
                 sys.exit(1)
@@ -495,13 +498,14 @@ def main():
             client.connect()
             ident = client.get_identity()
             client.close()
+            pop_display = ident.get('pop') if getattr(args, 'reveal_pop', False) else ("CONFIGURADA (8 chars)" if ident.get('has_pop') else "NO CONFIGURADA")
             print("=" * 60)
             print("📋 IDENTIDAD TÉCNICA LEÍDA DESDE ESP32")
             print("=" * 60)
             print(f"Puerto:          {ports[0]}")
             print(f"MAC:             {normalize_mac(ident['mac'])}")
             print(f"Dispositivo BLE: {ident.get('ble_name')}")
-            print(f"PoP Instalada:   {ident.get('pop')}")
+            print(f"Estado PoP:      {pop_display}")
             print(f"Tiene PoP:       {'Sí' if ident.get('has_pop') else 'No'}")
             print("=" * 60)
         except Exception as exc:
@@ -510,13 +514,14 @@ def main():
 
     elif args.command == "generate":
         res = generate_offline_label(args.mac, args.pop, args.serial, args.out)
+        pop_display = res['pop'] if getattr(args, 'reveal_pop', False) else "[CONFIDENCIAL · Resguardado en etiqueta SVG (0600)]"
         print("=" * 60)
         print("🌱 ETIQUETA OFFLINE GENERADA CON CÓDIGO QR REAL")
         print("=" * 60)
         print(f"Dispositivo BLE: {res['ble_name']}")
         print(f"MAC:             {res['mac']}")
         print(f"Número de Serie: {res['serial']}")
-        print(f"PIN PoP Único:   {res['pop']}")
+        print(f"PIN PoP:         {pop_display}")
         print(f"Etiqueta SVG:    {res['label_file']} (Permisos: 0600)")
         print("=" * 60)
     else:

@@ -178,8 +178,49 @@ class EcoGrowTest {
         assertTrue(steps.contains(BleProvStep.SCANNING))
         assertTrue(steps.contains(BleProvStep.CONNECTING))
         assertTrue(steps.contains(BleProvStep.CONNECTED))
+        assertTrue(steps.contains(BleProvStep.SCANNING_WIFI))
         assertTrue(steps.contains(BleProvStep.PROVISIONING))
         assertTrue(steps.contains(BleProvStep.SUCCESS))
         assertTrue(steps.contains(BleProvStep.FAILED))
+    }
+
+    @Test
+    fun testSanitizePopDirectAndQrJson() {
+        assertEquals("A7K9M2PX", BleProvisioningManager.sanitizePop("A7K9M2PX"))
+        assertEquals("A7K9M2PX", BleProvisioningManager.sanitizePop("  a7k9m2px  "))
+        assertEquals("A7K9M2PX", BleProvisioningManager.sanitizePop("A7K9-M2PX"))
+
+        val jsonQr = """{"ver":"v1","name":"PROV_EcoGrow_70C4","pop":"A7K9M2PX","transport":"ble"}"""
+        assertEquals("A7K9M2PX", BleProvisioningManager.sanitizePop(jsonQr))
+    }
+
+    @Test
+    fun testAddTowerStepsAndNavigationViews() {
+        val steps = AddTowerStep.values()
+        assertEquals(8, steps.size)
+        assertTrue(steps.contains(AddTowerStep.INSTRUCTIONS))
+        assertTrue(steps.contains(AddTowerStep.PERMISSIONS))
+        assertTrue(steps.contains(AddTowerStep.SCAN_BLE))
+        assertTrue(steps.contains(AddTowerStep.ENTER_PIN))
+        assertTrue(steps.contains(AddTowerStep.SCAN_WIFI))
+        assertTrue(steps.contains(AddTowerStep.ENTER_PASSWORD))
+        assertTrue(steps.contains(AddTowerStep.PROVISIONING))
+        assertTrue(steps.contains(AddTowerStep.SUCCESS))
+
+        val views = CurrentView.values()
+        assertEquals(4, views.size)
+        assertTrue(views.contains(CurrentView.HOME))
+        assertTrue(views.contains(CurrentView.DETAIL))
+        assertTrue(views.contains(CurrentView.ADD_TOWER))
+        assertTrue(views.contains(CurrentView.LOGIN))
+    }
+
+    @Test
+    fun testTowerModelInstantiation() {
+        val tower = Tower(1, "Torre Sala", "EG-70C4", "192.168.4.1")
+        assertEquals(1, tower.id)
+        assertEquals("Torre Sala", tower.name)
+        assertEquals("EG-70C4", tower.code)
+        assertEquals("192.168.4.1", tower.localIp)
     }
 }
