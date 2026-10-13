@@ -177,3 +177,25 @@ Estado general: **EN PROCESO DE ENTREGA FINAL Y DESPLIEGUE EN COOLIFY**
   - Prueba de seguridad en C++: Exitosa (`/tmp/ecogrow-safety-test`).
   - Sintaxis JavaScript: Validada con Node.js (`static/mobile-dashboard.js`).
   - `git diff --check`: 0 errores de formato o espacios.
+
+---
+
+## Tarea 10: Remediación 6ª Revisión, Flujo Guiado «Añadir Torre» y Dashboard Nativo Compose [COMPLETADO]
+- **Objetivo:** Resolver el hallazgo P2 de confidencialidad en `docs/auditoria/REVISION_SEXTA_2026-10-13.md` (no exponer PoP en stdout/stderr ni excepciones) y construir una experiencia UX/UI nativa completa en Android Jetpack Compose con flujo guiado de vinculación y dashboard operativo.
+- **Archivos:**
+  - `tools/provision_device.py`: Sanitización de comandos en timeouts, eliminación de secretos en excepciones de readback y ocultamiento por defecto de la PoP en la salida estándar (`[CONFIDENCIAL · Resguardado en etiqueta SVG (0600)]`).
+  - `tests/test_provision_device.py`: 3 pruebas unitarias nuevas (`TestSecretConfidentiality`) capturando stdout/stderr y verificando ausencia de PoP. Total: 75 tests Python.
+  - `android/app/src/main/java/com/ecogrow/mobile/BleProvisioningManager.kt`: Soporte de escaneo WiFi remoto desde la antena del ESP32 (`espDevice.scanNetworks`), manejo de estados y sanitización de PIN.
+  - `android/app/src/main/java/com/ecogrow/mobile/AddTowerScreen.kt`: Asistente guiado (Wizard) de 8 pasos: preparación física, verificación de permisos Bluetooth, escaneo BLE con RSSI, ingreso de PIN PoP / QR, escaneo WiFi por ESP32, contraseña, progreso real y confirmación dual (router + backend).
+  - `android/app/src/main/java/com/ecogrow/mobile/TowerDetailScreen.kt`: Dashboard nativo con nivel de agua en porcentaje y litros calibrados, pH con rango ideal, TDS en ppm, temperatura, controles táctiles de bomba con confirmación, bloqueo de seguridad y selector de recetas.
+  - `android/app/src/main/java/com/ecogrow/mobile/TowersHomeScreen.kt`: Pantalla de inicio de torres con botón visible «Añadir Torre», estado en tiempo real y estado vacío amigable.
+  - `android/app/src/main/java/com/ecogrow/mobile/MainActivity.kt`: Navegación fluida desacoplada entre pantallas.
+  - `android/app/src/test/java/com/ecogrow/mobile/EcoGrowTest.kt`: Tests unitarios de sanitización PoP, pasos de wizard y modelos.
+- **Evidencia de Verificación:**
+  - Tests Python: 75/75 pruebas pasando al 100%.
+  - Tests Android: `JAVA_HOME=/opt/homebrew/opt/openjdk@17 ./gradlew testDebugUnitTest` pasando al 100%.
+  - Build APK: `./gradlew assembleDebug` y `lintDebug` completados con éxito (`app-debug.apk`).
+  - Instalación: APK probado e instalado en el dispositivo físico Android vía ADB.
+  - Firmware ESP32: Compilación limpia en PlatformIO (Flash 92.0%, RAM 18.5%).
+  - Safety Test C++: Ejecutado exitosamente.
+  - `git diff --check`: 0 errores de formato.
