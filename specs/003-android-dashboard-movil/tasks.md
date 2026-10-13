@@ -152,5 +152,28 @@ Estado general: **EN PROCESO DE ENTREGA FINAL Y DESPLIEGUE EN COOLIFY**
   - Compilación Firmware PlatformIO: Exitosa (Flash: 91.9%, RAM: 18.5%).
   - Prueba de seguridad en C++: Exitosa (`/tmp/ecogrow-safety-test`).
   - Sintaxis JavaScript: Validada con Node.js (`static/mobile-dashboard.js`).
-  - `git diff --check`: 0 errores.
   - Nota de gobernanza: Pruebas físicas en banco real de hardware se conservan formalmente marcadas como pendientes de banco físico autorizado.
+
+---
+
+## Tarea 9: Remediación de la 5ª Revisión (Vinculación PIN Etiqueta y PoP ESP32) [COMPLETADO]
+- **Objetivo:** Resolver el bloqueo crítico de la quinta auditoría en `docs/auditoria/REVISION_QUINTA_2026-10-13.md`, unificando la identidad PoP instalada en NVS con la etiqueta física y el código QR real.
+- **Archivos:**
+  - `platformio/esp32_ecogrow2/src/main.cpp`: Protocolo serial de taller (`ECOGROW:IDENT?`, `ECOGROW:SET_POP:<token>`, `ECOGROW:VERIFY_POP:<token>`, `ECOGROW:FACTORY_RESET`).
+  - `tools/provision_device.py`: Herramienta oficial CLI con subcomandos `provision`, `verify`, `read`, `generate`, readback obligatorio, matriz de código QR real SVG y permisos restringidos `0600`.
+  - `tests/test_provision_device.py`: Suite de 16 pruebas unitarias para criptografía, parsing, generación de QR matricial y protocolo serie/hardware.
+  - `requirements.txt`: Dependencias `qrcode>=7.4.2` y `pyserial>=3.5`.
+  - `.gitignore`: Reglas para `docs/soporte/etiquetas/*` protegiendo los artefactos con secretos.
+  - `docs/soporte/RECUPERACION_Y_PROVISIONAMIENTO_POP.md`: Manual operativo de taller y ciclo de vida de identidad.
+- **Acciones Realizadas:**
+  1. **Flujo Unificado de Aprovisionamiento:** La herramienta de taller consulta primero la identidad NVS del hardware; si el ESP32 ya posee una PoP válida, la reutiliza evitando duplicidad o discrepancia de secretos. Si no posee PoP o se invoca `--force`, la instala mediante comando UART.
+  2. **Verificación Readback Obligatoria:** Antes de generar la etiqueta SVG, la herramienta verifica obligatoriamente en hardware que el secreto coincide byte a byte. Si la verificación falla, el proceso aborta con `RuntimeError` y la etiqueta no se emite.
+  3. **Código QR Matricial Real Escaneable:** Reemplazado el marco decorativo anterior por una matriz vectorial real de módulos QR (`<rect ... fill="#000000"/>`) con el payload oficial `{"ver":"v1","name":"...","pop":"...","transport":"ble"}` legible por la app Android EcoGrow.
+  4. **Protección de Artefactos y Secretos:** Generación de etiquetas en `docs/soporte/etiquetas/` con permisos `0600` del sistema de archivos y exclusión explícita en `.gitignore`.
+- **Evidencia de Verificación:**
+  - Tests Python: 72/72 tests pasando (56 anteriores + 16 de aprovisionamiento/taller).
+  - Tests Android: `JAVA_HOME=/opt/homebrew/opt/openjdk@17 ./gradlew testDebugUnitTest` pasando al 100%.
+  - Compilación Firmware PlatformIO: Exitosa (Flash: 92.0%, RAM: 18.5%).
+  - Prueba de seguridad en C++: Exitosa (`/tmp/ecogrow-safety-test`).
+  - Sintaxis JavaScript: Validada con Node.js (`static/mobile-dashboard.js`).
+  - `git diff --check`: 0 errores de formato o espacios.

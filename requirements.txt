@@ -10,3 +10,5 @@ Werkzeug==3.1.5
 gunicorn==21.2.0
 google-generativeai==0.8.3
 fpdf2==2.8.3
+qrcode>=7.4.2
+pyserial>=3.5

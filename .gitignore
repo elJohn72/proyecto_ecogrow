@@ -11,3 +11,5 @@ ecogrow_server_*.log
 platformio/**/include/config.h
 platformio/**/.pio/
 android/build-check.log
+docs/soporte/etiquetas/*
+!docs/soporte/etiquetas/.gitkeep

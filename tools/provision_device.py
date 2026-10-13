@@ -1,32 +1,36 @@
 #!/usr/bin/env python3
-"""Herramienta oficial de aprovisionamiento de fábrica y generación de etiquetas QR EcoGrow 2.0.
+"""Herramienta oficial de aprovisionamiento de fábrica y vinculación de identidad EcoGrow 2.0.
 
-Genera la identidad física única de cada torre durante su ensamblaje en taller/fábrica:
-- Nombre de servicio BLE (PROV_EcoGrow_XXXX)
-- PIN de posesión criptográfico (PoP) impredecible de 8 caracteres Base32
-- Código QR vectorial (SVG) y ASCII para etiquetado en chasis
-- Payload compatible con la app Android EcoGrow y el SDK de aprovisionamiento Espressif
+Garantiza la correspondencia estricta 1:1 entre el hardware ESP32, la identidad NVS y la etiqueta física:
+- Identifica el dispositivo mediante MAC real por protocolo serial de taller.
+- Genera y programa una única clave PoP criptográfica de 8 caracteres Base32 en NVS (o reutiliza la ya provisionada).
+- Realiza verificación obligatoria (readback) comprobando que la NVS del hardware coincide con la PoP.
+- Genera etiqueta vectorial SVG oficial con código QR matricial real escaneable y PIN legible.
+- Guarda artefactos con permisos restringidos (0600) en directorio protegido fuera de git.
+- Subcomandos: provision, verify, read, generate.
 """
 import argparse
+import glob
 import json
 import os
 import re
 import secrets
 import sys
+import time
 
 BASE32_CHARSET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 
 
 def generate_secure_pop(length: int = 8) -> str:
-    """Genera una clave PoP criptográficamente impredecible con entropía de alta calidad."""
+    """Genera una clave PoP criptográficamente impredecible con entropía segura."""
     return "".join(secrets.choice(BASE32_CHARSET) for _ in range(length))
 
 
 def normalize_mac(mac_raw: str) -> str:
-    """Normaliza y valida una dirección MAC de 6 octetos."""
+    """Normaliza y valida una dirección MAC de 6 octetos hex."""
     clean = re.sub(r"[^0-9A-Fa-f]", "", mac_raw).upper()
     if len(clean) != 12:
-        raise ValueError(f"Dirección MAC inválida: '{mac_raw}'. Se requieren 6 octetos hex (ej: CC:50:E3:A1:B2:C3).")
+        raise ValueError(f"Dirección MAC inválida: '{mac_raw}'. Se requieren 12 dígitos hexadecimales.")
     return ":".join(clean[i : i + 2] for i in range(0, 12, 2))
 
 
@@ -56,70 +60,357 @@ def parse_qr_or_pin(input_str: str) -> str:
                 return str(data["pop"]).strip().upper()
         except json.JSONDecodeError:
             pass
-    # Token directo alfanumérico
+    # Token directo alfanumérico en Base32
     token = re.sub(r"[^23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjklmnpqrstuvwxyz]", "", clean).upper()
     return token
 
 
+def extract_pop_from_svg(svg_content: str) -> str | None:
+    """Extrae el PIN PoP de un archivo SVG de etiqueta previamente generado."""
+    # Buscar en comentario estructurado o en elemento pin-text
+    match_payload = re.search(r'<!--\s*ECOGROW-QR-PAYLOAD:\s*(\{.*?\})\s*-->', svg_content)
+    if match_payload:
+        try:
+            data = json.loads(match_payload.group(1))
+            if "pop" in data:
+                return str(data["pop"]).strip().upper()
+        except json.JSONDecodeError:
+            pass
+
+    match_pin = re.search(r'class="pin-text"[^>]*>([23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8})<', svg_content)
+    if match_pin:
+        return match_pin.group(1).strip().upper()
+
+    return None
+
+
+def generate_qr_svg_elements(payload_str: str, size: float = 120.0) -> tuple[int, str]:
+    """Genera los elementos SVG del código QR matricial real para el payload indicado."""
+    try:
+        import qrcode
+    except ImportError:
+        raise RuntimeError("La librería 'qrcode' es requerida para generar códigos QR reales. Instálala con 'pip install qrcode'.")
+
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=1,
+    )
+    qr.add_data(payload_str)
+    qr.make(fit=True)
+    matrix = qr.get_matrix()
+    matrix_size = len(matrix)
+    module_size = size / matrix_size
+
+    rects = []
+    for r in range(matrix_size):
+        for c in range(matrix_size):
+            if matrix[r][c]:
+                x = c * module_size
+                y = r * module_size
+                rects.append(f'<rect x="{x:.2f}" y="{y:.2f}" width="{module_size:.2f}" height="{module_size:.2f}" fill="#000000"/>')
+
+    return matrix_size, "\n      ".join(rects)
+
+
 def generate_svg_label(mac: str, ble_name: str, pop: str, serial: str) -> str:
-    """Genera una etiqueta vectorial SVG lista para impresión térmica o pegatinas en chasis."""
-    payload_json = json.dumps(build_provisioning_payload(ble_name, pop))
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="480" height="260" viewBox="0 0 480 260">
+    """Genera una etiqueta vectorial SVG oficial con código QR matricial real y PIN legible."""
+    payload_dict = build_provisioning_payload(ble_name, pop)
+    payload_json = json.dumps(payload_dict)
+
+    _, qr_elements = generate_qr_svg_elements(payload_json, size=120.0)
+
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="520" height="270" viewBox="0 0 520 270">
+  <!-- ECOGROW-QR-PAYLOAD: {payload_json} -->
   <defs>
     <style>
-      .title {{ font-family: monospace, sans-serif; font-size: 16px; font-weight: bold; fill: #195C3D; }}
-      .label {{ font-family: sans-serif; font-size: 11px; fill: #555555; }}
-      .value {{ font-family: monospace, sans-serif; font-size: 13px; font-weight: bold; fill: #111111; }}
+      .title {{ font-family: monospace, sans-serif; font-size: 15px; font-weight: bold; fill: #195C3D; }}
+      .label {{ font-family: sans-serif; font-size: 10px; font-weight: bold; fill: #555555; }}
+      .value {{ font-family: monospace, sans-serif; font-size: 12px; font-weight: bold; fill: #111111; }}
       .pin-box {{ fill: #E8F5E9; stroke: #2E7D32; stroke-width: 2; rx: 8; }}
-      .pin-text {{ font-family: monospace, sans-serif; font-size: 24px; font-weight: bold; fill: #1B5E20; letter-spacing: 4px; }}
-      .footer {{ font-family: sans-serif; font-size: 9px; fill: #777777; }}
+      .pin-text {{ font-family: monospace, sans-serif; font-size: 22px; font-weight: bold; fill: #1B5E20; letter-spacing: 4px; }}
+      .qr-box {{ fill: #FFFFFF; stroke: #2E7D32; stroke-width: 1.5; rx: 6; }}
+      .footer {{ font-family: sans-serif; font-size: 8.5px; fill: #666666; }}
+      .qr-label {{ font-family: sans-serif; font-size: 9px; font-weight: bold; fill: #2E7D32; text-anchor: middle; }}
     </style>
   </defs>
-  <!-- Borde de etiqueta -->
-  <rect x="5" y="5" width="470" height="250" rx="12" fill="#FFFFFF" stroke="#CCCCCC" stroke-width="2"/>
+  <!-- Borde exterior de etiqueta -->
+  <rect x="5" y="5" width="510" height="260" rx="12" fill="#FFFFFF" stroke="#CCCCCC" stroke-width="2"/>
   
   <!-- Encabezado de Marca -->
-  <text x="25" y="35" class="title">🌱 EcoGrow 2.0 · Control Inteligente</text>
-  <line x1="25" y1="45" x2="455" y2="45" stroke="#EEEEEE" stroke-width="2"/>
+  <text x="25" y="32" class="title">🌱 EcoGrow 2.0 · Identidad Oficial de Fábrica</text>
+  <line x1="25" y1="42" x2="495" y2="42" stroke="#E0E0E0" stroke-width="1.5"/>
   
-  <!-- Datos de Identidad de Hardware -->
-  <text x="25" y="70" class="label">DISPOSITIVO BLE:</text>
-  <text x="140" y="70" class="value">{ble_name}</text>
+  <!-- Bloque Izquierdo: Identidad Técnica -->
+  <text x="25" y="65" class="label">DISPOSITIVO BLE:</text>
+  <text x="135" y="65" class="value">{ble_name}</text>
   
-  <text x="25" y="95" class="label">NÚMERO DE SERIE:</text>
-  <text x="140" y="95" class="value">{serial}</text>
+  <text x="25" y="88" class="label">NÚMERO DE SERIE:</text>
+  <text x="135" y="88" class="value">{serial}</text>
   
-  <text x="25" y="120" class="label">MAC FÍSICA:</text>
-  <text x="140" y="120" class="value">{mac}</text>
+  <text x="25" y="111" class="label">MAC FÍSICA:</text>
+  <text x="135" y="111" class="value">{mac}</text>
   
-  <!-- Recuadro Destacado del PIN de Posesión (PoP) -->
-  <rect x="25" y="140" width="430" height="60" class="pin-box"/>
-  <text x="40" y="160" class="label">CLAVE POP / PIN DE VINCULACIÓN FÍSICA:</text>
-  <text x="40" y="188" class="pin-text">{pop}</text>
+  <!-- Cuadro Destacado del PIN PoP -->
+  <rect x="25" y="130" width="310" height="58" class="pin-box"/>
+  <text x="35" y="148" class="label">CLAVE POP / PIN DE VINCULACIÓN FÍSICA:</text>
+  <text x="35" y="174" class="pin-text">{pop}</text>
   
-  <!-- Pie de Instrucciones -->
-  <text x="25" y="222" class="footer">1. Abre la app Android EcoGrow y selecciona el dispositivo Bluetooth arriba indicado.</text>
-  <text x="25" y="236" class="footer">2. Ingresa este PIN único para transferir las credenciales WiFi y calibrar la torre.</text>
-  <text x="25" y="248" class="footer">Recuperación WiFi: pulsa BOOT 3s-8s. La clave PoP se conserva en NVS.</text>
+  <!-- Bloque Derecho: Código QR Matricial Real Escaneable -->
+  <rect x="355" y="55" width="140" height="150" class="qr-box"/>
+  <g transform="translate(365, 65)">
+    <!-- QR Matrix Real -->
+    <rect x="-5" y="-5" width="130" height="130" fill="#FFFFFF"/>
+    {qr_elements}
+  </g>
+  <text x="425" y="200" class="qr-label">ESCANEAR CON LA APP</text>
+
+  <!-- Pie de Instrucciones Oficiales -->
+  <line x1="25" y1="202" x2="340" y2="202" stroke="#EAEAEA" stroke-width="1"/>
+  <text x="25" y="218" class="footer">1. En la app Android EcoGrow toca 'Aprovisionar Torre por BLE' y selecciona {ble_name}.</text>
+  <text x="25" y="232" class="footer">2. Ingresa este PIN o escanea el QR superior para transferir las credenciales WiFi.</text>
+  <text x="25" y="246" class="footer">Recuperación WiFi: pulsa BOOT 3s-8s. La clave PoP se preserva inalterada en NVS.</text>
 </svg>
 """
 
 
-def provision_device_record(mac: str, pop: str | None = None, serial: str | None = None) -> dict:
-    """Crea la ficha técnica de aprovisionamiento de fábrica para el dispositivo."""
+def save_secure_label(filepath: str, svg_content: str) -> None:
+    """Guarda la etiqueta en disco aplicando permisos restringidos 0600 (solo lectura/escritura del propietario)."""
+    os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(svg_content)
+    try:
+        os.chmod(filepath, 0o600)
+    except OSError:
+        pass
+
+
+class Esp32SerialClient:
+    """Cliente serial oficial para comunicarse con el protocolo de taller de EcoGrow."""
+
+    def __init__(self, port: str, baudrate: int = 115200, timeout: float = 3.0):
+        self.port = port
+        self.baudrate = baudrate
+        self.timeout = timeout
+        self.ser = None
+
+    @staticmethod
+    def detect_ports() -> list[str]:
+        """Detecta automáticamente los puertos seriales USB conectados."""
+        patterns = [
+            "/dev/cu.usbserial*",
+            "/dev/cu.SLAB_USBtoUART*",
+            "/dev/cu.wchusbserial*",
+            "/dev/ttyUSB*",
+            "/dev/ttyACM*",
+        ]
+        ports = []
+        for pat in patterns:
+            ports.extend(glob.glob(pat))
+        return sorted(list(set(ports)))
+
+    def connect(self) -> None:
+        """Abre la conexión serial asegurando que no se mantenga en reset."""
+        try:
+            import serial
+        except ImportError:
+            raise RuntimeError("La librería 'pyserial' es requerida para la comunicación con el ESP32. Instálala con 'pip install pyserial'.")
+
+        self.ser = serial.Serial(self.port, self.baudrate, timeout=self.timeout)
+        self.ser.dtr = False
+        self.ser.rts = False
+        time.sleep(0.3)
+        self.ser.reset_input_buffer()
+
+    def close(self) -> None:
+        """Cierra la conexión serial."""
+        if self.ser and self.ser.is_open:
+            self.ser.close()
+
+    def send_command(self, cmd: str) -> str:
+        """Envía un comando al ESP32 y espera una respuesta que empiece por ECOGROW:."""
+        if not self.ser or not self.ser.is_open:
+            raise RuntimeError("Puerto serial no conectado.")
+
+        self.ser.reset_input_buffer()
+        self.ser.write((cmd.strip() + "\n").encode("utf-8"))
+        self.ser.flush()
+
+        t0 = time.time()
+        while time.time() - t0 < self.timeout:
+            line = self.ser.readline().decode("utf-8", errors="replace").strip()
+            if line.startswith("ECOGROW:"):
+                return line
+
+        raise TimeoutError(f"Tiempo de espera agotado ({self.timeout}s) sin respuesta del ESP32 para: {cmd}")
+
+    def get_identity(self) -> dict:
+        """Consulta la identidad real del dispositivo mediante ECOGROW:IDENT?."""
+        resp = self.send_command("ECOGROW:IDENT?")
+        prefix = "ECOGROW:IDENT:"
+        if not resp.startswith(prefix):
+            raise ValueError(f"Respuesta inesperada al consultar identidad: {resp}")
+
+        payload_str = resp[len(prefix) :].strip()
+        data = json.loads(payload_str)
+        return data
+
+    def set_pop(self, pop: str) -> str:
+        """Instala una clave PoP en la NVS del ESP32 mediante ECOGROW:SET_POP:<pop>."""
+        clean_pop = pop.strip().upper()
+        resp = self.send_command(f"ECOGROW:SET_POP:{clean_pop}")
+        if resp.startswith("ECOGROW:SET_POP_ERR:"):
+            raise ValueError(f"El ESP32 rechazó la clave PoP: {resp}")
+        prefix = "ECOGROW:SET_POP_OK:"
+        if not resp.startswith(prefix):
+            raise ValueError(f"Respuesta inválida al configurar PoP: {resp}")
+
+        data = json.loads(resp[len(prefix) :].strip())
+        return data.get("pop", clean_pop)
+
+    def verify_pop(self, pop: str) -> bool:
+        """Verifica que la clave PoP coincida exactamente en el hardware mediante ECOGROW:VERIFY_POP:<pop>."""
+        clean_pop = pop.strip().upper()
+        resp = self.send_command(f"ECOGROW:VERIFY_POP:{clean_pop}")
+        prefix = "ECOGROW:VERIFY:"
+        if not resp.startswith(prefix):
+            raise ValueError(f"Respuesta inválida al verificar PoP: {resp}")
+
+        data = json.loads(resp[len(prefix) :].strip())
+        return bool(data.get("match", False))
+
+
+def provision_hardware_device(
+    port: str | None = None,
+    desired_pop: str | None = None,
+    force: bool = False,
+    out_dir: str = "docs/soporte/etiquetas",
+) -> dict:
+    """Ejecuta el flujo completo de aprovisionamiento de taller con verificación en hardware."""
+    # 1. Determinar puerto
+    selected_port = port
+    if not selected_port:
+        detected = Esp32SerialClient.detect_ports()
+        if not detected:
+            raise RuntimeError("No se detectó ningún ESP32 conectado. Conecta la placa por USB o especifica --port.")
+        selected_port = detected[0]
+
+    # 2. Conectar y leer identidad
+    client = Esp32SerialClient(selected_port)
+    client.connect()
+    try:
+        ident = client.get_identity()
+        mac = normalize_mac(ident["mac"])
+        ble_name = ident.get("ble_name", derive_ble_name(mac))
+        existing_pop = ident.get("pop", "")
+        has_valid_pop = ident.get("has_pop", False) and len(existing_pop) == 8
+
+        # 3. Decidir PoP a instalar o conservar
+        if has_valid_pop and not force and not desired_pop:
+            # Reutilizar identidad existente sin sobreescribir
+            target_pop = existing_pop
+            action_taken = "identidad_existente_conservada"
+        else:
+            # Generar o aplicar nueva PoP
+            target_pop = desired_pop.strip().upper() if desired_pop else generate_secure_pop(8)
+            client.set_pop(target_pop)
+            action_taken = "nueva_identidad_instalada"
+
+        # 4. Verificación obligatoria de coincidencia en hardware (Readback Verification)
+        match_ok = client.verify_pop(target_pop)
+        if not match_ok:
+            raise RuntimeError(f"FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que la PoP no coincide con '{target_pop}'.")
+
+        # 5. Generar y guardar etiqueta SVG con QR real y permisos 0600
+        serial_no = f"EG-TORRE-{mac.replace(':', '')[-6:]}"
+        svg_content = generate_svg_label(mac, ble_name, target_pop, serial_no)
+        out_filename = os.path.join(out_dir, f"{ble_name}_etiqueta.svg")
+        save_secure_label(out_filename, svg_content)
+
+        return {
+            "status": "success",
+            "action": action_taken,
+            "port": selected_port,
+            "mac": mac,
+            "ble_name": ble_name,
+            "serial": serial_no,
+            "pop": target_pop,
+            "label_file": out_filename,
+            "verified": True,
+        }
+    finally:
+        client.close()
+
+
+def verify_hardware_device(
+    port: str | None = None,
+    pop: str | None = None,
+    label_path: str | None = None,
+) -> dict:
+    """Verifica que el ESP32 conectado coincida con un PIN PoP o con un archivo de etiqueta."""
+    expected_pop = None
+    if label_path:
+        if not os.path.isfile(label_path):
+            raise FileNotFoundError(f"Archivo de etiqueta no encontrado: {label_path}")
+        with open(label_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        expected_pop = extract_pop_from_svg(content)
+        if not expected_pop:
+            raise ValueError(f"No se pudo extraer la PoP del archivo de etiqueta '{label_path}'.")
+    elif pop:
+        expected_pop = pop.strip().upper()
+
+    selected_port = port
+    if not selected_port:
+        detected = Esp32SerialClient.detect_ports()
+        if not detected:
+            raise RuntimeError("No se detectó ningún ESP32 conectado.")
+        selected_port = detected[0]
+
+    client = Esp32SerialClient(selected_port)
+    client.connect()
+    try:
+        ident = client.get_identity()
+        mac = normalize_mac(ident["mac"])
+        ble_name = ident.get("ble_name", derive_ble_name(mac))
+        device_pop = ident.get("pop", "")
+
+        if expected_pop:
+            match = client.verify_pop(expected_pop)
+        else:
+            match = len(device_pop) == 8
+
+        return {
+            "port": selected_port,
+            "mac": mac,
+            "ble_name": ble_name,
+            "device_pop": device_pop,
+            "expected_pop": expected_pop,
+            "match": match,
+        }
+    finally:
+        client.close()
+
+
+def generate_offline_label(mac: str, pop: str | None = None, serial: str | None = None, out_dir: str = "docs/soporte/etiquetas") -> dict:
+    """Genera una etiqueta en modo offline (para pruebas unitarias y entornos sin hardware físico)."""
     mac_norm = normalize_mac(mac)
     ble_name = derive_ble_name(mac_norm)
     pop_token = pop.strip().upper() if pop else generate_secure_pop(8)
     serial_no = serial or f"EG-TORRE-{mac_norm.replace(':', '')[-6:]}"
-    payload = build_provisioning_payload(ble_name, pop_token)
+
+    svg_content = generate_svg_label(mac_norm, ble_name, pop_token, serial_no)
+    out_filename = os.path.join(out_dir, f"{ble_name}_etiqueta.svg")
+    save_secure_label(out_filename, svg_content)
 
     return {
+        "status": "success",
         "mac": mac_norm,
         "ble_name": ble_name,
         "serial": serial_no,
         "pop": pop_token,
-        "qr_payload": json.dumps(payload),
-        "payload_dict": payload,
+        "label_file": out_filename,
     }
 
 
@@ -127,43 +418,107 @@ def main():
     parser = argparse.ArgumentParser(description="Aprovisionamiento de Fábrica EcoGrow 2.0")
     subparsers = parser.add_subparsers(dest="command")
 
-    gen_parser = subparsers.add_parser("generate", help="Generar identidad y etiqueta para un equipo nuevo")
-    gen_parser.add_argument("--mac", required=True, help="Dirección MAC física del ESP32 (ej: CC:50:E3:A1:B2:C3)")
-    gen_parser.add_argument("--pop", help="Clave PoP opcional (si no se indica, se genera aleatoria criptográfica)")
-    gen_parser.add_argument("--serial", help="Número de serie físico (opcional)")
-    gen_parser.add_argument("--out", default="etiquetas_fabricacion", help="Carpeta destino para guardar la etiqueta SVG")
+    # 1. Subcomando provision
+    prov_parser = subparsers.add_parser("provision", help="Aprovisionar hardware ESP32 y generar etiqueta verificada")
+    prov_parser.add_argument("--port", help="Puerto serial del ESP32 (si no se indica, se autodetecta)")
+    prov_parser.add_argument("--pop", help="Clave PoP específica a instalar (opcional; si se omite, se genera segura)")
+    prov_parser.add_argument("--force", action="store_true", help="Sobreescribir identidad si ya existe en NVS")
+    prov_parser.add_argument("--out", default="docs/soporte/etiquetas", help="Carpeta destino para guardar la etiqueta SVG")
 
-    verify_parser = subparsers.add_parser("verify", help="Verificar o extraer PIN de un payload de QR o texto")
-    verify_parser.add_argument("--input", required=True, help="Texto, token o JSON del código QR")
+    # 2. Subcomando verify
+    ver_parser = subparsers.add_parser("verify", help="Verificar coincidencia entre hardware ESP32 y etiqueta/PIN")
+    ver_parser.add_argument("--port", help="Puerto serial del ESP32")
+    ver_parser.add_argument("--pop", help="PIN PoP a verificar contra el hardware")
+    ver_parser.add_argument("--label", help="Ruta al archivo SVG de etiqueta para verificar contra el hardware")
+
+    # 3. Subcomando read
+    read_parser = subparsers.add_parser("read", help="Leer identidad instalada en el hardware sin modificarla")
+    read_parser.add_argument("--port", help="Puerto serial del ESP32")
+
+    # 4. Subcomando generate (offline)
+    gen_parser = subparsers.add_parser("generate", help="Generar etiqueta offline con QR real para pruebas")
+    gen_parser.add_argument("--mac", required=True, help="Dirección MAC física (ej: 44:1D:64:F8:70:C4)")
+    gen_parser.add_argument("--pop", help="Clave PoP (opcional; se genera si no se especifica)")
+    gen_parser.add_argument("--serial", help="Número de serie físico (opcional)")
+    gen_parser.add_argument("--out", default="docs/soporte/etiquetas", help="Carpeta destino para guardar la etiqueta SVG")
 
     args = parser.parse_args()
 
-    if args.command == "generate":
-        record = provision_device_record(args.mac, args.pop, args.serial)
-        os.makedirs(args.out, exist_ok=True)
-        svg_filename = os.path.join(args.out, f"{record['ble_name']}_etiqueta.svg")
-        svg_content = generate_svg_label(record["mac"], record["ble_name"], record["pop"], record["serial"])
-        with open(svg_filename, "w", encoding="utf-8") as f:
-            f.write(svg_content)
-
-        print("=" * 60)
-        print("🌱 FICHA DE FABRICACIÓN ECOGROW 2.0")
-        print("=" * 60)
-        print(f"Dispositivo BLE: {record['ble_name']}")
-        print(f"Dirección MAC:   {record['mac']}")
-        print(f"Número de Serie: {record['serial']}")
-        print(f"PIN PoP Único:   {record['pop']}")
-        print(f"Payload QR:      {record['qr_payload']}")
-        print(f"Etiqueta SVG:    {svg_filename}")
-        print("=" * 60)
-        print("Instrucciones de taller:")
-        print("1. Imprime la etiqueta SVG y adhiérela al chasis de la torre hidropónica.")
-        print("2. El PIN PoP permanecerá inmutable ante cambios de router o reconfiguraciones WiFi.")
-        print("=" * 60)
+    if args.command == "provision":
+        try:
+            res = provision_hardware_device(port=args.port, desired_pop=args.pop, force=args.force, out_dir=args.out)
+            print("=" * 60)
+            print("🌱 APROVISIONAMIENTO DE FÁBRICA EXITOSO (HARDWARE VERIFICADO)")
+            print("=" * 60)
+            print(f"Puerto:          {res['port']}")
+            print(f"Dispositivo BLE: {res['ble_name']}")
+            print(f"MAC:             {res['mac']}")
+            print(f"Número de Serie: {res['serial']}")
+            print(f"PIN PoP Único:   {res['pop']}")
+            print(f"Acción:          {res['action']}")
+            print(f"Verificación:    Hardware NVS coincide al 100%")
+            print(f"Etiqueta SVG:    {res['label_file']} (Permisos: 0600)")
+            print("=" * 60)
+        except Exception as exc:
+            print(f"❌ ERROR DE APROVISIONAMIENTO: {exc}", file=sys.stderr)
+            sys.exit(1)
 
     elif args.command == "verify":
-        token = parse_qr_or_pin(args.input)
-        print(f"PIN PoP extraído: '{token}' (Válido: {len(token) >= 6})")
+        try:
+            res = verify_hardware_device(port=args.port, pop=args.pop, label_path=args.label)
+            print("=" * 60)
+            print("🔍 VERIFICACIÓN DE IDENTIDAD EN HARDWARE")
+            print("=" * 60)
+            print(f"Puerto:          {res['port']}")
+            print(f"Dispositivo BLE: {res['ble_name']}")
+            print(f"MAC:             {res['mac']}")
+            if res.get("expected_pop"):
+                print(f"PoP Esperada:    {res['expected_pop']}")
+                print(f"PoP en Hardware: {res['device_pop']}")
+                print(f"Resultado:       {'✅ COINCIDENCIA CONFIRMADA' if res['match'] else '❌ DISCREPANCIA DETECTADA'}")
+            else:
+                print(f"PoP en Hardware: {res['device_pop']}")
+                print(f"Estado:          {'✅ PoP Válida en NVS' if res['match'] else '❌ Sin PoP en NVS'}")
+            print("=" * 60)
+            if not res["match"]:
+                sys.exit(1)
+        except Exception as exc:
+            print(f"❌ ERROR DE VERIFICACIÓN: {exc}", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.command == "read":
+        try:
+            ports = [args.port] if args.port else Esp32SerialClient.detect_ports()
+            if not ports:
+                raise RuntimeError("No se detectó ningún ESP32 conectado.")
+            client = Esp32SerialClient(ports[0])
+            client.connect()
+            ident = client.get_identity()
+            client.close()
+            print("=" * 60)
+            print("📋 IDENTIDAD TÉCNICA LEÍDA DESDE ESP32")
+            print("=" * 60)
+            print(f"Puerto:          {ports[0]}")
+            print(f"MAC:             {normalize_mac(ident['mac'])}")
+            print(f"Dispositivo BLE: {ident.get('ble_name')}")
+            print(f"PoP Instalada:   {ident.get('pop')}")
+            print(f"Tiene PoP:       {'Sí' if ident.get('has_pop') else 'No'}")
+            print("=" * 60)
+        except Exception as exc:
+            print(f"❌ ERROR AL LEER DISPOSITIVO: {exc}", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.command == "generate":
+        res = generate_offline_label(args.mac, args.pop, args.serial, args.out)
+        print("=" * 60)
+        print("🌱 ETIQUETA OFFLINE GENERADA CON CÓDIGO QR REAL")
+        print("=" * 60)
+        print(f"Dispositivo BLE: {res['ble_name']}")
+        print(f"MAC:             {res['mac']}")
+        print(f"Número de Serie: {res['serial']}")
+        print(f"PIN PoP Único:   {res['pop']}")
+        print(f"Etiqueta SVG:    {res['label_file']} (Permisos: 0600)")
+        print("=" * 60)
     else:
         parser.print_help()
 

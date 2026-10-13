@@ -151,6 +151,7 @@ const char* ISRG_ROOT_X1_CA = \
 
 // PIN de posesión / credencial local única por dispositivo (derivada de MAC o NVS)
 char ble_pop_global[16] = "";
+char ble_service_name[32] = "";
 
 #ifndef ECOGROW_BACKEND_URL
 #define ECOGROW_BACKEND_URL "https://w3bmo8epk9iedi7gkqchdpru.179.236.74.107.sslip.io"
@@ -576,7 +577,6 @@ void setup() {
 
   // Aprovisionamiento WiFi mediante Bluetooth BLE (Espressif WiFiProv)
   WiFi.onEvent(SysProvEvent);
-  char ble_service_name[24];
   uint8_t mac[6];
   WiFi.macAddress(mac);
   snprintf(ble_service_name, sizeof(ble_service_name), "PROV_EcoGrow_%02X%02X", mac[4], mac[5]);
@@ -629,11 +629,62 @@ void setup() {
 }
 
 // ------------------------------------------------------------------------------
+// PROTOCOLO SERIAL DE TALLER / APROVISIONAMIENTO DE FÁBRICA
+// ------------------------------------------------------------------------------
+void procesarComandosTallerSerial() {
+  if (Serial.available()) {
+    String line = Serial.readStringUntil('\n');
+    line.trim();
+    if (line.length() == 0) return;
+
+    if (line == "ECOGROW:IDENT?") {
+      uint8_t mac[6];
+      WiFi.macAddress(mac);
+      char macStr[18];
+      snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+      String pop = prefs.getString("pop", "");
+      Serial.printf("ECOGROW:IDENT:{\"mac\":\"%s\",\"ble_name\":\"%s\",\"pop\":\"%s\",\"has_pop\":%s}\n",
+                    macStr, ble_service_name, pop.c_str(), pop.length() >= 8 ? "true" : "false");
+    } else if (line.startsWith("ECOGROW:SET_POP:")) {
+      String newPop = line.substring(16);
+      newPop.trim();
+      newPop.toUpperCase();
+      const char charset[] = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+      bool valido = (newPop.length() == 8);
+      for (int i = 0; i < newPop.length() && valido; i++) {
+        if (strchr(charset, newPop[i]) == NULL) valido = false;
+      }
+      if (valido) {
+        prefs.putString("pop", newPop);
+        snprintf(ble_pop_global, sizeof(ble_pop_global), "%s", newPop.c_str());
+        Serial.printf("ECOGROW:SET_POP_OK:{\"pop\":\"%s\"}\n", newPop.c_str());
+      } else {
+        Serial.println("ECOGROW:SET_POP_ERR:{\"error\":\"PIN inválido (debe tener 8 caracteres Base32 válidos)\"}");
+      }
+    } else if (line.startsWith("ECOGROW:VERIFY_POP:")) {
+      String checkPop = line.substring(19);
+      checkPop.trim();
+      checkPop.toUpperCase();
+      String storedPop = prefs.getString("pop", "");
+      bool match = (storedPop.length() >= 8 && storedPop == checkPop);
+      Serial.printf("ECOGROW:VERIFY:{\"match\":%s}\n", match ? "true" : "false");
+    } else if (line == "ECOGROW:FACTORY_RESET") {
+      Serial.println("ECOGROW:RESET_OK");
+      prefs.clear();
+      WiFi.disconnect(true, true);
+      delay(500);
+      ESP.restart();
+    }
+  }
+}
+
+// ------------------------------------------------------------------------------
 // LOOP PRINCIPAL (NON-BLOCKING)
 // ------------------------------------------------------------------------------
 
 void loop() {
   server.handleClient();
+  procesarComandosTallerSerial();
 
   // Botón físico de recuperación y configuración (GPIO 0 / BOOT)
   // Separación estricta entre:
