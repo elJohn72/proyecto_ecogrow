@@ -78,6 +78,8 @@ class TestMigrateIdentities(unittest.TestCase):
         self.assertEqual(res["details"][0]["status"], "PROPOSED")
         self.assertEqual(res["details"][0]["new_code"], "EG-TORRE-F870C4")
         mock_conn.commit.assert_not_called()
+        sqls = [call.args[0] for call in mock_cursor.execute.call_args_list]
+        self.assertFalse(any(sql.strip().upper().startswith("UPDATE") for sql in sqls))
 
     @patch("Conexión.conexion._connect")
     @patch("Conexión.conexion.create_mysql_tables")
@@ -98,6 +100,36 @@ class TestMigrateIdentities(unittest.TestCase):
         self.assertEqual(res["migrated"], 1)
         self.assertEqual(res["details"][0]["status"], "MIGRATED")
         mock_conn.commit.assert_called_once()
+        sqls = [call.args[0] for call in mock_cursor.execute.call_args_list]
+        torre_updates = [sql for sql in sqls if "UPDATE torres" in sql]
+        self.assertTrue(torre_updates)
+        self.assertTrue(all("codigo_unico" in sql for sql in torre_updates))
+        self.assertFalse(any("codigo_torre" in sql for sql in torre_updates))
+        self.assertTrue(any("UPDATE dispositivos_iot" in sql and "codigo_torre" in sql for sql in sqls))
+
+    @patch("Conexión.conexion._connect")
+    @patch("Conexión.conexion.create_mysql_tables")
+    def test_apply_stops_on_tower_code_conflict(self, mock_create, mock_connect):
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+        mock_cursor.fetchall.return_value = [
+            {"id_dispositivo": 1, "codigo_torre": "TORRE-001", "mac": "44:1D:64:F8:70:C4", "estado": "reclamada", "reclamado_por": 42},
+        ]
+        mock_cursor.fetchone.side_effect = [
+            None,
+            {"id_torre": 9, "usuario_id": 3},
+        ]
+
+        result = apply_migrations(dry_run=False, conn_func=lambda: mock_conn)
+        self.assertEqual(result["migrated"], 0)
+        self.assertEqual(result["requires_workshop"], 1)
+        self.assertEqual(result["details"][0]["status"], "CONFLICT")
+        self.assertEqual(result["details"][0]["conflict_table"], "torres")
+        sqls = [call.args[0] for call in mock_cursor.execute.call_args_list]
+        self.assertFalse(any(sql.strip().upper().startswith("UPDATE") for sql in sqls))
+        mock_conn.commit.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -1,86 +1,73 @@
-# Procedimiento de Migración de Identidades Antiguas EcoGrow 2.0
+# Migración y recuperación de identidades antiguas EcoGrow 2.0
 
 Ámbito: **ECOGROW**, **AISLADO**.
 
----
+El código de torre identifica el equipo. Conocerlo no transfiere la propiedad: la vinculación exige la prueba de posesión (PoP) y el registro queda en el usuario que ya reclamó la torre.
 
-## 1. Contexto y Origen del Problema
+## Qué no cambia la identidad
 
-Durante las primeras fases de desarrollo y pruebas de prototipos (firmware v1 y primeros builds de laboratorio), se utilizaron identificadores genéricos por defecto como:
-- `TORRE-001`
-- `EG-TORRE-01`
-- `DUMMY`
-- `PRUEBA`
-- `TEST`
+Arrancar el ESP32, sincronizar con la API o consultar `ECOGROW:IDENT?` solo lee la NVS. Esas rutas no calculan otro código ni lo guardan.
 
-Si una placa física fue aprovisionada en el pasado con uno de estos identificadores, el código quedaba persistido en la memoria no volátil (NVS) del ESP32 bajo la clave `torre_code`.
+`ECOGROW_TORRE_CODIGO` en `config.h` es un ejemplo heredado. El firmware no lo copia a `torre_code` al arrancar.
 
-El estándar de producción EcoGrow 2.0 exige:
-1. **Unicidad e Inmutabilidad:** Cada torre debe poseer un código canónico derivado de los últimos 6 dígitos hexadecimales de su dirección MAC física (`EG-TORRE-<HEX>`), o un serial de fabricación debidamente asignado.
-2. **Coherencia Etiqueta / Hardware / Cloud:** El código impreso en la etiqueta SVG/QR física debe coincidir exactamente con el valor que el ESP32 reporta por serial/BLE y con el registrado en `dispositivos_iot` en la base de datos de producción.
+El único comando que persiste un código es `ECOGROW:SET_CODE`. Rechaza placeholders (`TORRE-001`, `EG-TORRE-01`, `DUMMY`, `PRUEBA`, `TEST`, `IDENTIFICADOR_TECNICO`). Por eso un placeholder no se puede “devolver” al hardware: si el código nuevo no quedó escrito, la base se revierte al código anterior y el hardware sigue igual.
 
----
+## Orden cuando el código antiguo ya está vinculado
 
-## 2. Capas de Migración Implementadas
+1. Leer, sin escribir:
 
-### Capa A: Auto-migración en Firmware (`main.cpp`)
-
-El firmware del ESP32 ahora incluye la función `esCodigoValido()`:
-- Valida longitud (3 a 64 caracteres).
-- Rechaza expresamente cualquier placeholder conocido (`TORRE-001`, `EG-TORRE-01`, `DUMMY`, etc.).
-
-Al llamar a `getTorreCodigo()` en el arranque o durante el comando `ECOGROW:IDENT?`:
-1. Si el código en NVS es un placeholder o está corrupto, la validación falla.
-2. El firmware calcula automáticamente el código canónico a partir de la MAC WiFi de la placa (`EG-TORRE-%02X%02X%02X`).
-3. El código canónico se guarda de inmediato en NVS (`prefs.putString("torre_code", derived)`).
-4. El comando serial `ECOGROW:SET_CODE:` rechaza cualquier intento de volver a programar un placeholder.
-
-### Capa B: Herramienta de Taller (`tools/provision_device.py`)
-
-Al conectar una placa por USB y ejecutar:
 ```bash
-python3 tools/provision_device.py provision
+python3 tools/provision_device.py read --port /dev/cu.usbserial-XXXX
 ```
-1. **Preflight sin mutación:** Consulta la identidad del ESP32. Si el código reportado es placeholder, deriva inmediatamente el canónico.
-2. Comprueba en la base de datos si ya existe un registro reclamado por un usuario antes de escribir en el hardware.
-3. Actualiza el código en el hardware con `SET_CODE`, verifica coincidencia con `VERIFY_CODE`, y genera la etiqueta SVG correspondiente con QR y clave PoP protegida.
 
-### Capa C: Migración Idempotente de Base de Datos (`tools/migrate_identities.py`)
+La respuesta incluye el código guardado, si es válido, el código sugerido por la MAC y `identity_mutated:false`.
 
-Para el parque de dispositivos ya registrados en la base de datos central:
+2. Simular la base, sin tocar el ESP32:
 
-#### 1. Auditoría (Solo lectura / Diagnóstico)
-```bash
-python3 tools/migrate_identities.py --audit
-```
-Muestra un reporte detallado indicando qué registros tienen identificadores no canónicos, su dirección MAC, y la acción sugerida.
-
-#### 2. Simulación (Dry-Run por defecto)
 ```bash
 python3 tools/migrate_identities.py --dry-run
+python3 tools/migrate_identities.py --dry-run --mac 44:1D:64:F8:70:C4
 ```
-Calcula la transformación de `TORRE-001` a `EG-TORRE-<HEX>`, comprueba colisiones y confirma que no haya registros duplicados.
 
-#### 3. Aplicación en Base de Datos
+3. Aplicar solo la base si el taller va a coordinar el hardware en otro momento:
+
 ```bash
-python3 tools/migrate_identities.py --apply
+python3 tools/migrate_identities.py --apply --mac 44:1D:64:F8:70:C4
 ```
-- Actualiza atómicamente la tabla `dispositivos_iot`.
-- Actualiza la tabla `torres` conservando la vinculación de usuario (`reclamado_por` / `usuario_id`), histórico de telemetría y configuración de bomba/nutrientes.
 
----
+Esa transacción actualiza `dispositivos_iot.codigo_torre` y, si existe la torre, `torres.codigo_unico`. Conserva `id_torre`, `usuario_id`, `reclamado_por`, token, PoP, historial y configuración. Si el código canónico ya lo usa otro dispositivo u otra torre, no escribe y deja el caso en taller. Repetir el comando sobre un código ya canónico no lo cambia. Un fallo antes del commit revierte las dos tablas.
 
-## 3. Checklist de Taller para Unidades en Reparación o Mantenimiento
+4. Coordinar base y NVS, conservando PoP, token y propietario:
 
-Cuando un cliente o unidad de campo ingrese al taller:
-1. Conectar por cable USB a la estación de trabajo.
-2. Ejecutar lectura de identidad:
-   ```bash
-   python3 tools/provision_device.py verify
-   ```
-3. Si la etiqueta física está deteriorada o indica un código antiguo (`TORRE-001`):
-   ```bash
-   python3 tools/provision_device.py provision
-   ```
-4. Imprimir la nueva etiqueta generada en `docs/soporte/etiquetas/` y adherirla a la torre.
-5. Si la torre ya pertenecía a un cliente, verificar que el código en su aplicación móvil o base de datos coincida ejecutando `tools/migrate_identities.py --apply`.
+```bash
+python3 tools/provision_device.py migrate-code --port /dev/cu.usbserial-XXXX
+```
+
+Primero migra la fila de esa MAC. Después envía `SET_CODE` y exige readback. No llama a `register_dispositivo_fabrica` y no rota credenciales. Si el readback sigue mostrando el código anterior, la base vuelve al código previo. Si la base ya quedó en el código canónico y el `SET_CODE` falla, no se revierte a un placeholder: se reintenta el `SET_CODE`.
+
+5. Imprimir la etiqueta nueva solo cuando el readback coincide. La etiqueta vive en `docs/soporte/etiquetas/` y no se versiona.
+
+## Recuperación del aprovisionamiento
+
+`provision` escribe un diario local, modo `0600`, en `.provision-state/` junto a la salida. El directorio está en `.gitignore`. El diario guarda la PoP, el código y el token anteriores; no se imprime ni se sube a git.
+
+Antes de mutar, el preflight lee identidad, propietario y token. Si la torre ya está reclamada, se detiene sin escribir.
+
+Si falla el serial, el readback, la base o el proceso:
+
+```bash
+python3 tools/provision_device.py recover --port /dev/cu.usbserial-XXXX
+```
+
+Cada campo restaurado se vuelve a leer. El diario se borra solo cuando esa lectura coincide. Si un campo no se puede restaurar, el estado queda `repair_required`. En ese caso no hay etiqueta de éxito y no se informa que la identidad quedó conservada.
+
+`provision --force` reasigna el registro a fábrica y no es el camino para conservar un cliente. El cambio de código de una torre ya reclamada es `migrate-code` o `migrate_identities.py --apply`.
+
+## Cuándo el taller debe parar
+
+- Otro dispositivo u otra torre ya tiene el código canónico.
+- La MAC no tiene 12 dígitos hexadecimales.
+- El ESP32 ya tiene un código válido distinto del sugerido por su MAC. Consultar `IDENT` no lo sustituye; hace falta una decisión explícita.
+- El diario queda en `repair_required` porque el valor anterior no pudo verificarse en el hardware.
+
+No usar la base del VPS para ensayar. La prueba de integración crea una base temporal y la elimina al terminar.

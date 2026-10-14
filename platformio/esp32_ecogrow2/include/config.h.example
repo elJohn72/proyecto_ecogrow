@@ -10,6 +10,7 @@
 // Enlace remoto seguro con el servidor / Coolify
 #define ECOGROW_BACKEND_URL "https://w3bmo8epk9iedi7gkqchdpru.179.236.74.107.sslip.io"
 #define ECOGROW_SENSOR_API_TOKEN "" // Token de autenticación único asignado a este dispositivo
+// Ejemplo heredado. El firmware no copia este macro a NVS al arrancar ni al consultar IDENT.
 #define ECOGROW_TORRE_CODIGO "TORRE-001"
 
 // Medir el depósito real y validar sensores antes de habilitar estas capacidades.
