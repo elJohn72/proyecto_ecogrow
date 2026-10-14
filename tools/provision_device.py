@@ -11,6 +11,7 @@ Garantiza la correspondencia estricta 1:1 entre el hardware ESP32, la identidad 
 """
 import argparse
 import glob
+import hashlib
 import json
 import os
 import re
@@ -460,15 +461,115 @@ def _repair_text(unrestored: list[str]) -> str:
     )
 
 
-def recover_open_provision(client, state_dir: str, mac: str, kind: str = "provision") -> dict:
+def decide_provision_recovery(journal: dict, matches: dict, cloud: dict | None = None) -> str:
+    """Elige keep, repair o rollback. Un commit ya visible en la nube no restaura el token viejo."""
+    stage = journal.get("stage") or "mutating"
+    mutated = list(journal.get("mutated") or [])
+    cloud = cloud or {}
+    intended = journal.get("intended") or {}
+    previous = journal.get("previous") or {}
+
+    def cloud_has_new(field: str) -> bool:
+        if field == "token":
+            if not cloud.get("token_is_intended"):
+                return False
+            if intended.get("token") and intended.get("token") == previous.get("token"):
+                return stage == "db_committed"
+            return True
+        if field == "pop":
+            if not cloud.get("pop_hash_is_intended"):
+                return False
+            if intended.get("pop") and intended.get("pop") == previous.get("pop"):
+                return stage == "db_committed"
+            return True
+        if field == "code":
+            return bool(cloud.get("code_is_intended")) and intended.get("code") != previous.get("code")
+        return False
+
+    committed = stage == "db_committed" or any(cloud_has_new(field) for field in mutated)
+    if not committed:
+        return "rollback"
+    needed = {"token": "token_intended", "pop": "pop_intended", "code": "code_intended"}
+    if mutated and all(matches.get(needed[field], False) for field in mutated if field in needed):
+        return "keep"
+    return "repair"
+
+
+def _hardware_matches(client, journal: dict) -> dict:
+    intended = journal.get("intended") or {}
+    previous = journal.get("previous") or {}
+
+    def verified(method: str, value) -> bool:
+        if not isinstance(value, str) or not value:
+            return False
+        try:
+            return getattr(client, method)(value) is True
+        except Exception:
+            return False
+
+    return {
+        "token_intended": verified("verify_device_token", intended.get("token")),
+        "token_previous": verified("verify_device_token", previous.get("token")),
+        "pop_intended": verified("verify_pop", intended.get("pop")),
+        "pop_previous": verified("verify_pop", previous.get("pop")),
+        "code_intended": verified("verify_code", intended.get("code")),
+        "code_previous": verified("verify_code", previous.get("code")),
+    }
+
+
+def cloud_credential_view(journal: dict, row: dict | None) -> dict:
+    """Booleans de coincidencia. No incluye el token ni el PIN."""
+    if not row:
+        return {}
+    intended = journal.get("intended") or {}
+    previous = journal.get("previous") or {}
+    db_token = row.get("device_token")
+    db_code = str(row.get("codigo_torre") or "").strip().upper()
+    db_hash = row.get("pop_hash")
+    view = {
+        "token_is_intended": isinstance(intended.get("token"), str) and db_token == intended.get("token"),
+        "token_is_previous": isinstance(previous.get("token"), str) and db_token == previous.get("token"),
+        "code_is_intended": isinstance(intended.get("code"), str) and db_code == str(intended.get("code")).strip().upper(),
+    }
+    if isinstance(intended.get("pop"), str) and db_hash:
+        view["pop_hash_is_intended"] = db_hash == hashlib.sha256(intended["pop"].encode("utf-8")).hexdigest()
+    if isinstance(previous.get("pop"), str) and db_hash:
+        view["pop_hash_is_previous"] = db_hash == hashlib.sha256(previous["pop"].encode("utf-8")).hexdigest()
+    return view
+
+
+def recover_open_provision(client, state_dir: str, mac: str, kind: str = "provision", cloud: dict | None = None) -> dict:
     """Restaura una mutación interrumpida y verifica cada campo. No anuncia éxito si falta uno."""
     path = _journal_path(state_dir, mac, kind)
     if not os.path.isfile(path):
-        return {"status": "nothing_to_recover", "identity_conserved": True, "restored": [], "unrestored": []}
+        return {"status": "nothing_to_recover", "identity_conserved": True, "credentials_agree": True, "restored": [], "unrestored": []}
     journal = _read_journal(path)
     if journal.get("stage") == "complete":
         os.remove(path)
-        return {"status": "nothing_to_recover", "identity_conserved": True, "restored": [], "unrestored": []}
+        return {"status": "nothing_to_recover", "identity_conserved": True, "credentials_agree": True, "restored": [], "unrestored": []}
+    matches = _hardware_matches(client, journal)
+    action = decide_provision_recovery(journal, matches, cloud)
+    if action == "keep":
+        os.remove(path)
+        return {
+            "status": "reconciled",
+            "identity_conserved": False,
+            "credentials_agree": True,
+            "restored": [],
+            "unrestored": [],
+        }
+    if action == "repair":
+        journal["stage"] = "repair_required"
+        journal["identity_conserved"] = False
+        journal["credentials_agree"] = False
+        _write_secret_journal(path, journal)
+        return {
+            "status": "repair_required",
+            "identity_conserved": False,
+            "credentials_agree": False,
+            "restored": [],
+            "unrestored": list(journal.get("mutated") or []),
+        }
     restored, unrestored = _rollback_mutations(client, journal)
     if unrestored:
         journal["stage"] = "repair_required"
@@ -545,10 +646,18 @@ def provision_hardware_device(
     try:
         ident = client.get_identity()
         mac = normalize_mac(ident["mac"])
-        recovery = recover_open_provision(client, state_directory, mac)
+        journal_preview_path = _journal_path(state_directory, mac, "provision")
+        cloud_view = None
+        if sync_db and os.path.isfile(journal_preview_path):
+            preview = _read_journal(journal_preview_path)
+            if preview.get("stage") != "complete":
+                _ensure_repo_on_path()
+                from Conexión.conexion import fetch_dispositivo_by_mac
+                cloud_view = cloud_credential_view(preview, fetch_dispositivo_by_mac(mac))
+        recovery = recover_open_provision(client, state_directory, mac, cloud=cloud_view)
         if recovery["status"] == "repair_required":
             raise RuntimeError(_repair_text(recovery["unrestored"]))
-        if recovery["status"] == "restored":
+        if recovery["status"] in {"restored", "reconciled"}:
             ident = client.get_identity()
 
         ble_name = ident.get("ble_name", derive_ble_name(mac))
@@ -682,6 +791,14 @@ def provision_hardware_device(
 
         db_registered = False
         if sync_db:
+            if journal is not None:
+                journal.setdefault("intended", {})
+                journal["intended"]["pop"] = target_pop
+                journal["intended"]["code"] = serial_no
+                if final_token_for_db:
+                    journal["intended"]["token"] = final_token_for_db
+                journal["stage"] = "db_pending"
+                _write_secret_journal(journal_path, journal)
             try:
                 _ensure_repo_on_path()
                 from Conexión.conexion import register_dispositivo_fabrica
@@ -691,6 +808,9 @@ def provision_hardware_device(
                 if journal is not None and journal.get("mutated"):
                     _fail_after_rollback(client, journal_path, journal, db_err)
                 raise
+            if journal is not None:
+                journal["stage"] = "db_committed"
+                _write_secret_journal(journal_path, journal)
 
         if journal_path and os.path.isfile(journal_path):
             os.remove(journal_path)

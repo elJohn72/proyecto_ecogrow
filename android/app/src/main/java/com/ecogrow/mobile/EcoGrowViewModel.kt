@@ -27,7 +27,9 @@ data class ScreenState(
     val detail: TowerDetailModel? = null,
     val error: String? = null,
     val notice: String? = null,
-    val endpoint: String = DEFAULT_API_ENDPOINT
+    val endpoint: String = DEFAULT_API_ENDPOINT,
+    val provisioningWifiOnly: Boolean = false,
+    val provisioningTowerCode: String = ""
 )
 
 class EcoGrowViewModel(application: Application) : AndroidViewModel(application) {
@@ -101,7 +103,24 @@ class EcoGrowViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun navigateTo(view: CurrentView) {
-        state.value = state.value.copy(currentView = view, error = null, notice = null)
+        state.value = state.value.copy(
+            currentView = view,
+            error = null,
+            notice = null,
+            provisioningWifiOnly = if (view == CurrentView.ADD_TOWER) false else state.value.provisioningWifiOnly,
+            provisioningTowerCode = if (view == CurrentView.ADD_TOWER) "" else state.value.provisioningTowerCode
+        )
+    }
+
+    fun changeTowerWifi() {
+        val code = state.value.detail?.code.orEmpty()
+        state.value = state.value.copy(
+            currentView = CurrentView.ADD_TOWER,
+            provisioningWifiOnly = true,
+            provisioningTowerCode = code,
+            error = null,
+            notice = null
+        )
     }
 
     fun register(name: String, mail: String, pass: String, passConfirm: String) = action {
@@ -223,9 +242,8 @@ class EcoGrowViewModel(application: Application) : AndroidViewModel(application)
             if (detail != null && detail.stale) {
                 throw IllegalStateException("Telemetría desactualizada (> 2 min sin reporte). Por seguridad se requiere una lectura reciente para encender la bomba.")
             }
-            val level = detail?.sensors?.nivelPct
-            if (level != null && level <= 15.0) {
-                throw IllegalStateException("Nivel de agua crítico (≤ 15%). Marcha en seco bloqueada por seguridad.")
+            if (detail != null && !detail.canRequestPumpOn() && !detail.stale) {
+                throw IllegalStateException("Hace falta un nivel de agua válido para encender. El armado está en ${detail.levelTurnOnPct.toInt()} %.")
             }
         }
 

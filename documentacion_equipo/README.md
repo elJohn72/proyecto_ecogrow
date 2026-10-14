@@ -4,7 +4,7 @@ Esta carpeta es para archivos no relacionados con codigo y no afecta la arquitec
 
 Subcarpetas sugeridas:
 
-- `esquematicos/`: diagramas electricos, conexiones, planos y capturas tecnicas.
+- `esquematicos/`: capturas sueltas. El diagrama para montar está en `hardware/schematics/`.
 - `pdfs_actualizaciones/`: avances semanales, reportes y cambios del proyecto en PDF.
 - `entregables/`: documentos finales para compartir con docentes o equipo.
 - `recursos_multimedia/`: imagenes, mockups, evidencias y material visual.

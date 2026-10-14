@@ -20,6 +20,7 @@ except ModuleNotFoundError:
     from ..domain.hidroponia_torre import merge_control_with_phase_profile
 
 STALE_SECONDS = 120
+LEVEL_HYSTERESIS_PCT = 5.0
 
 
 def create_pump_command(tower_id, desired_state, ttl_sec=60):
@@ -503,7 +504,35 @@ def tower_detail(tower_id, user_id):
             "tds": True,
             "liters": bool(config and config.get("deposito_calibrado") and config.get("deposito_litros")),
             "pump_reported": reported is not None,
-        }}
+        },
+        "safety": safety_payload(config),
+    }
+
+
+def pump_level_limits(minimum):
+    """Corte y armado. El armado es el corte más cinco puntos. No es la inmersión medida de la bomba."""
+    cutoff = finite(minimum)
+    if cutoff is None or not 0 < cutoff < 100:
+        return None
+    turn_on = cutoff + LEVEL_HYSTERESIS_PCT
+    if turn_on > 100:
+        return None
+    return cutoff, turn_on
+
+
+def safety_payload(config):
+    limits = pump_level_limits((config or {}).get("nivel_minimo") if config else None)
+    if limits is None:
+        return {"level_cutoff_pct": None, "level_turn_on_pct": None, "output_is_flow": False}
+    return {"level_cutoff_pct": limits[0], "level_turn_on_pct": limits[1], "output_is_flow": False}
+
+
+def level_allows_pump_on(level, minimum):
+    limits = pump_level_limits(minimum)
+    value = finite(level)
+    if limits is None or value is None:
+        return False
+    return limits[1] <= value <= 100
 
 
 def command_pump(tower_id, user_id, state):
@@ -517,8 +546,7 @@ def command_pump(tower_id, user_id, state):
             raise MobileError("stale_reading", "Se requiere una lectura reciente para encender.", 409)
         level = sensors(latest)["nivel_pct"]
         config = configuration(tower_id) or {}
-        minimum = finite(config.get("nivel_minimo"))
-        if level is None or minimum is None or not 0 <= minimum < 100 or level <= minimum:
+        if not level_allows_pump_on(level, config.get("nivel_minimo")):
             raise MobileError("unsafe_level", "Nivel de agua inválido o insuficiente.", 409)
     cmd = create_pump_command(tower_id, state)
     _execute("""UPDATE actuadores_torre SET estado=%s,modo='manual',ultimo_comando='mobile_dashboard',actualizado_en=CURRENT_TIMESTAMP

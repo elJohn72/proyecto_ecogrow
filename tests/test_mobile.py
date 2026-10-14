@@ -272,7 +272,7 @@ class MobileServiceTest(unittest.TestCase):
     def test_on_blocks_invalid_low_and_nonfinite_level(self):
         self.pump_mocks(self.reading())
         with patch.object(service, "_execute") as execute:
-            for level in (None, float("nan"), float("inf"), -1, 101, 0, 20):
+            for level in (None, float("nan"), float("inf"), -1, 101, 0, 20, 24):
                 with patch.object(service, "readings", return_value=[self.reading(level)]):
                     with self.assertRaises(service.MobileError) as caught:
                         service.command_pump(7, 1, "on")
@@ -285,6 +285,12 @@ class MobileServiceTest(unittest.TestCase):
             with self.assertRaises(service.MobileError):
                 service.command_pump(7, 1, "on")
             execute.assert_not_called()
+
+    def test_on_allows_turn_on_threshold(self):
+        self.pump_mocks(self.reading(level=25))
+        with patch.object(service, "_execute"):
+            result = service.command_pump(7, 1, "on")
+        self.assertEqual(result["desired"], "on")
 
     def test_on_with_valid_data_sets_only_desired(self):
         self.pump_mocks(self.reading())

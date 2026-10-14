@@ -246,6 +246,29 @@ class EcoGrowTest {
         assertTrue(model.capabilities.pumpControl)
         assertTrue(model.capabilities.litersCalibrated)
         assertTrue(model.capabilities.pumpReported)
+        assertTrue(model.canRequestPumpOn())
+    }
+
+    @Test
+    fun testPumpOnRequiresTurnOnLevel() {
+        fun model(level: Double?, stale: Boolean = false): TowerDetailModel {
+            val json = JSONObject().apply {
+                put("id", 1)
+                put("stale", stale)
+                put("sensors", JSONObject().apply {
+                    if (level != null) put("nivel_pct", level)
+                })
+                put("safety", JSONObject().apply {
+                    put("level_cutoff_pct", 20.0)
+                    put("level_turn_on_pct", 25.0)
+                })
+            }
+            return TowerDetailModel.fromJson(json)
+        }
+        assertFalse(model(null).canRequestPumpOn())
+        assertFalse(model(24.0).canRequestPumpOn())
+        assertTrue(model(25.0).canRequestPumpOn())
+        assertFalse(model(80.0, stale = true).canRequestPumpOn())
     }
 
     @Test
@@ -290,6 +313,10 @@ class EcoGrowTest {
 
         val jsonQr = """{"ver":"v1","name":"PROV_EcoGrow_70C4","pop":"A7K9M2PX","transport":"ble"}"""
         assertEquals("A7K9M2PX", BleProvisioningManager.sanitizePop(jsonQr))
+        assertEquals(
+            "021a9004-0382-4aea-bff4-6b3f1b5adfb4",
+            BleProvisioningManager.ESP_PROV_SERVICE_UUID
+        )
     }
 
     @Test

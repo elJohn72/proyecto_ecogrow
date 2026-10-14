@@ -1,278 +1,216 @@
 # Informe técnico de presentación — EcoGrow
 
-**Versión:** 2026-07-14  
-**Uso:** sustentación, pitch técnico, competencia / demo, onboarding  
-**Fuente de verdad:** repositorio público  
-https://github.com/elJohn72/proyecto_ecogrow  
-**Landing complementaria:** https://github.com/elJohn72/Ecogrow.io  
+**Versión:** 2026-10-14 (actualiza el informe del 2026-07-14)
+**Uso:** sustentación, pitch técnico, demo y onboarding
+**Fuente de verdad:** repositorio https://github.com/elJohn72/proyecto_ecogrow
 **Organización:** AJTecnology / AJENZA S.A.S.
 
 ---
 
 ## 1. Resumen ejecutivo
 
-**EcoGrow** es un sistema de **automatización de procesos agrícolas** basado en hidroponía e IoT. Integra en un solo flujo:
+**EcoGrow** es un sistema de automatización agrícola por hidroponía. Une el panel web, la aplicación Android, el firmware de la torre y el diseño eléctrico en un solo producto.
 
-1. **Software de gestión** (panel web Flask + MySQL).
-2. **Control embebido** (ESP32 + relé + bomba).
-3. **Dominio agronómico** (perfiles por fase de cultivo).
-4. **Hardware físico / 3D** (torre, germinador, forraje).
-
-No se trata solo de un prototipo aislado: el repositorio documenta una **plataforma evolutiva** con dos líneas de producto y un plan de automatización por fases, de modo que cada entrega de hardware o firmware tenga criterio de salida claro.
-
-| Pregunta | Respuesta breve |
-|----------|-----------------|
-| ¿Qué problema resuelve? | Controlar riego, trazabilidad y (próximo) calidad de solución sin depender de operación 100 % manual |
-| ¿Qué entregamos hoy? | Panel web completo + IoT de bomba (A0) + germinador 3D + roadmap A1–A3 |
-| ¿Hacia dónde va? | A1: bomba por tiempo + nivel; A2: nutrientes; A3: ambiente y dosificación |
-
----
-
-## 2. Problema y justificación técnica
-
-### 2.1 Contexto
-
-En hidroponía (torre vertical o forraje):
-
-- El **riego** debe ser periódico y predecible.
-- La bomba no puede operar en seco (daño de equipo y pérdida de cultivo).
-- pH y EC importan, pero **solo tienen valor operativo** si el sistema ya riega y protege el depósito de forma estable.
-- Un laboratorio o finca piloto necesita **trazabilidad**: torre, ciclo, fase, lecturas, cosecha.
-
-### 2.2 Argumento de diseño
-
-Muchos proyectos IoT agrícolas intentan instalar todos los sensores al mismo tiempo. Eso genera:
-
-- fallos difíciles de diagnosticar (¿falla el WiFi, el pH o el relé?);
-- dependencia de calibración antes de tener riego confiable;
-- software complejo sin base física estable.
-
-**EcoGrow invierte el orden:** primero **actuación confiable** (bomba), luego **protección** (nivel), después **calidad de solución** (pH/EC). Ese orden está formalizado en el repositorio como fases A0 → A1 → A2 → A3.
-
-Fuentes en GitHub:
-
-- `docs/producto/VISION-Y-LINEAS-ECOGROW.md`
-- `docs/iot/ROADMAP-AUTOMATIZACION-FASES.md`
-
----
-
-## 3. Visión de producto — dos líneas
-
-EcoGrow no es “solo lechuga en torre”. Es la marca de **automatización agrícola** con dos vertientes que comparten software y firmware:
-
-| Línea | Nombre | Qué produce | Usuarios / escenario |
-|-------|--------|-------------|----------------------|
-| **A** | EcoGrow Plantas | Hortalizas de hoja en **torre vertical** (lechuga, berro, cilantro, hierbas) | Laboratorio, club, demo urbana, competencia |
-| **B** | EcoGrow Ganadero / Forraje | **Forraje hidropónico** para vacas, cerdos, aves y otros animales | Finca, ganadería, demo Agrotech |
-
-### Argumento comercial-técnico
-
-- **Misma plataforma IoT** (API, panel, ESP32) reduce costo de desarrollo.
-- **Parámetros distintos** (tiempos ON/OFF, densidades, ciclos) se configuran por línea, no se hardcodean en firmware.
-- Permite demostrar **impacto alimentario** (vegetales) y **impacto pecuario** (forraje) con un solo stack.
-
-Documento canónico: `docs/producto/VISION-Y-LINEAS-ECOGROW.md`.
-
----
-
-## 4. Lo desarrollado (evidencia en el repositorio)
-
-### 4.1 Software de gestión (hecho)
-
-| Capacidad | Evidencia en repo | Valor para la presentación |
-|-----------|-------------------|----------------------------|
-| Autenticación multi-usuario | `blueprints/auth.py`, Flask-Login | Seguridad básica y sesiones |
-| Torres + ciclo de cultivo | `blueprints/torres.py` | Trazabilidad por unidad física |
-| CRUD cultivos + PDF | `blueprints/cultivos.py`, `services/`, fpdf2 | Entregable académico y operativo |
-| Monitoreo y alertas | `blueprints/sensores.py`, setpoints | Panel de control central |
-| Perfiles pH/EC por fase | `domain/hidroponia_torre.py` | Dominio agronómico en código |
-| Agricultor IA | `blueprints/ai.py`, Gemini | Asistencia al operador |
-| Despliegue cloud | `render.yaml`, Gunicorn | Listo para demo en línea |
-| Salud del servicio | `GET /health` | Operación y monitoreo |
-
-Documentación maestra: `docs/DOCUMENTACION-PROYECTO-ECOGROW.md`.
-
-### 4.2 Arquitectura (argumento de ingeniería)
-
-```text
-Navegador (Jinja2 + CSS)
-        │ HTTPS
-        ▼
-Flask (blueprints: auth · torres · cultivos · sensores · ai)
-        │
-        ▼
-Conexión/conexion.py  ──►  MySQL / MariaDB
-        ▲
-        │ JSON + X-API-Token
-        │
-   ESP32 (PlatformIO)
-   relé → bomba  (+ futuros sensores)
-```
-
-**Por qué esta arquitectura**
-
-- **Capas claras:** UI → controladores → dominio → datos → firmware.
-- **Blueprints** permiten crecer por módulo sin monolito ilegible.
-- El ESP32 **no escribe directo en MySQL**: usa API con token → aislamiento y seguridad.
-- El dominio agronómico (`domain/`) evita mezclar “magia de pH” dentro de las rutas HTTP.
-
-Detalle: sección 4 de `docs/DOCUMENTACION-PROYECTO-ECOGROW.md` y `docs/ESTRUCTURA-PROYECTO.md`.
-
-### 4.3 Stack tecnológico
-
-| Capa | Tecnología | Rol |
-|------|------------|-----|
-| Backend | Python 3, Flask 3.x, Flask-Login | Aplicación web |
-| Datos | MySQL / MariaDB | Persistencia relacional |
-| Frontend | Jinja2, CSS propio, Bootstrap 5 | Panel operador |
-| Reportes | fpdf2 | PDF de cultivos |
-| IA | Google Generative AI (Gemini) | Asistente operativo |
-| IoT | ESP32, PlatformIO, HTTP/JSON | Actuación y telemetría |
-| Cloud | Render + Gunicorn | Hosting |
-
-### 4.4 IoT — automatización por fases
-
-| Fase | Qué hace | Estado en repo (jul-2026) | Criterio de salida |
-|------|----------|---------------------------|--------------------|
-| **A0** | Bomba manual desde panel vía `POST /api/iot/sync` | **Hecho** — `platformio/esp32_rele_base/` | Relé obedece comando del servidor |
-| **A1.1** | Bomba por **tiempo** (ON/OFF programado) | **Prioridad / en curso** | Ciclo automático sin intervención cada ON/OFF |
-| **A1.2** | **Nivel de agua** + no bombear en seco | **Pendiente prioritario** | Alerta + corte de bomba con depósito bajo |
-| **A2** | Sensores nutrientes (pH, EC, T°) | **Después de A1** — `esp32_hidroponico/` | Lecturas reales + alertas por fase |
-| **A3** | Luz/DLI, recetas A/B, IPM, 3D torre/forraje | Posterior | Operación avanzada |
-
-Guías:
-
-- `docs/iot/FASE1-ESP32-BOMBA-RELE.md` (cableado A0)
-- `docs/iot/ROADMAP-AUTOMATIZACION-FASES.md` (orden oficial)
-- `docs/iot/GUIA-ESP32-RELE.md` (API)
-
-**Argumento para el jurado / audiencia:**  
-“No prometemos una granja automática completa. Demostramos una **cadena de control verificable**: hoy la bomba responde al sistema; el siguiente hito es tiempo + nivel; los nutrientes vienen cuando la base no falla.”
-
-### 4.5 Hardware 3D — germinador
-
-| Entregable | Ruta en GitHub |
-|------------|----------------|
-| Modelo 3MF estación de germinación | `hardware/3d/germinador/estacion_germinacion_hidroponico.3mf` |
-| Documentación de uso | `hardware/3d/germinador/README.md` |
-
-**Argumento:** cierra el ciclo cultivo desde **germinación → torre/forraje → monitoreo digital**, y evidencia capacidad de diseño/fabricación (impresión 3D) además de software.
-
-### 4.6 Documentación y especificaciones
-
-| Material | Ubicación |
+| Pregunta | Respuesta |
 |----------|-----------|
-| Documentación completa | `docs/DOCUMENTACION-PROYECTO-ECOGROW.md` |
-| Presentación diapositivas (20 slides) | `documentacion_equipo/presentaciones/ECOGROW-TECNOLOGIAS-Y-ARQUITECTURA.md` |
-| Manual dominio torre | `docs/hidroponia/MANUAL-DOMINIO-TORRE-VERTICAL.md` |
-| Specs | `specs/001-auditoria-web/`, `specs/002-dominio-hidroponia-torre/` |
-| Este informe | `documentacion_equipo/entregables/INFORME_TECNICO_PRESENTACION_ECOGROW_2026-07.md` |
+| Qué problema resuelve | Regar con trazabilidad y sin dejar la bomba en seco |
+| Qué está implementado | Web, API, app Android, firmware ESP32 2.0, identidad de fábrica y diagrama de montaje |
+| Qué ya se vio en la torre prototipo | Bluetooth, WiFi, vínculo a la cuenta y reporte al servidor |
+| Qué falta para cerrar la prueba física | Lectura real de agua, encendido de la bomba y esquemático de fabricación |
+
+La bomba de la torre 2.0 se conmuta con un MOSFET en el GPIO 25. El módulo relé se usó solo para oír un clic en el banco. No forma parte del montaje.
 
 ---
 
-## 5. Flujo operativo que se puede demostrar
+## 2. Problema y criterio de diseño
 
-### 5.1 Ciclo de cultivo (software)
+En una torre vertical el riego tiene que ser periódico y la bomba no puede trabajar sin agua. El pH y los nutrientes importan después de que el riego y el nivel ya estén estables.
+
+EcoGrow mantiene el orden A0, A1, A2 y A3: primero la actuación, después el tiempo y el nivel, después la calidad de la solución. El firmware 2.0 ya contiene las rutinas de tiempo, nivel, pH, TDS y temperatura. Esas lecturas no se publican ni autorizan la bomba mientras el depósito y las sondas no estén calibrados.
+
+Fuentes: `docs/producto/VISION-Y-LINEAS-ECOGROW.md` y `docs/iot/ROADMAP-AUTOMATIZACION-FASES.md`.
+
+---
+
+## 3. Dos líneas de producto
+
+| Línea | Qué produce | Estado |
+|-------|-------------|--------|
+| EcoGrow Plantas | Hortalizas de hoja en torre vertical | Prototipo en curso |
+| EcoGrow Forraje | Forraje hidropónico para animales | Misma plataforma; el prototipo físico no está armado |
+
+Comparten API, panel, app y controlador. Cambian los tiempos y el cultivo, no el programa de la placa.
+
+---
+
+## 4. Lo implementado
+
+### 4.1 Plataforma web
+
+| Capacidad | Dónde está |
+|-----------|------------|
+| Cuentas y sesión | `blueprints/auth.py` |
+| Torres, fases y cosecha | `blueprints/torres.py` |
+| Cultivos y PDF | `blueprints/cultivos.py` |
+| Monitoreo, alertas y sync IoT | `blueprints/sensores.py` |
+| API móvil: detalle, bomba, modo y receta | `blueprints/mobile.py`, `services/mobile_service.py` |
+| Inventario de fábrica y vínculo con PIN | `claim_dispositivo_torre` en `Conexión/conexion.py` |
+| Perfiles de pH y conductividad por fase | `domain/hidroponia_torre.py` |
+| Asistente | `blueprints/ai.py` |
+| Salud del servicio | `GET /health` |
+
+El backend público está en Coolify, con HTTPS. El dispositivo no escribe en la base: envía `POST /api/iot/sync` con su token individual. El encendido remoto exige una lectura de agua de los últimos dos minutos y un nivel por encima del mínimo. Si el dato es viejo, el servidor rechaza la orden.
+
+### 4.2 Aplicación Android
+
+La app nativa está en `android/`, paquete `com.ecogrow.mobile`, con Kotlin y Jetpack Compose.
+
+| Capacidad | Comportamiento |
+|-----------|----------------|
+| Cuenta | Registro e ingreso contra la API remota |
+| Alta de torre | Bluetooth, PIN de la etiqueta, red de 2,4 GHz y contraseña |
+| Servicio BLE | El mismo UUID que el firmware (`021a9004-0382-4aea-bff4-6b3f1b5adfb4`) |
+| Detalle | Sensores, antigüedad de la lectura, modo y receta |
+| Bomba | Encender solo con telemetría reciente y agua suficiente. Apagar solo si ya está encendida |
+
+La app no muestra la dirección del servidor ni la contraseña de la red.
+
+### 4.3 Firmware de la torre
+
+El programa vigente es `platformio/esp32_ecogrow2/`. Sustituye al banco antiguo `platformio/esp32_rele_base/`, que mandaba un relé por el GPIO 26.
+
+| Capacidad | Estado en código |
+|-----------|------------------|
+| Identidad | Código de torre y PIN de 8 caracteres en memoria. No se borran al cambiar de red |
+| Bluetooth | Anuncio `PROV_EcoGrow_XXXX` mientras no hay red guardada |
+| WiFi | La app envía la red. Si esa red no responde en cerca de un minuto, el Bluetooth vuelve a abrirse |
+| Botón BOOT | De 3 a 8 segundos abre el Bluetooth y conserva el PIN. Doce segundos borra la torre |
+| Reloj y HTTPS | Sincroniza la hora y valida el certificado del servidor |
+| Sensores | Ultrasonido JSN-SR04T, TDS, pH y DS18B20. Sin calibrar, no envían número |
+| Bomba | GPIO 25 en alto enciende. Sin nivel válido, la salida queda en bajo |
+| Riego automático | Ciclo local de minutos encendido y apagado, con corte si falta agua |
+| Sync | Cada 10 segundos, con acuse del comando que ejecutó |
+
+### 4.4 Pines de montaje
+
+| Señal | Pin |
+|-------|-----|
+| Bomba, gate del MOSFET IRLZ44N | GPIO 25, con 220 ohmios y 10 kiloohmios a masa |
+| Ultrasonido, disparo | GPIO 5 |
+| Ultrasonido, eco | GPIO 19, divisor 1 kiloohmio / 2 kiloohmios |
+| TDS, señal | GPIO 34 |
+| TDS, alimentación pulsada | GPIO 18 |
+| pH | GPIO 35 |
+| Temperatura DS18B20 | GPIO 32, con 4,7 kiloohmios a 3,3 V |
+| Botón de bomba | GPIO 26 |
+| Botón de modo | GPIO 27 |
+| Recuperación | GPIO 0 |
+
+El diagrama de armado está en `hardware/schematics/diagrama-electrico.md`. La orden para pasarlo a KiCad y gerbers está en `hardware/TALLER.md`. Aún no hay archivo de fabricación ni placa impresa.
+
+### 4.5 Piezas 3D
+
+El germinador está en `hardware/3d/germinador/estacion_germinacion_hidroponico.3mf`. La torre vertical impresa sigue pendiente.
+
+---
+
+## 5. Arquitectura
 
 ```text
-Registrar torre → Seleccionar cultivo → Iniciar/cambiar fase
-→ Telemetría / monitoreo → Cosecha o cierre de ciclo
+App Android                         Panel web
+BLE (solo alta y cambio de red)     HTTPS
+HTTPS                               |
+        \                          /
+         Backend Flask en Coolify
+         MariaDB
+              ^
+              | HTTPS, token de la torre
+         ESP32
+         MOSFET -> bomba 12 V
+         Sensores del depósito
 ```
 
-### 5.2 Cadena IoT A0 (hardware + API)
-
-```text
-Panel web → comando bomba → MySQL (estado actuador)
-     → ESP32 sync (cada N s) → relé → bomba ON/OFF
-```
-
-Token de dispositivo: header `X-API-Token` (`ECOGROW_SENSOR_API_TOKEN`).  
-Failsafe: si se pierde WiFi/API, el firmware apaga la bomba (protección documentada).
-
-### 5.3 Próxima demo A1 (mensaje de roadmap)
-
-```text
-Programación riego (min ON / min OFF) → modo automático
-+ sensor de nivel → bloqueo bomba en seco + alerta en panel
-```
-
-Misma lógica aplicable a **torre vegetal** y **bandejas de forraje**, con tiempos distintos.
+El teléfono no se queda en Bluetooth ni en la red local de la torre. Después del alta, el control sale por el servidor.
 
 ---
 
-## 6. Resultados y estado actual (qué decir en voz alta)
+## 6. Lo probado en la torre prototipo
 
-### Ya construido y versionado
+La placa en banco es la ESP32 de código `EG-TORRE-F870C4`, anuncio `PROV_EcoGrow_70C4`.
 
-1. Plataforma web académica/operativa con auth, torres, cultivos, PDF, alertas e IA.
-2. Integración IoT real de **actuación** (ESP32 + relé + bomba).
-3. Dominio agronómico en código (perfiles por fase).
-4. Visión de negocio de **dos líneas** documentada en GitHub.
-5. Roadmap de automatización **ordenado y argumentado**.
-6. Modelo 3D del germinador publicado en el repo.
+| Prueba | Resultado |
+|--------|-----------|
+| Anuncio Bluetooth y alta con el PIN de la etiqueta | Hecho |
+| La torre entra a la red de 2,4 GHz | Hecho. Quedó con dirección en la red de casa |
+| El servidor reconoce el token y el código | Hecho. El dispositivo figura vinculado |
+| El sync HTTPS llega | Hecho. El servidor actualiza el estado reportado de la bomba |
+| Lectura de sensores guardada | No. Depósito, pH y TDS están sin calibrar, y no hay cultivo activo |
+| Encender la bomba desde la app | Bloqueado. No hay lectura de agua de los últimos dos minutos |
+| Apagar desde la app | El botón permanece inactivo porque la bomba ya está apagada |
+| Llevar la torre a otra red | Implementado en el firmware. Todavía no se hizo la prueba en otro lugar |
+| Esquemático de fabricación | Pendiente de taller |
 
-### En curso (honestidad técnica)
-
-- Cerrar **A1.1** (riego por tiempo) de punta a punta en `main` (hay avances locales de firmware/API a consolidar).
-- Implementar **A1.2** (nivel de agua) en hardware y lógica.
-
-### No se afirma aún
-
-- Dosificación automática de nutrientes en campo.
-- App móvil nativa comercial.
-- Que pH/EC en producción ya midan con sondas calibradas (capa A2 pendiente).
+Al alimentar, el GPIO 25 queda en bajo. El relé o el MOSFET no deben cerrar solos.
 
 ---
 
-## 7. Roadmap de presentación (próximos hitos)
+## 7. Fases, con el estado de octubre de 2026
 
-| Prioridad | Hito | Mensaje al público |
-|-----------|------|--------------------|
-| 1 | A1.1 Bomba por tiempo en producción | “El sistema riega solo por programa” |
-| 2 | A1.2 Nivel + anti-seco | “Protegemos la bomba y el cultivo” |
-| 3 | Prototipo forraje con mismos controladores | “Misma plataforma, segunda línea de negocio” |
-| 4 | A2 Sensores pH/EC reales | “Pasamos de riego a calidad de solución” |
-| 5 | A3 Luz / nutrientes A-B / IPM | “Operación avanzada” |
-
----
-
-## 8. Conclusión
-
-EcoGrow demuestra que se puede construir **automatización agrícola seria** sin saltarse la ingeniería:
-
-- **Producto claro:** dos líneas (vegetales en torre + forraje animal).
-- **Plataforma real:** web + BD + ESP32 + documentación abierta en GitHub.
-- **Método:** fases A0–A3, con criterios de salida y sin vender capacidades no estabilizadas.
-
-El repositorio no solo guarda código: guarda la **argumentación del desarrollo** — qué se hizo, por qué en ese orden y qué viene después.
+| Fase | Qué es | Estado |
+|------|--------|--------|
+| A0 | Actuar la bomba desde el sistema | El camino remoto existe. El clic físico de la bomba 2.0 no está aceptado |
+| A1.1 | Riego por tiempo | Implementado en el firmware. Falta verlo en la torre con agua |
+| A1.2 | Nivel y corte en seco | Implementado. No publica nivel hasta calibrar el depósito |
+| A2 | pH, TDS y temperatura en operación | El código y el diagrama están. Las sondas no están calibradas ni guardando lecturas |
+| A3 | Luz, dosificación y operación avanzada | No iniciado |
+| Hardware de fabricación | KiCad, lista de materiales y gerbers | Orden abierta en `hardware/TALLER.md` |
 
 ---
 
-## 9. Referencias rápidas (para anexos / QR)
+## 8. Qué se puede decir y qué no
 
-| Recurso | URL / ruta |
-|---------|------------|
-| Repo principal | https://github.com/elJohn72/proyecto_ecogrow |
-| Visión 2 líneas | `docs/producto/VISION-Y-LINEAS-ECOGROW.md` |
-| Roadmap automatización | `docs/iot/ROADMAP-AUTOMATIZACION-FASES.md` |
-| Doc completa | `docs/DOCUMENTACION-PROYECTO-ECOGROW.md` |
-| Diapositivas 20 slides | `documentacion_equipo/presentaciones/ECOGROW-TECNOLOGIAS-Y-ARQUITECTURA.md` |
-| Germinador 3D | `hardware/3d/germinador/` |
-| Guía bomba A0 | `docs/iot/FASE1-ESP32-BOMBA-RELE.md` |
+Se puede decir:
 
----
+1. Hay plataforma web, API móvil y app Android.
+2. La torre prototipo se dio de alta por Bluetooth, guardó el WiFi y reporta al servidor sin borrar su PIN.
+3. La bomba está protegida: sin agua reciente no enciende, ni en la app ni en la placa.
+4. El montaje eléctrico de la versión 2.0 está escrito y alineado con el firmware.
 
-## 10. Guión sugerido (8–12 minutos)
+No se afirma:
 
-| Min | Bloque |
-|-----|--------|
-| 0–1 | Problema: riego manual, sin trazabilidad, riesgo de bomba en seco |
-| 1–3 | Visión EcoGrow: automatización agrícola, 2 líneas |
-| 3–6 | Demo / diagrama: panel + MySQL + ESP32 + bomba (A0) |
-| 6–8 | Por qué las fases (A1 tiempo+nivel antes que pH/EC) |
-| 8–10 | Germinador 3D + hardware físico |
-| 10–12 | Roadmap A1–A3 y cierre |
+1. Que la bomba ya haya regado en la torre.
+2. Que el pH, el TDS o el nivel estén medidos en campo.
+3. Que exista placa fabricada.
+4. Que la línea de forraje tenga prototipo físico.
 
 ---
 
-*Informe sintetizado desde la documentación y código publicados en GitHub (`proyecto_ecogrow`). Actualizar este archivo cuando A1 quede cerrado en `main`.*
+## 9. Próximo cierre
+
+| Orden | Hito |
+|-------|------|
+| 1 | Armar la baquelita según el diagrama: MOSFET, diodo y sensores |
+| 2 | Calibrar el depósito y guardar la primera lectura de agua |
+| 3 | Encender y apagar la bomba desde la app, con la torre fuera del computador |
+| 4 | El taller entrega el KiCad y, cuando corresponda, los gerbers de la revisión A |
+
+---
+
+## 10. Referencias
+
+| Recurso | Ruta |
+|---------|------|
+| Repositorio | https://github.com/elJohn72/proyecto_ecogrow |
+| Firmware de la torre | `platformio/esp32_ecogrow2/` |
+| App Android | `android/` |
+| Diagrama | `hardware/schematics/diagrama-electrico.md` |
+| Orden de taller | `hardware/TALLER.md` |
+| Visión de producto | `docs/producto/VISION-Y-LINEAS-ECOGROW.md` |
+| Roadmap | `docs/iot/ROADMAP-AUTOMATIZACION-FASES.md` |
+| Germinador | `hardware/3d/germinador/` |
+
+La guía `docs/iot/FASE1-ESP32-BOMBA-RELE.md` describe el banco viejo con relé en el GPIO 26. No se usa para montar esta torre.
+
+---
+
+*Informe actualizado el 14 de octubre de 2026 a partir del código y de la prueba de la torre prototipo. No sustituye el expediente de fabricación que debe cerrar el taller.*

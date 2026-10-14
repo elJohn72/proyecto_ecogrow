@@ -66,8 +66,9 @@ class BleProvisioningManager(private val context: Context) {
         PROVISION
     }
 
-    // UUID canónico del servicio WiFiProv de Espressif sobre BLE
-    val ESP_PROV_SERVICE_UUID = "021a9004-0382-4aea-bff4-6b3f1b5adfb4"
+    // Mismo UUID que ECOGROW_PROV_SERVICE_UUID_LE en el firmware.
+    // No usar el valor por defecto de Arduino-ESP32 (termina en 6b3f1c5adfb4):
+    // el teléfono vería el nombre BLE y fallaría al buscar el servicio.
 
     val isBluetoothSupported: Boolean get() = adapter != null
     val isBluetoothEnabled: Boolean get() = adapter?.isEnabled == true
@@ -446,6 +447,8 @@ class BleProvisioningManager(private val context: Context) {
     }
 
     companion object {
+        const val ESP_PROV_SERVICE_UUID = "021a9004-0382-4aea-bff4-6b3f1b5adfb4"
+
         fun sanitizePop(input: String): String {
             val trimmed = input.trim()
             if (trimmed.startsWith("{") && trimmed.contains("\"pop\"")) {

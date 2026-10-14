@@ -15,6 +15,8 @@
 
 #include <WiFi.h>
 #include <WiFiProv.h>
+#include <esp_wifi.h>
+#include <esp_coexist.h>
 #include <WebServer.h>
 #include <HTTPClient.h>
 #include <WiFiClient.h>
@@ -25,8 +27,12 @@
 #include <DallasTemperature.h>
 #include <esp_bt.h>
 #include <time.h>
+#include <cstring>
 #include "safety.h"
 #include "identity_policy.h"
+#include "prov_uuid.h"
+#include "wifi_recovery.h"
+#include "sensor_diag.h"
 
 // Evitar que el core de Arduino libere la memoria Bluetooth (BTDM) al arrancar
 extern "C" bool btInUse() {
@@ -104,10 +110,21 @@ String mensajeAlerta = "Torre en Funcionamiento Normal";
 uint16_t tiempoOnMinutos  = 10;
 uint16_t tiempoOffMinutos = 20;
 
-// Factores de Calibración
-float phCalibVoltMid = 1.65;
-float phCalibPendiente = 3.5;
-float tdsFactor = 1.0;
+// Calibración en NVS. Arranca apagada. Los macros de config.h no la encienden.
+float nivelCortePct = waterCutoffPct();
+float nivelArmadoPct = waterTurnOnPct();
+TankPoints tanque{0, 0, 0, false, false};
+PhPoints phPuntos{0, 0, 0, 0, false};
+bool tdsCalibrado = false;
+float tdsFactor = 1.0f;
+uint32_t nivelMuestraMs = 0;
+float ultimaDistanciaCm = NAN;
+SensorState estadoNivel = SENSOR_NOT_CALIBRATED;
+SensorState estadoTemp = SENSOR_DISCONNECTED;
+SensorState estadoPh = SENSOR_NOT_CALIBRATED;
+SensorState estadoTds = SENSOR_NOT_CALIBRATED;
+int ultimoPhRaw = -1;
+int ultimoTdsRaw = -1;
 
 // Mediciones
 float tempAguaC = NAN;
@@ -204,31 +221,27 @@ float medirNivelUltrasonico(float& litrosOut) {
   delayMicroseconds(10);
   digitalWrite(PIN_US_TRIG, LOW);
 
-  long duracionUs = pulseIn(PIN_US_ECHO, HIGH, 25000);
-  if (duracionUs == 0) {
-    litrosOut = NAN;
-    return NAN;
-  }
-
-  float distanciaCm = (duracionUs * 0.0343) / 2.0;
-  if (!ECOGROW_TANK_CALIBRATED || TANQUE_ALTURA_CM <= TANQUE_DIST_MIN_CM || distanciaCm < TANQUE_DIST_MIN_CM || distanciaCm > TANQUE_ALTURA_CM + 2.0) { litrosOut = NAN; return NAN; }
-  if (distanciaCm < TANQUE_DIST_MIN_CM) distanciaCm = TANQUE_DIST_MIN_CM;
-  if (distanciaCm > TANQUE_ALTURA_CM) distanciaCm = TANQUE_ALTURA_CM;
-
-  float pct = ((TANQUE_ALTURA_CM - distanciaCm) / (TANQUE_ALTURA_CM - TANQUE_DIST_MIN_CM)) * 100.0;
-  if (pct < 0.0) pct = 0.0;
-  if (pct > 100.0) pct = 100.0;
-
-  litrosOut = (pct / 100.0) * TANQUE_CAPACIDAD_L;
-  return pct;
+  long duracionUs = pulseIn(PIN_US_ECHO, HIGH, ultrasonicTimeoutMs() * 1000UL);
+  LevelResult lectura = interpretLevel(duracionUs > 0, duracionUs > 0 ? (duracionUs * 0.0343f) / 2.0f : NAN, tanque);
+  ultimaDistanciaCm = lectura.distanceCm;
+  estadoNivel = lectura.state;
+  nivelMuestraMs = millis();
+  litrosOut = lectura.liters;
+  return lectura.percent;
 }
 
 // ------------------------------------------------------------------------------
 // SENSADO DE NUTRIENTES Y PH
 // ------------------------------------------------------------------------------
 
-float leerTdsCompensado(float tempAgua) {
-  if (!ECOGROW_TDS_CALIBRATED || !isfinite(tempAgua)) return NAN;
+// GPIO 18 en alto alimenta el TDS solo con el circuito NPN+PNP del esquema.
+// Un PNP con la base directa no se apaga con 3,3 V. Sin calibrar no se pulsa.
+float leerTdsCompensado(float tempAgua, bool forzarPulso) {
+  if (!tdsCalibrado && !forzarPulso) {
+    estadoTds = SENSOR_NOT_CALIBRATED;
+    ultimoTdsRaw = -1;
+    return NAN;
+  }
   digitalWrite(PIN_TDS_PWR, HIGH);
   delay(120);
 
@@ -239,39 +252,47 @@ float leerTdsCompensado(float tempAgua) {
   }
   digitalWrite(PIN_TDS_PWR, LOW);
 
-  float adcPromedio = (float)sumaRaw / 20.0;
-  float voltaje = (adcPromedio / 4095.0) * 3.3;
-
-  float coeficienteTemp = 1.0 + 0.02 * (tempAgua - 25.0);
-  float voltajeCompensado = voltaje / coeficienteTemp;
-
-  float tds = (133.42 * pow(voltajeCompensado, 3) - 255.86 * pow(voltajeCompensado, 2) + 857.39 * voltajeCompensado) * 0.5 * tdsFactor;
-  if (tds < 0.0) tds = 0.0;
-  return tds;
+  int raw = (int)(sumaRaw / 20);
+  ultimoTdsRaw = raw;
+  bool rail = adcRail(raw);
+  float voltaje = (raw / 4095.0f) * 3.3f;
+  bool valid = false;
+  float tds = tdsFromVoltage(voltaje, tempAgua, tdsFactor, tdsCalibrado, rail, &valid);
+  if (!tdsCalibrado) estadoTds = SENSOR_NOT_CALIBRATED;
+  else if (rail) estadoTds = SENSOR_SATURATED;
+  else if (!std::isfinite(tempAgua)) estadoTds = SENSOR_INVALID;
+  else if (!valid) estadoTds = SENSOR_OUT_OF_RANGE;
+  else estadoTds = SENSOR_OK;
+  return valid ? tds : NAN;
 }
 
 float leerPhSolucion() {
-  if (!ECOGROW_PH_CALIBRATED) return NAN;
   long sumaRaw = 0;
   for (int i = 0; i < 25; i++) {
     sumaRaw += analogRead(PIN_PH_ANALOG);
     delay(2);
   }
-  float adcPromedio = (float)sumaRaw / 25.0;
-  float voltaje = (adcPromedio / 4095.0) * 3.3;
-
-  float ph = 7.0 + ((phCalibVoltMid - voltaje) * phCalibPendiente);
-  if (ph < 0.0) ph = 0.0;
-  if (ph > 14.0) ph = 14.0;
-  return ph;
+  int raw = (int)(sumaRaw / 25);
+  ultimoPhRaw = raw;
+  bool rail = adcRail(raw);
+  float voltaje = (raw / 4095.0f) * 3.3f;
+  bool valid = false;
+  float ph = phFromCalibration(voltaje, phPuntos, rail, &valid);
+  if (!phPuntos.ok) estadoPh = SENSOR_NOT_CALIBRATED;
+  else if (rail) estadoPh = SENSOR_SATURATED;
+  else if (!valid) estadoPh = SENSOR_OUT_OF_RANGE;
+  else estadoPh = SENSOR_OK;
+  return valid ? ph : NAN;
 }
 
 void verificarSeguridadAgua() {
-  nivelAguaOk = safeWaterLevel(nivelAguaPct, ECOGROW_TANK_CALIBRATED);
+  bool fresco = levelSampleFresh(millis(), nivelMuestraMs);
+  nivelAguaOk = fresco && safeWaterLevel(nivelAguaPct, tanque.ok, estadoBomba, nivelCortePct, nivelArmadoPct);
   if (!nivelAguaOk) {
-    digitalWrite(PIN_BOMBA, LOW); digitalWrite(PIN_LED_ESTADO, LOW);
+    digitalWrite(PIN_BOMBA, LOW);
+    digitalWrite(PIN_LED_ESTADO, LOW);
     estadoBomba = false;
-    mensajeAlerta = "Nivel crítico o no validado. Bomba protegida.";
+    mensajeAlerta = "Nivel ausente, viejo o por debajo del corte. Salida apagada.";
   }
 }
 
@@ -336,7 +357,8 @@ void handleRoot() { if (authorized()) server.send_P(200,"text/html",INDEX_HTML);
 void sendStatus() {
   JsonDocument d;
   unsigned long passed=millis()-timestampCiclo;
-  d["pump_state"]=estadoBomba; d["pump_mode"]=modoActual==MODO_AUTO?"AUTO":"MANUAL";
+  d["pump_state"]=estadoBomba; d["pump_output_commanded"]=estadoBomba; d["pump_flow_measured"]=false;
+  d["pump_mode"]=modoActual==MODO_AUTO?"AUTO":"MANUAL";
   d["water_level_ok"]=nivelAguaOk;
   if(isfinite(nivelAguaPct)) d["water_level_pct"]=nivelAguaPct; else d["water_level_pct"]=nullptr;
   if(isfinite(litrosActuales)) d["water_liters"]=litrosActuales; else d["water_liters"]=nullptr;
@@ -410,6 +432,15 @@ String getDeviceToken() {
 void sincronizarConVps() {
   if (WiFi.status() != WL_CONNECTED) return;
 
+  if (time(nullptr) < 1704067200) {
+    static unsigned long ultimoAvisoHora = 0;
+    if (millis() - ultimoAvisoHora > 15000) {
+      ultimoAvisoHora = millis();
+      Serial.println("[VPS Sync] Esperando la hora de red para enviar lecturas.");
+    }
+    return;
+  }
+
   String token = getDeviceToken();
   // Fail-closed ante credenciales incompletas o vacías
   if (token.length() == 0 || token == "PENDIENTE" || token == "SIN_DATO") {
@@ -418,6 +449,10 @@ void sincronizarConVps() {
   }
 
   String endpoint = String(ECOGROW_BACKEND_URL) + "/api/iot/sync";
+  // El proxy rechaza HTTP con una redirección y la lectura no llega. El token no debe salir en claro.
+  if (endpoint.startsWith("http://")) {
+    endpoint = "https://" + endpoint.substring(7);
+  }
   HTTPClient http;
   bool isHttps = endpoint.startsWith("https://");
 
@@ -426,7 +461,7 @@ void sincronizarConVps() {
 
   if (isHttps) {
     clientSecure.setCACert(ISRG_ROOT_X1_CA);
-    clientSecure.setTimeout(6);
+    clientSecure.setTimeout(2);
     if (!http.begin(clientSecure, endpoint)) {
       Serial.println("[VPS Sync] Error al inicializar conexión HTTPS segura.");
       return;
@@ -440,7 +475,7 @@ void sincronizarConVps() {
 
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-API-Token", token);
-  http.setTimeout(6000);
+  http.setTimeout(httpSyncTimeoutMs());
 
   JsonDocument txDoc;
   txDoc["torre_codigo"] = getTorreCodigo();
@@ -461,10 +496,30 @@ void sincronizarConVps() {
   serializeJson(txDoc, payload);
 
   int httpCode = http.POST(payload);
+  if (httpCode != 200 && httpCode != 201) {
+    Serial.printf("[VPS Sync] No se pudo enviar la lectura. Código %d\n", httpCode);
+  }
   if (httpCode == 200 || httpCode == 201) {
     String resp = http.getString();
     JsonDocument rxDoc;
     if (!deserializeJson(rxDoc, resp)) {
+      JsonVariant corteJson = rxDoc["safety"]["level_cutoff_pct"];
+      JsonVariant armadoJson = rxDoc["safety"]["level_turn_on_pct"];
+      if ((corteJson.is<float>() || corteJson.is<int>()) && (armadoJson.is<float>() || armadoJson.is<int>())) {
+        float corte = corteJson.as<float>();
+        float armado = armadoJson.as<float>();
+        if (waterThresholdsValid(corte, armado)) {
+          nivelCortePct = corte;
+          nivelArmadoPct = armado;
+        }
+      }
+      if (rxDoc["sensor_warning"].is<const char*>()) {
+        Serial.printf("[VPS Sync] El servidor no guardó la lectura: %s\n", rxDoc["sensor_warning"].as<const char*>());
+      } else if (!rxDoc["lectura_id"].isNull()) {
+        Serial.println("[VPS Sync] Lectura guardada.");
+      } else {
+        Serial.println("[VPS Sync] Envío aceptado, sin lectura nueva.");
+      }
       if (rxDoc["command"].is<JsonObject>()) {
         JsonObject cmd = rxDoc["command"];
         String cmdId = cmd["id"].as<String>();
@@ -480,15 +535,17 @@ void sincronizarConVps() {
             String action = cmd["action"].as<String>();
             Serial.printf("[VPS Command] Recibida orden: %s (id: %s)\n", action.c_str(), cmdId.c_str());
             if (action == "PUMP_ON") {
-              if (nivelAguaOk) {
+              bool aplicar = shouldApplyPumpCommand(false, false, true, nivelAguaOk);
+              if (aplicar) {
                 encenderBomba();
                 modoActual = MODO_MANUAL;
                 timestampCiclo = millis();
-                duracionCicloMs = tiempoOnMinutos * 60000UL;
+                duracionCicloMs = manualOnLimitMs(tiempoOnMinutos * 60000UL);
                 estadoUltimoComando = "EXECUTED";
               } else {
+                apagarBomba();
                 estadoUltimoComando = "REJECTED_LOW_WATER";
-                Serial.println("[VPS Command] Rechazado: Nivel insuficiente o no calibrado");
+                Serial.println("[VPS Command] Rechazado: nivel ausente o por debajo del armado");
               }
             } else if (action == "PUMP_OFF") {
               modoActual = MODO_MANUAL;
@@ -534,14 +591,39 @@ void sincronizarConVps() {
   http.end();
 }
 
+static EcogrowLink enlaceWifi = {};
+static bool wifiReopenStarted = false;
+
+static void reabrirWifiPorBluetooth() {
+  if (wifiReopenStarted) return;
+  wifiReopenStarted = true;
+  Serial.println("[WIFI] Abriendo Bluetooth para elegir la red. El PIN y la identidad se conservan.");
+  WiFi.disconnect(true, true);
+  delay(300);
+  ESP.restart();
+}
+
 void SysProvEvent(arduino_event_t *sys_event) {
   switch (sys_event->event_id) {
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+      ecogrowNoteGotIp(enlaceWifi);
+      // La hora se pide otra vez al tener IP. Sin ella el certificado HTTPS se rechaza y no sale ninguna lectura.
+      configTime(0, 0, "pool.ntp.org", "time.google.com");
       Serial.print("[BLE Prov] WiFi Conectado! IP: ");
       Serial.println(IPAddress(sys_event->event_info.got_ip.ip_info.ip.addr));
       break;
+    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+      ecogrowNoteStaDown(enlaceWifi, millis());
+      break;
     case ARDUINO_EVENT_PROV_START:
+      ecogrowNoteProvStart(enlaceWifi);
+      esp_coex_preference_set(ESP_COEX_PREFER_WIFI);
       Serial.println("[BLE Prov] Anuncio BLE iniciado. Configura WiFi desde la app EcoGrow.");
+      break;
+    case ARDUINO_EVENT_WIFI_SCAN_DONE:
+      Serial.printf("[WIFI] Escaneo terminado. Redes 2.4 GHz: %u (estado %u)\n",
+                    sys_event->event_info.wifi_scan_done.number,
+                    sys_event->event_info.wifi_scan_done.status);
       break;
     case ARDUINO_EVENT_PROV_CRED_RECV:
       Serial.println("[BLE Prov] Credenciales WiFi recibidas por BLE.");
@@ -550,6 +632,8 @@ void SysProvEvent(arduino_event_t *sys_event) {
       Serial.println("[BLE Prov] Credenciales validadas con éxito.");
       break;
     case ARDUINO_EVENT_PROV_END:
+      // Cerrar Bluetooth no borra una red que ya obtuvo IP.
+      ecogrowNoteProvEnd(enlaceWifi);
       Serial.println("[BLE Prov] Aprovisionamiento finalizado.");
       break;
     default:
@@ -588,9 +672,25 @@ void setup() {
   if (!validRecipe(recetaActivaIdx,TOTAL_RECETAS)) recetaActivaIdx=0;
   tiempoOnMinutos = prefs.getUInt("t_on", RECETAS[recetaActivaIdx].timerOnMin);
   tiempoOffMinutos = prefs.getUInt("t_off", RECETAS[recetaActivaIdx].timerOffMin);
-  phCalibVoltMid = prefs.getFloat("ph_vmid", 1.65);
-  phCalibPendiente = prefs.getFloat("ph_slope", 3.5);
-  tdsFactor = prefs.getFloat("tds_f", 1.0);
+  tanque.ok = prefs.getUChar("tank_cal", 0) == 1;
+  tanque.heightCm = prefs.getFloat("tank_h", 0);
+  tanque.minDistanceCm = prefs.getFloat("tank_min", 0);
+  tanque.capacityL = prefs.getFloat("tank_l", 0);
+  tanque.volumeLinear = prefs.getUChar("tank_lin", 0) == 1;
+  if (tanque.ok && !(tanque.heightCm > tanque.minDistanceCm && tanque.capacityL > 0)) tanque.ok = false;
+  phPuntos.ok = prefs.getUChar("ph_on", 0) == 1;
+  phPuntos.v1 = prefs.getFloat("ph_v1", 0);
+  phPuntos.ph1 = prefs.getFloat("ph_p1", 0);
+  phPuntos.v2 = prefs.getFloat("ph_v2", 0);
+  phPuntos.ph2 = prefs.getFloat("ph_p2", 0);
+  if (!(phPuntos.v1 > 0.05f && phPuntos.v1 < 3.20f && phPuntos.v2 > 0.05f && phPuntos.v2 < 3.20f
+        && phPuntos.ph1 >= 0.0f && phPuntos.ph1 <= 14.0f && phPuntos.ph2 >= 0.0f && phPuntos.ph2 <= 14.0f
+        && fabsf(phPuntos.v2 - phPuntos.v1) >= 0.05f && fabsf(phPuntos.ph2 - phPuntos.ph1) >= 0.5f)) {
+    phPuntos.ok = false;
+  }
+  tdsCalibrado = prefs.getUChar("tds_on", 0) == 1;
+  tdsFactor = prefs.getFloat("tds_f", 1.0f);
+  if (tdsCalibrado && !(tdsFactor >= 0.2f && tdsFactor <= 5.0f)) tdsCalibrado = false;
 
   waterSensors.begin();
   waterSensors.setResolution(10);
@@ -627,9 +727,15 @@ void setup() {
   }
   snprintf(ble_pop_global, sizeof(ble_pop_global), "%s", nvs_pop.c_str());
 
-  // beginProvision inicia BLE sin liberar memoria BT para evitar error ESP_ERR_INVALID_STATE (259)
-  WiFiProv.beginProvision(WIFI_PROV_SCHEME_BLE, WIFI_PROV_SCHEME_HANDLER_NONE, WIFI_PROV_SECURITY_1, ble_pop_global, ble_service_name, NULL, NULL, false);
-  Serial.printf("[BLE Prov] Anuncio BLE: %s | Servicio BLE activo (Security 1 con PIN de posesión único por dispositivo)\n", ble_service_name);
+  // beginProvision inicia BLE sin liberar memoria BT para evitar error ESP_ERR_INVALID_STATE (259).
+  // El UUID se pasa explícito: el valor por defecto de Arduino no es el que busca la app.
+  uint8_t prov_service_uuid[16];
+  memcpy(prov_service_uuid, ECOGROW_PROV_SERVICE_UUID_LE, sizeof(prov_service_uuid));
+  WiFiProv.beginProvision(WIFI_PROV_SCHEME_BLE, WIFI_PROV_SCHEME_HANDLER_NONE, WIFI_PROV_SECURITY_1, ble_pop_global, ble_service_name, NULL, prov_service_uuid, false);
+  // Con Bluetooth encendido el módem WiFi tiene que seguir en reposo. Si se apaga, el ESP32 se reinicia.
+  // Durante la configuración se le da más tiempo de radio al WiFi para que el escaneo vea redes.
+  esp_coex_preference_set(ESP_COEX_PREFER_WIFI);
+  Serial.printf("[BLE Prov] Nombre: %s. El anuncio Bluetooth empieza solo si no hay una red guardada.\n", ble_service_name);
 
   // WiFi Dual fallback si hay credenciales configuradas
   if (strlen(password_ap)>=12) {
@@ -650,10 +756,36 @@ void setup() {
   server.begin();
   Serial.println("Servidor Web EcoGrow iniciado en puerto 80.");
 
+  if (enlaceWifi.wifiDownSince == 0) enlaceWifi.wifiDownSince = millis();
+
   timestampCiclo = millis();
-  apagarBomba();
-  modoActual=MODO_MANUAL;
-  duracionCicloMs=tiempoOffMinutos*60000UL;
+  digitalWrite(PIN_BOMBA, bootPumpOutputHigh() ? HIGH : LOW);
+  estadoBomba = bootPumpOutputHigh();
+  modoActual = bootStartsAutoOn() ? MODO_AUTO : MODO_MANUAL;
+  duracionCicloMs = tiempoOffMinutos * 60000UL;
+  mensajeAlerta = "Arranque con la salida apagada. Sin nivel calibrado no enciende.";
+}
+
+static void imprimirCampo(const char* nombre, SensorState estado, float crudo, const char* unidad, float convertido, bool calibrado) {
+  Serial.printf("[BANCO] %s estado=%s crudo=%s unidad=%s convertido=%s calibrado=%s\n",
+                nombre,
+                sensorStateName(estado),
+                std::isfinite(crudo) ? String(crudo, 2).c_str() : "nan",
+                unidad,
+                std::isfinite(convertido) ? String(convertido, 2).c_str() : "nan",
+                calibrado ? "si" : "no");
+}
+
+static void imprimirDiagnostico(bool pulsarTds) {
+  if (pulsarTds) valorTdsPpm = leerTdsCompensado(tempAguaC, true);
+  imprimirCampo("temp", estadoTemp, tempAguaC, "C", tempAguaC, true);
+  imprimirCampo("nivel", estadoNivel, ultimaDistanciaCm, "cm", nivelAguaPct, tanque.ok);
+  imprimirCampo("ph", estadoPh, ultimoPhRaw < 0 ? NAN : (ultimoPhRaw / 4095.0f) * 3.3f, "V", valorPh, phPuntos.ok);
+  imprimirCampo("tds", estadoTds, ultimoTdsRaw < 0 ? NAN : (ultimoTdsRaw / 4095.0f) * 3.3f, "V", valorTdsPpm, tdsCalibrado);
+  Serial.printf("[BANCO] salida estado=%s flujo_medido=no corte=%.0f armado=%.0f ejemplo_altura=%.0f ejemplo_min=%.0f ejemplo_litros=%.0f activo=no\n",
+                estadoBomba ? "comandada_alta" : "apagada",
+                nivelCortePct, nivelArmadoPct, TANQUE_ALTURA_CM, TANQUE_DIST_MIN_CM, TANQUE_CAPACIDAD_L);
+  Serial.println("[BANCO] adc_analogico no demuestra desconexion. GPIO18 en alto solo alimenta el TDS con NPN+PNP.");
 }
 
 // ------------------------------------------------------------------------------
@@ -665,7 +797,31 @@ void procesarComandosTallerSerial() {
     line.trim();
     if (line.length() == 0) return;
 
-    if (line == "ECOGROW:IDENT?") {
+    if (line == "ECOGROW:REOPEN_BLE") {
+      Serial.println("ECOGROW:REOPEN_BLE_OK");
+      reabrirWifiPorBluetooth();
+    } else if (line == "ECOGROW:WIFI_SCAN?") {
+      esp_coex_preference_set(ESP_COEX_PREFER_WIFI);
+      wifi_scan_config_t scanCfg = {};
+      scanCfg.show_hidden = true;
+      esp_err_t scanErr = esp_wifi_scan_start(&scanCfg, true);
+      uint16_t found = 0;
+      if (scanErr == ESP_OK) {
+        esp_wifi_scan_get_ap_num(&found);
+      }
+      Serial.printf("ECOGROW:WIFI_SCAN:{\"count\":%u,\"status\":%d}\n", found, (int)scanErr);
+      if (found > 0) {
+        uint16_t copied = found > 8 ? 8 : found;
+        wifi_ap_record_t *recs = (wifi_ap_record_t *)calloc(copied, sizeof(wifi_ap_record_t));
+        if (recs && esp_wifi_scan_get_ap_records(&copied, recs) == ESP_OK) {
+          for (uint16_t i = 0; i < copied; i++) {
+            Serial.printf("ECOGROW:WIFI_AP:{\"rssi\":%d,\"auth\":%u}\n", recs[i].rssi, (unsigned)recs[i].authmode);
+          }
+        }
+        free(recs);
+      }
+      esp_wifi_clear_ap_list();
+    } else if (line == "ECOGROW:IDENT?") {
       uint8_t mac[6];
       WiFi.macAddress(mac);
       char macStr[18];
@@ -737,6 +893,58 @@ void procesarComandosTallerSerial() {
       String storedPop = prefs.getString("pop", "");
       bool match = (storedPop.length() >= 8 && storedPop == checkPop);
       Serial.printf("ECOGROW:VERIFY:{\"match\":%s}\n", match ? "true" : "false");
+    } else if (line == "ECOGROW:DIAG") {
+      imprimirDiagnostico(true);
+    } else if (line.startsWith("ECOGROW:CAL_TANK:")) {
+      TankPoints pedido = parseTankCalibration(line.substring(18).c_str());
+      if (!pedido.ok) {
+        Serial.println("ECOGROW:CAL_TANK_ERR:{\"error\":\"Geometría inválida\"}");
+      } else {
+        tanque = pedido;
+        prefs.putUChar("tank_cal", 1);
+        prefs.putFloat("tank_h", tanque.heightCm);
+        prefs.putFloat("tank_min", tanque.minDistanceCm);
+        prefs.putFloat("tank_l", tanque.capacityL);
+        prefs.putUChar("tank_lin", tanque.volumeLinear ? 1 : 0);
+        Serial.println("ECOGROW:CAL_TANK_OK");
+      }
+    } else if (line == "ECOGROW:CAL_TANK_CLEAR") {
+      tanque = TankPoints{};
+      prefs.putUChar("tank_cal", 0);
+      Serial.println("ECOGROW:CAL_TANK_CLEARED");
+    } else if (line.startsWith("ECOGROW:CAL_PH:")) {
+      PhPoints pedido = parsePhCalibration(line.substring(16).c_str());
+      if (!pedido.ok) {
+        Serial.println("ECOGROW:CAL_PH_ERR:{\"error\":\"Puntos de pH inválidos\"}");
+      } else {
+        phPuntos = pedido;
+        prefs.putUChar("ph_on", 1);
+        prefs.putFloat("ph_v1", phPuntos.v1);
+        prefs.putFloat("ph_p1", phPuntos.ph1);
+        prefs.putFloat("ph_v2", phPuntos.v2);
+        prefs.putFloat("ph_p2", phPuntos.ph2);
+        Serial.println("ECOGROW:CAL_PH_OK");
+      }
+    } else if (line == "ECOGROW:CAL_PH_CLEAR") {
+      phPuntos = PhPoints{};
+      prefs.putUChar("ph_on", 0);
+      Serial.println("ECOGROW:CAL_PH_CLEARED");
+    } else if (line.startsWith("ECOGROW:CAL_TDS:")) {
+      float factor = 0;
+      if (!parseTdsFactor(line.substring(17).c_str(), &factor)) {
+        Serial.println("ECOGROW:CAL_TDS_ERR:{\"error\":\"Factor TDS inválido\"}");
+      } else {
+        tdsFactor = factor;
+        tdsCalibrado = true;
+        prefs.putFloat("tds_f", tdsFactor);
+        prefs.putUChar("tds_on", 1);
+        Serial.println("ECOGROW:CAL_TDS_OK");
+      }
+    } else if (line == "ECOGROW:CAL_TDS_CLEAR") {
+      tdsCalibrado = false;
+      tdsFactor = 1.0f;
+      prefs.putUChar("tds_on", 0);
+      Serial.println("ECOGROW:CAL_TDS_CLEARED");
     } else if (line == "ECOGROW:FACTORY_RESET") {
       Serial.println("ECOGROW:RESET_OK");
       prefs.clear();
@@ -754,6 +962,11 @@ void procesarComandosTallerSerial() {
 void loop() {
   server.handleClient();
   procesarComandosTallerSerial();
+
+  if (enlaceWifi.wifiDownSince != 0 &&
+      ecogrowShouldReopenBle(enlaceWifi.bleActive, enlaceWifi.wifiReady, (uint32_t)(millis() - enlaceWifi.wifiDownSince))) {
+    reabrirWifiPorBluetooth();
+  }
 
   // Botón físico de recuperación y configuración (GPIO 0 / BOOT)
   // Separación estricta entre:
@@ -795,9 +1008,7 @@ void loop() {
       unsigned long duracion = millis() - botonPresionadoInicio;
       if (duracion >= 3000 && duracion < 12000) {
         Serial.println("[RECONFIGURAR WIFI] Solicitud confirmada al soltar botón. Conservando PIN PoP e identidad NVS. Reiniciando BLE Prov...");
-        WiFi.disconnect(true, true);
-        delay(500);
-        ESP.restart();
+        reabrirWifiPorBluetooth();
       }
       botonPresionadoInicio = 0;
       avisoWifiEmitido = false;
@@ -854,17 +1065,33 @@ void loop() {
   estadoPrevModo = lecturaModo;
 
   uint32_t ahora = millis();
+  verificarSeguridadAgua();
 
-  // Muestreo de sensores cada 2.5 segundos
-  if (ahora - ultimoMuestreoSensores >= INTERVALO_SENSADO_MS) {
-    ultimoMuestreoSensores = ahora;
+  static uint32_t ultimoNivelMs = 0;
+  if ((uint32_t)(ahora - ultimoNivelMs) >= 500) {
+    ultimoNivelMs = ahora;
     nivelAguaPct = medirNivelUltrasonico(litrosActuales);
     verificarSeguridadAgua();
-    tempAguaC = waterSensors.getTempCByIndex(0);
-    if (tempAguaC == DEVICE_DISCONNECTED_C || tempAguaC < 0 || tempAguaC > 60) tempAguaC = NAN;
+  }
+
+  // Temperatura, pH y TDS no deciden solas el apagado: el nivel ya se revisó.
+  if (ahora - ultimoMuestreoSensores >= INTERVALO_SENSADO_MS) {
+    ultimoMuestreoSensores = ahora;
+    DeviceAddress sonda{};
+    bool presente = waterSensors.getAddress(sonda, 0);
+    float cruda = presente ? waterSensors.getTempC(sonda) : NAN;
+    float valida = NAN;
+    estadoTemp = interpretTemperature(presente, cruda, &valida);
+    tempAguaC = valida;
     waterSensors.requestTemperatures();
-    valorTdsPpm = leerTdsCompensado(tempAguaC);
-    valorPh     = leerPhSolucion();
+    valorPh = leerPhSolucion();
+    valorTdsPpm = leerTdsCompensado(tempAguaC, false);
+    verificarSeguridadAgua();
+    static uint32_t ultimoInforme = 0;
+    if ((uint32_t)(ahora - ultimoInforme) >= 15000) {
+      ultimoInforme = ahora;
+      imprimirDiagnostico(false);
+    }
   }
 
   // Máquina de estados de la cascada vertical (segura frente a rollover y sin saltos de reposo)
@@ -878,26 +1105,29 @@ void loop() {
       } else {
         if (nivelAguaOk) {
           encenderBomba();
-          duracionCicloMs = tiempoOnMinutos * 60000UL;
+          duracionCicloMs = manualOnLimitMs(tiempoOnMinutos * 60000UL);
           Serial.println("[AUTO] Iniciando ciclo de cascada vertical.");
         } else {
           duracionCicloMs = 30000UL;
-          Serial.println("[AUTO] Cascada cancelada: Nivel insuficiente en depósito (<10%).");
+          Serial.println("[AUTO] Cascada cancelada: el nivel no permite armar la salida.");
         }
       }
     }
   } else {
     // MODO MANUAL: protección de apagado por tiempo máximo de seguridad
-    if (manualLimitExceeded(estadoBomba, ahora, timestampCiclo, tiempoOnMinutos * 60000UL)) {
+    if (manualLimitExceeded(estadoBomba, ahora, timestampCiclo, manualOnLimitMs(tiempoOnMinutos * 60000UL))) {
       apagarBomba();
       timestampCiclo = millis();
       Serial.println("[MANUAL] Límite de tiempo máximo alcanzado. Bomba apagada por seguridad.");
     }
   }
 
-  // Sincronización periódica con el backend / VPS
+  // El nivel se refresca antes del HTTP. El corte no espera a que termine el POST.
   if (ahora - ultimoSyncVps >= INTERVALO_SYNC_VPS_MS) {
     ultimoSyncVps = ahora;
+    nivelAguaPct = medirNivelUltrasonico(litrosActuales);
+    verificarSeguridadAgua();
     sincronizarConVps();
+    verificarSeguridadAgua();
   }
 }

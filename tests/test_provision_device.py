@@ -770,6 +770,69 @@ class TestSerialProtocolAndHardwareProvisioning(unittest.TestCase):
             self.assertEqual(client.pop, "OLDPOP11")
             self.assertFalse(os.path.isfile(path))
 
+    def test_committed_token_is_not_rolled_back(self):
+        class Client:
+            def __init__(self):
+                self.token = "NEW_TOKEN_VALUE_123456"
+                self.writes = []
+
+            def verify_device_token(self, token):
+                return token == self.token
+
+            def set_device_token(self, token):
+                self.writes.append(token)
+                self.token = token
+                return True
+
+            def verify_pop(self, pop):
+                return True
+
+            def verify_code(self, code):
+                return True
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_dir = provision_state_dir(tmpdir)
+            mac = "44:1D:64:F8:70:C4"
+            path = _journal_path(state_dir, mac, "provision")
+            _write_secret_journal(path, {
+                "version": 1,
+                "mac": mac,
+                "stage": "db_pending",
+                "previous": {"token": "OLD_TOKEN_VALUE_123456"},
+                "intended": {"token": "NEW_TOKEN_VALUE_123456"},
+                "mutated": ["token"],
+                "identity_conserved": False,
+            })
+            client = Client()
+            result = recover_open_provision(
+                client, state_dir, mac,
+                cloud={"token_is_intended": True, "token_is_previous": False},
+            )
+            self.assertEqual(result["status"], "reconciled")
+            self.assertTrue(result["credentials_agree"])
+            self.assertFalse(result["identity_conserved"])
+            self.assertEqual(client.writes, [])
+            self.assertFalse(os.path.isfile(path))
+
+            _write_secret_journal(path, {
+                "version": 1,
+                "mac": mac,
+                "stage": "db_committed",
+                "previous": {"token": "OLD_TOKEN_VALUE_123456"},
+                "intended": {"token": "NEW_TOKEN_VALUE_123456"},
+                "mutated": ["token"],
+            })
+            client.token = "OLD_TOKEN_VALUE_123456"
+            diverged = recover_open_provision(
+                client, state_dir, mac,
+                cloud={"token_is_intended": True, "token_is_previous": False},
+            )
+            self.assertEqual(diverged["status"], "repair_required")
+            self.assertFalse(diverged["identity_conserved"])
+            self.assertFalse(diverged["credentials_agree"])
+            self.assertEqual(client.writes, [])
+            self.assertEqual(client.token, "OLD_TOKEN_VALUE_123456")
+
     @patch("tools.provision_device.Esp32SerialClient.connect")
     @patch("tools.provision_device.Esp32SerialClient.get_identity")
     @patch("tools.provision_device.Esp32SerialClient.set_pop")

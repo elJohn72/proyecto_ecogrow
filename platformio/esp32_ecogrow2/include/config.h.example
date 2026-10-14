@@ -13,7 +13,8 @@
 // Ejemplo heredado. El firmware no copia este macro a NVS al arrancar ni al consultar IDENT.
 #define ECOGROW_TORRE_CODIGO "TORRE-001"
 
-// Medir el depósito real y validar sensores antes de habilitar estas capacidades.
+// Cifras de ejemplo. El firmware no las usa como calibración.
+// La calibración real se guarda en NVS con ECOGROW:CAL_* y no borra PIN, WiFi ni token.
 #define ECOGROW_TANK_HEIGHT_CM 40.0f
 #define ECOGROW_TANK_MIN_DISTANCE_CM 10.0f
 #define ECOGROW_TANK_CAPACITY_L 30.0f
