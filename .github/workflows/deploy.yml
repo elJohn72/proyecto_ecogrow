@@ -14,25 +14,44 @@ on:
       - 'static/**'
       - 'templates/**'
       - 'deploy/**'
+      - 'Dockerfile'
       - 'scripts/deploy_vps.sh'
+      - 'scripts/ecogrow_queue_deploy.sh'
       - 'requirements.txt'
+      - '.github/workflows/deploy.yml'
 
 jobs:
   deploy:
     name: Deploy to Coolify (VPS Andrés Bello)
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Coolify Deployment Webhook
-        if: ${{ env.COOLIFY_WEBHOOK_URL != '' }}
+      - name: Queue EcoGrow deploy over SSH
         env:
-          COOLIFY_WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
+          ECOGROW_DEPLOY_SSH_KEY: ${{ secrets.ECOGROW_DEPLOY_SSH_KEY }}
         run: |
-          echo "🚀 Notificando a Coolify para iniciar despliegue reproducible..."
-          curl -f -X GET "$COOLIFY_WEBHOOK_URL"
-          echo "✅ Solicitud de despliegue enviada a Coolify con éxito."
+          if [ -z "$ECOGROW_DEPLOY_SSH_KEY" ]; then
+            echo "Falta el secreto ECOGROW_DEPLOY_SSH_KEY."
+            exit 1
+          fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$ECOGROW_DEPLOY_SSH_KEY" > ~/.ssh/ecogrow_deploy
+          chmod 600 ~/.ssh/ecogrow_deploy
+          printf '%s\n' '179.236.74.107 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIontwx3CPqp0Ls/o5TrEPXPj2tLjg+nIN7h9gJna8vv' > ~/.ssh/known_hosts
+          ssh -T -i ~/.ssh/ecogrow_deploy \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            root@179.236.74.107
 
-      - name: Notice when Coolify Webhook is managed directly
-        if: ${{ env.COOLIFY_WEBHOOK_URL == '' }}
+      - name: Verify public routes
         run: |
-          echo "ℹ️ El despliegue de EcoGrow se gestiona en Coolify (Laboratorio Andrés Bello)."
-          echo "Para disparar despliegues automatizados desde este workflow, configura COOLIFY_WEBHOOK_URL en GitHub Secrets."
+          base="https://w3bmo8epk9iedi7gkqchdpru.179.236.74.107.sslip.io"
+          curl -fsS "$base/health"
+          echo
+          code=$(curl -fsS -o /dev/null -w '%{http_code}' -X OPTIONS "$base/api/mobile/register")
+          echo "register OPTIONS ${code}"
+          test "$code" = "200"
+          code=$(curl -fsS -o /dev/null -w '%{http_code}' -X OPTIONS "$base/api/mobile/towers/bind")
+          echo "bind OPTIONS ${code}"
+          test "$code" = "200"

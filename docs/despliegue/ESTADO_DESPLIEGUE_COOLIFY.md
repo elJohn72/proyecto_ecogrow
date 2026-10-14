@@ -36,7 +36,7 @@ Comprobación en ese mismo entorno, con TLS verificado:
 - `POST /api/iot/sync` sin token respondió 401.
 - Esa cuenta de prueba se eliminó después. No había dispositivos ni códigos placeholder en el inventario.
 
-El workflow de GitHub “Deploy VPS kv2” sigue terminando sin avisar a Coolify, porque el panel administrativo no es público. Un push posterior a `main` no actualiza este proceso por sí solo: hay que encolar el redeploy de `ecogrow-app` en Coolify.
+Un push a `main` que toque la aplicación ejecuta `.github/workflows/deploy.yml`. Ese job entra por SSH con una clave que solo puede encolar el redeploy de `ecogrow-app` y espera a que Coolify lo termine. El panel administrativo sigue cerrado. Si el secreto `ECOGROW_DEPLOY_SSH_KEY` no está en GitHub, el job falla en vez de marcar un éxito vacío.
 
 ## Lo que este despliegue no demuestra
 
