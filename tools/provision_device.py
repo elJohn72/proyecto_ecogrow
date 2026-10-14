@@ -7,7 +7,7 @@ Garantiza la correspondencia estricta 1:1 entre el hardware ESP32, la identidad 
 - Realiza verificación obligatoria (readback) comprobando que la NVS del hardware coincide con la PoP.
 - Genera etiqueta vectorial SVG oficial con código QR matricial real escaneable y PIN legible.
 - Guarda artefactos con permisos restringidos (0600) en directorio protegido fuera de git.
-- Subcomandos: provision, verify, read, generate.
+- Subcomandos: provision, verify, read, generate, migrate-code, recover.
 """
 import argparse
 import glob
@@ -282,7 +282,7 @@ class Esp32SerialClient:
             if line.startswith("ECOGROW:"):
                 return line
 
-        sanitized_cmd = re.sub(r":(SET_POP|VERIFY_POP):.*", r":\1:***", cmd.strip())
+        sanitized_cmd = re.sub(r":(SET_POP|VERIFY_POP|SET_DEVICE_TOKEN|VERIFY_DEVICE_TOKEN):.*", r":\1:***", cmd.strip())
         raise TimeoutError(f"Tiempo de espera agotado ({self.timeout}s) sin respuesta del ESP32 para: {sanitized_cmd}")
 
     def get_identity(self) -> dict:
@@ -350,6 +350,175 @@ class Esp32SerialClient:
         data = json.loads(resp[len(prefix) :].strip())
         return bool(data.get("set", False))
 
+    def verify_device_token(self, token: str) -> bool:
+        """Verifica que el token individual coincida en el hardware mediante ECOGROW:VERIFY_DEVICE_TOKEN:<token>."""
+        clean_token = token.strip()
+        resp = self.send_command(f"ECOGROW:VERIFY_DEVICE_TOKEN:{clean_token}")
+        prefix = "ECOGROW:VERIFY_TOKEN:"
+        if not resp.startswith(prefix):
+            raise ValueError(f"Respuesta inválida al verificar token de dispositivo: {resp}")
+        data = json.loads(resp[len(prefix) :].strip())
+        return bool(data.get("match", False))
+
+
+def _repo_root() -> str:
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _ensure_repo_on_path() -> None:
+    root = _repo_root()
+    if root not in sys.path:
+        sys.path.insert(0, root)
+
+
+def _placeholder_code(code: str | None) -> bool:
+    _ensure_repo_on_path()
+    from tools.migrate_identities import is_placeholder_code
+    return is_placeholder_code(code)
+
+
+def _canonical_from_mac(mac: str) -> str:
+    _ensure_repo_on_path()
+    from tools.migrate_identities import derive_canonical_code
+    return derive_canonical_code(mac)
+
+
+def provision_state_dir(out_dir: str, state_dir: str | None = None) -> str:
+    """Ruta del diario de taller. El directorio se crea solo al escribir un registro."""
+    return state_dir or os.path.join(out_dir, ".provision-state")
+
+
+def _journal_path(state_dir: str, mac: str, kind: str) -> str:
+    safe = normalize_mac(mac).replace(":", "")
+    return os.path.join(state_dir, f"{safe}.{kind}.json")
+
+
+def _write_secret_journal(path: str, payload: dict) -> None:
+    """Estado de recuperación. Contiene secretos de taller y queda en 0600, fuera de git."""
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    try:
+        os.chmod(os.path.dirname(os.path.abspath(path)), 0o700)
+    except OSError:
+        pass
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+
+
+def _read_journal(path: str) -> dict:
+    with open(path, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    if not isinstance(data, dict):
+        raise RuntimeError("El registro de recuperación del taller está dañado.")
+    return data
+
+
+def _restore_field(client, field: str, previous) -> bool:
+    try:
+        if field == "pop":
+            if not isinstance(previous, str) or len(previous) != 8:
+                return False
+            client.set_pop(previous)
+            return client.verify_pop(previous) is True
+        if field == "code":
+            if not isinstance(previous, str) or _placeholder_code(previous):
+                return False
+            client.set_code(previous)
+            return client.verify_code(previous) is True
+        if field == "token":
+            if not isinstance(previous, str) or len(previous) < 16:
+                return False
+            if client.set_device_token(previous) is not True:
+                return False
+            return client.verify_device_token(previous) is True
+    except Exception:
+        return False
+    return False
+
+
+def _rollback_mutations(client, journal: dict) -> tuple[list[str], list[str]]:
+    previous = journal.get("previous") or {}
+    restored: list[str] = []
+    unrestored: list[str] = []
+    for field in reversed(journal.get("mutated") or []):
+        if _restore_field(client, field, previous.get(field)):
+            restored.append(field)
+        else:
+            unrestored.append(field)
+    return restored, unrestored
+
+
+def _repair_text(unrestored: list[str]) -> str:
+    fields = ", ".join(unrestored) if unrestored else "la identidad"
+    return (
+        f"Reparación requerida: no se pudo restaurar {fields}. "
+        "La identidad previa no quedó conservada."
+    )
+
+
+def recover_open_provision(client, state_dir: str, mac: str, kind: str = "provision") -> dict:
+    """Restaura una mutación interrumpida y verifica cada campo. No anuncia éxito si falta uno."""
+    path = _journal_path(state_dir, mac, kind)
+    if not os.path.isfile(path):
+        return {"status": "nothing_to_recover", "identity_conserved": True, "restored": [], "unrestored": []}
+    journal = _read_journal(path)
+    if journal.get("stage") == "complete":
+        os.remove(path)
+        return {"status": "nothing_to_recover", "identity_conserved": True, "restored": [], "unrestored": []}
+    restored, unrestored = _rollback_mutations(client, journal)
+    if unrestored:
+        journal["stage"] = "repair_required"
+        journal["identity_conserved"] = False
+        journal["unrestored"] = unrestored
+        _write_secret_journal(path, journal)
+        return {
+            "status": "repair_required",
+            "identity_conserved": False,
+            "restored": restored,
+            "unrestored": unrestored,
+        }
+    os.remove(path)
+    return {"status": "restored", "identity_conserved": True, "restored": restored, "unrestored": []}
+
+
+def _fail_after_rollback(client, journal_path: str, journal: dict, original: Exception) -> None:
+    restored, unrestored = _rollback_mutations(client, journal)
+    if not unrestored:
+        if os.path.isfile(journal_path):
+            os.remove(journal_path)
+        raise original
+    journal["stage"] = "repair_required"
+    journal["identity_conserved"] = False
+    journal["unrestored"] = unrestored
+    journal["restored"] = restored
+    _write_secret_journal(journal_path, journal)
+    raise RuntimeError(f"{original} {_repair_text(unrestored)}") from None
+
+
+def _begin_journal(state_dir: str, mac: str, kind: str, previous: dict) -> tuple[str, dict]:
+    path = _journal_path(state_dir, mac, kind)
+    journal = {
+        "version": 1,
+        "mac": normalize_mac(mac),
+        "stage": "mutating",
+        "previous": previous,
+        "mutated": [],
+        "identity_conserved": False,
+    }
+    _write_secret_journal(path, journal)
+    return path, journal
+
+
+def _note_mutation(path: str, journal: dict, field: str) -> None:
+    if field not in journal["mutated"]:
+        journal["mutated"].append(field)
+    journal["stage"] = "mutating"
+    _write_secret_journal(path, journal)
+
 
 def provision_hardware_device(
     port: str | None = None,
@@ -357,11 +526,12 @@ def provision_hardware_device(
     desired_code: str | None = None,
     desired_token: str | None = None,
     force: bool = False,
+    rotate_token: bool = False,
     out_dir: str = "docs/soporte/etiquetas",
     sync_db: bool = True,
+    state_dir: str | None = None,
 ) -> dict:
-    """Ejecuta el flujo completo de aprovisionamiento de taller con verificación en hardware."""
-    # 1. Determinar puerto
+    """Aprovisiona con preflight, diario recuperable y readback de cada reversión."""
     selected_port = port
     if not selected_port:
         detected = Esp32SerialClient.detect_ports()
@@ -369,55 +539,173 @@ def provision_hardware_device(
             raise RuntimeError("No se detectó ningún ESP32 conectado. Conecta la placa por USB o especifica --port.")
         selected_port = detected[0]
 
-    # 2. Conectar y leer identidad
+    state_directory = provision_state_dir(out_dir, state_dir)
     client = Esp32SerialClient(selected_port)
     client.connect()
     try:
         ident = client.get_identity()
         mac = normalize_mac(ident["mac"])
+        recovery = recover_open_provision(client, state_directory, mac)
+        if recovery["status"] == "repair_required":
+            raise RuntimeError(_repair_text(recovery["unrestored"]))
+        if recovery["status"] == "restored":
+            ident = client.get_identity()
+
         ble_name = ident.get("ble_name", derive_ble_name(mac))
-        existing_pop = ident.get("pop", "")
-        has_valid_pop = ident.get("has_pop", False) and len(existing_pop) == 8
+        existing_pop = ident.get("pop", "") or ""
+        has_valid_pop = bool(ident.get("has_pop", False)) and len(existing_pop) == 8
+        has_existing_token = bool(ident.get("has_token", False))
+        current_code = (ident.get("code") or "").strip().upper()
 
-        # 3. Decidir PoP a instalar o conservar
-        if has_valid_pop and not force and not desired_pop:
-            target_pop = existing_pop
-            action_taken = "identidad_existente_conservada"
+        raw_code = desired_code or (current_code if current_code and not _placeholder_code(current_code) else "")
+        serial_no = raw_code.strip().upper() if raw_code else _canonical_from_mac(mac)
+
+        existing_db_disp = None
+        if sync_db:
+            _ensure_repo_on_path()
+            from Conexión.conexion import fetch_dispositivo_by_codigo, fetch_dispositivo_by_mac
+            existing_db_disp = fetch_dispositivo_by_codigo(serial_no) or fetch_dispositivo_by_mac(mac)
+            if existing_db_disp and existing_db_disp.get("estado") == "reclamada" and not force:
+                raise ValueError(
+                    f"El dispositivo '{serial_no}' ya fue reclamado por un usuario en la nube. "
+                    "Usa --force solo si el taller va a reasignarlo a fábrica."
+                )
+
+        previous_token: str | None = None
+        new_token_to_write: str | None = None
+        final_token_for_db: str | None = None
+
+        if sync_db:
+            db_token = existing_db_disp.get("device_token") if existing_db_disp else None
+            if has_existing_token and db_token:
+                token_matches = client.verify_device_token(db_token)
+                if token_matches:
+                    previous_token = db_token
+                    if rotate_token or desired_token:
+                        new_token_to_write = (desired_token or secrets.token_hex(24)).strip()
+                        final_token_for_db = new_token_to_write
+                    else:
+                        new_token_to_write = None
+                        final_token_for_db = db_token
+                else:
+                    if not force and not rotate_token and not desired_token:
+                        raise RuntimeError(
+                            f"DESINCRONIZACIÓN DE TOKEN: El token físico del ESP32 no coincide con el token "
+                            f"registrado en la base de datos para '{serial_no}'. Usa --rotate-token o --force para sincronizar."
+                        )
+                    new_token_to_write = (desired_token or secrets.token_hex(24)).strip()
+                    final_token_for_db = new_token_to_write
+            else:
+                new_token_to_write = (desired_token or secrets.token_hex(24)).strip()
+                final_token_for_db = new_token_to_write
         else:
-            target_pop = desired_pop.strip().upper() if desired_pop else generate_secure_pop(8)
-            client.set_pop(target_pop)
-            action_taken = "nueva_identidad_instalada"
+            if has_existing_token and not rotate_token and not desired_token:
+                new_token_to_write = None
+                final_token_for_db = None
+            else:
+                new_token_to_write = (desired_token or secrets.token_hex(24)).strip()
+                final_token_for_db = new_token_to_write
 
-        # 4. Verificación obligatoria de coincidencia PoP en hardware
-        match_ok = client.verify_pop(target_pop)
-        if not match_ok:
+        requested_pop = desired_pop.strip().upper() if desired_pop else None
+        replace_pop = (not has_valid_pop) or force or (requested_pop is not None and requested_pop != existing_pop.strip().upper())
+        target_pop = existing_pop if not replace_pop else (requested_pop or generate_secure_pop(8))
+        replace_code = current_code != serial_no
+        journal_path = ""
+        journal: dict | None = None
+
+        def ensure_journal() -> tuple[str, dict]:
+            nonlocal journal_path, journal
+            if journal is None:
+                journal_path, journal = _begin_journal(
+                    state_directory,
+                    mac,
+                    "provision",
+                    {"pop": existing_pop if has_valid_pop else None, "code": current_code or None, "token": previous_token},
+                )
+            return journal_path, journal
+
+        if replace_pop:
+            path, active = ensure_journal()
+            _note_mutation(path, active, "pop")
+            try:
+                client.set_pop(target_pop)
+            except Exception:
+                _fail_after_rollback(
+                    client, path, active,
+                    RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que la PoP no coincide con el valor programado."),
+                )
+            if client.verify_pop(target_pop) is not True:
+                _fail_after_rollback(
+                    client, path, active,
+                    RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que la PoP no coincide con el valor programado."),
+                )
+        elif client.verify_pop(target_pop) is not True:
             raise RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que la PoP no coincide con el valor programado.")
 
-        # 5. Programar y verificar código único de torre canónico
-        serial_no = (desired_code or ident.get("code") or f"EG-TORRE-{mac.replace(':', '')[-6:]}").strip().upper()
-        client.set_code(serial_no)
-        code_match = client.verify_code(serial_no)
-        if not code_match:
+        if replace_code:
+            path, active = ensure_journal()
+            _note_mutation(path, active, "code")
+            client.set_code(serial_no)
+            if client.verify_code(serial_no) is not True:
+                _fail_after_rollback(
+                    client, path, active,
+                    RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que el código no coincide."),
+                )
+        elif client.verify_code(serial_no) is not True:
             raise RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que el código no coincide.")
 
-        # 6. Programar token individual de dispositivo
-        dev_token = (desired_token or secrets.token_hex(24)).strip()
-        client.set_device_token(dev_token)
+        if new_token_to_write is not None:
+            path, active = ensure_journal()
+            _note_mutation(path, active, "token")
+            set_ok = False
+            try:
+                set_ok = client.set_device_token(new_token_to_write) is True
+            except Exception:
+                _fail_after_rollback(
+                    client, path, active,
+                    RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El ESP32 rechazó la instalación del token de dispositivo."),
+                )
+            if not set_ok:
+                active["mutated"].remove("token")
+                _write_secret_journal(path, active)
+                error = RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El ESP32 rechazó la instalación del token de dispositivo.")
+                if active["mutated"]:
+                    _fail_after_rollback(client, path, active, error)
+                if os.path.isfile(path):
+                    os.remove(path)
+                raise error
+            if client.verify_device_token(new_token_to_write) is not True:
+                _fail_after_rollback(
+                    client, path, active,
+                    RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que el token no coincide tras la escritura."),
+                )
 
-        # 7. Generar y guardar etiqueta SVG con QR real y permisos 0600
-        svg_content = generate_svg_label(mac, ble_name, target_pop, serial_no)
-        out_filename = os.path.join(out_dir, f"{ble_name}_etiqueta.svg")
-        save_secure_label(out_filename, svg_content)
-
-        # 8. Registro opcional en base de datos de fábrica
         db_registered = False
         if sync_db:
             try:
+                _ensure_repo_on_path()
                 from Conexión.conexion import register_dispositivo_fabrica
-                register_dispositivo_fabrica(serial_no, mac, target_pop, dev_token, force=force)
+                register_dispositivo_fabrica(serial_no, mac, target_pop, final_token_for_db, force=force)
                 db_registered = True
-            except Exception:
-                pass
+            except Exception as db_err:
+                if journal is not None and journal.get("mutated"):
+                    _fail_after_rollback(client, journal_path, journal, db_err)
+                raise
+
+        if journal_path and os.path.isfile(journal_path):
+            os.remove(journal_path)
+
+        mutated = journal.get("mutated") if journal else []
+        if not mutated:
+            action_taken = "identidad_existente_conservada"
+        elif replace_pop:
+            action_taken = "nueva_identidad_instalada"
+        else:
+            action_taken = "identidad_actualizada"
+
+        svg_content = generate_svg_label(mac, ble_name, target_pop, serial_no)
+        out_filename = os.path.join(out_dir, f"{ble_name}_etiqueta.svg")
+        save_secure_label(out_filename, svg_content)
 
         return {
             "status": "success",
@@ -427,10 +715,127 @@ def provision_hardware_device(
             "ble_name": ble_name,
             "serial": serial_no,
             "pop": target_pop,
-            "device_token": dev_token,
+            "device_token": final_token_for_db,
             "label_file": out_filename,
             "verified": True,
             "db_registered": db_registered,
+            "identity_conserved": not mutated,
+        }
+    finally:
+        client.close()
+
+
+def coordinate_placeholder_migration(
+    port: str | None = None,
+    out_dir: str = "docs/soporte/etiquetas",
+    sync_db: bool = True,
+    state_dir: str | None = None,
+) -> dict:
+    """Actualiza un placeholder de forma coordinada: base primero, NVS después, con reversión verificada.
+
+    No rota PoP ni token y no borra al usuario. IDENT? por sí solo no hace este cambio.
+    """
+    _ensure_repo_on_path()
+    from tools.migrate_identities import apply_migrations, revert_code_migration
+
+    selected_port = port
+    if not selected_port:
+        detected = Esp32SerialClient.detect_ports()
+        if not detected:
+            raise RuntimeError("No se detectó ningún ESP32 conectado.")
+        selected_port = detected[0]
+
+    state_directory = provision_state_dir(out_dir, state_dir)
+    client = Esp32SerialClient(selected_port)
+    client.connect()
+    try:
+        ident = client.get_identity()
+        mac = normalize_mac(ident["mac"])
+        current_code = (ident.get("code") or "").strip().upper()
+        suggested = _canonical_from_mac(mac)
+        ble_name = ident.get("ble_name", derive_ble_name(mac))
+        existing_pop = (ident.get("pop") or "").strip().upper()
+        has_pop = bool(ident.get("has_pop")) and len(existing_pop) == 8
+
+        if current_code == suggested and client.verify_code(suggested) is True:
+            return {
+                "status": "success",
+                "action": "codigo_ya_canonico",
+                "mac": mac,
+                "serial": suggested,
+                "verified": True,
+                "db_registered": False,
+                "identity_mutated": False,
+                "label_file": None,
+            }
+
+        if current_code and not _placeholder_code(current_code) and current_code != suggested:
+            raise RuntimeError(
+                "La torre ya tiene un código activo distinto del sugerido por su MAC. "
+                "Consultar IDENT no lo cambia. Hace falta una decisión explícita de taller."
+            )
+
+        db_mutated = False
+        if sync_db:
+            migration = apply_migrations(dry_run=False, only_mac=mac)
+            if migration["requires_workshop"]:
+                raise RuntimeError(
+                    "Migración de base detenida por conflicto o MAC inutilizable. El hardware no se modificó."
+                )
+            db_mutated = migration["migrated"] > 0
+
+        path, journal = _begin_journal(
+            state_directory,
+            mac,
+            "migrate",
+            {"pop": existing_pop if has_pop else None, "code": current_code or None, "token": None},
+        )
+        journal["stage"] = "db_committed" if db_mutated else "hardware_pending"
+        journal["target_code"] = suggested
+        journal["db_mutated"] = db_mutated
+        _note_mutation(path, journal, "code")
+
+        try:
+            client.set_code(suggested)
+            if client.verify_code(suggested) is not True:
+                raise RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que el código no coincide.")
+        except Exception as exc:
+            after = current_code
+            try:
+                after = (client.get_identity().get("code") or "").strip().upper()
+            except Exception:
+                after = ""
+            if db_mutated and after == current_code:
+                reverted = revert_code_migration(mac, current_code, suggested)
+                if reverted.get("reverted") or reverted.get("reason") == "ya_estaba_en_codigo_anterior":
+                    if os.path.isfile(path):
+                        os.remove(path)
+                    raise RuntimeError(
+                        f"{exc} El hardware sigue en el código anterior y la base fue revertida."
+                    ) from None
+            journal["stage"] = "repair_required"
+            journal["identity_conserved"] = False
+            _write_secret_journal(path, journal)
+            raise RuntimeError(f"{exc} {_repair_text(['code'])}") from None
+
+        if os.path.isfile(path):
+            os.remove(path)
+
+        label_file = None
+        if has_pop:
+            label_file = os.path.join(out_dir, f"{ble_name}_etiqueta.svg")
+            save_secure_label(label_file, generate_svg_label(mac, ble_name, existing_pop, suggested))
+
+        return {
+            "status": "success",
+            "action": "codigo_migrado",
+            "mac": mac,
+            "serial": suggested,
+            "verified": True,
+            "db_registered": db_mutated,
+            "identity_mutated": True,
+            "label_file": label_file,
+            "pop_conserved": has_pop,
         }
     finally:
         client.close()
@@ -500,7 +905,8 @@ def generate_offline_label(
     serial: str | None = None,
     device_token: str | None = None,
     out_dir: str = "docs/soporte/etiquetas",
-    sync_db: bool = True,
+    sync_db: bool = False,
+    force: bool = False,
 ) -> dict:
     """Genera una etiqueta en modo offline (para pruebas unitarias y entornos sin hardware físico)."""
     mac_norm = normalize_mac(mac)
@@ -515,12 +921,9 @@ def generate_offline_label(
 
     db_registered = False
     if sync_db:
-        try:
-            from Conexión.conexion import register_dispositivo_fabrica
-            register_dispositivo_fabrica(serial_no, mac_norm, pop_token, dev_token, force=True)
-            db_registered = True
-        except Exception:
-            pass
+        from Conexión.conexion import register_dispositivo_fabrica
+        register_dispositivo_fabrica(serial_no, mac_norm, pop_token, dev_token, force=force)
+        db_registered = True
 
     return {
         "status": "success",
@@ -542,6 +945,9 @@ def main():
     prov_parser = subparsers.add_parser("provision", help="Aprovisionar hardware ESP32 y generar etiqueta verificada")
     prov_parser.add_argument("--port", help="Puerto serial del ESP32 (si no se indica, se autodetecta)")
     prov_parser.add_argument("--pop", help="Clave PoP específica a instalar (opcional; si se omite, se genera segura)")
+    prov_parser.add_argument("--code", help="Código canónico específico a instalar (opcional)")
+    prov_parser.add_argument("--rotate-token", action="store_true", help="Forzar rotación del token individual de dispositivo")
+    prov_parser.add_argument("--no-db", action="store_true", help="Omitir registro en base de datos cloud")
     prov_parser.add_argument("--force", action="store_true", help="Sobreescribir identidad si ya existe en NVS")
     prov_parser.add_argument("--out", default="docs/soporte/etiquetas", help="Carpeta destino para guardar la etiqueta SVG")
 
@@ -560,17 +966,35 @@ def main():
     gen_parser.add_argument("--mac", required=True, help="Dirección MAC física (ej: 44:1D:64:F8:70:C4)")
     gen_parser.add_argument("--pop", help="Clave PoP (opcional; se genera si no se especifica)")
     gen_parser.add_argument("--serial", help="Número de serie físico (opcional)")
+    gen_parser.add_argument("--sync-db", action="store_true", default=False, help="Sincronizar en base de datos cloud de fábrica")
+    gen_parser.add_argument("--force", action="store_true", default=False, help="Forzar sobreescritura en base de datos si ya existe")
     gen_parser.add_argument("--out", default="docs/soporte/etiquetas", help="Carpeta destino para guardar la etiqueta SVG")
 
-    # Argumento común opcional para entornos de taller autorizados
-    for p in [prov_parser, ver_parser, read_parser, gen_parser]:
+    mig_parser = subparsers.add_parser("migrate-code", help="Migrar un placeholder coordinando base, NVS y etiqueta sin rotar PoP ni token")
+    mig_parser.add_argument("--port", help="Puerto serial del ESP32")
+    mig_parser.add_argument("--no-db", action="store_true", help="Cambiar solo la NVS; no escribe la base")
+    mig_parser.add_argument("--out", default="docs/soporte/etiquetas", help="Carpeta destino para la etiqueta SVG")
+
+    rec_parser = subparsers.add_parser("recover", help="Restaurar una mutación de aprovisionamiento interrumpida y verificarla")
+    rec_parser.add_argument("--port", help="Puerto serial del ESP32")
+    rec_parser.add_argument("--out", default="docs/soporte/etiquetas", help="Carpeta donde está el estado de recuperación")
+
+    for p in [prov_parser, ver_parser, read_parser, gen_parser, mig_parser, rec_parser]:
         p.add_argument("--reveal-pop", action="store_true", help="Mostrar PIN PoP en terminal (desactivado por defecto por seguridad)")
 
     args = parser.parse_args()
 
     if args.command == "provision":
         try:
-            res = provision_hardware_device(port=args.port, desired_pop=args.pop, force=args.force, out_dir=args.out)
+            res = provision_hardware_device(
+                port=args.port,
+                desired_pop=args.pop,
+                desired_code=args.code,
+                force=args.force,
+                rotate_token=args.rotate_token,
+                out_dir=args.out,
+                sync_db=not args.no_db,
+            )
             pop_display = res['pop'] if getattr(args, 'reveal_pop', False) else "[CONFIDENCIAL · Resguardado en etiqueta SVG (0600)]"
             print("=" * 60)
             print("🌱 APROVISIONAMIENTO DE FÁBRICA EXITOSO (HARDWARE VERIFICADO)")
@@ -581,7 +1005,8 @@ def main():
             print(f"Número de Serie: {res['serial']}")
             print(f"PIN PoP:         {pop_display}")
             print(f"Acción:          {res['action']}")
-            print(f"Verificación:    Hardware NVS coincide al 100%")
+            print(f"Verificación:    Readback de los campos escritos")
+            print(f"Base de Datos:   {'Registrado en inventario cloud' if res['db_registered'] else 'Omitido / Offline'}")
             print(f"Etiqueta SVG:    {res['label_file']} (Permisos: 0600)")
             print("=" * 60)
         except Exception as exc:
@@ -625,14 +1050,24 @@ def main():
             print(f"MAC:             {normalize_mac(ident['mac'])}")
             print(f"Dispositivo BLE: {ident.get('ble_name')}")
             print(f"Estado PoP:      {pop_display}")
-            print(f"Tiene PoP:       {'Sí' if ident.get('has_pop') else 'No'}")
+            print(f"Código almacenado: {ident.get('code') or '(vacío)'}")
+            print(f"Código válido:   {'Sí' if ident.get('code_valid') else 'No'}")
+            print(f"Sugerido por MAC: {ident.get('suggested_code') or '(no reportado)'}")
+            print(f"Identidad mutada: {'Sí' if ident.get('identity_mutated') else 'No'}")
             print("=" * 60)
         except Exception as exc:
             print(f"❌ ERROR AL LEER DISPOSITIVO: {exc}", file=sys.stderr)
             sys.exit(1)
 
     elif args.command == "generate":
-        res = generate_offline_label(args.mac, args.pop, args.serial, args.out)
+        res = generate_offline_label(
+            mac=args.mac,
+            pop=args.pop,
+            serial=args.serial,
+            out_dir=args.out,
+            sync_db=args.sync_db,
+            force=args.force,
+        )
         pop_display = res['pop'] if getattr(args, 'reveal_pop', False) else "[CONFIDENCIAL · Resguardado en etiqueta SVG (0600)]"
         print("=" * 60)
         print("🌱 ETIQUETA OFFLINE GENERADA CON CÓDIGO QR REAL")
@@ -641,8 +1076,53 @@ def main():
         print(f"MAC:             {res['mac']}")
         print(f"Número de Serie: {res['serial']}")
         print(f"PIN PoP:         {pop_display}")
+        print(f"Base de Datos:   {'Sincronizado' if res['db_registered'] else 'No modificada (Modo offline)'}")
         print(f"Etiqueta SVG:    {res['label_file']} (Permisos: 0600)")
         print("=" * 60)
+    elif args.command == "migrate-code":
+        try:
+            res = coordinate_placeholder_migration(
+                port=args.port,
+                out_dir=args.out,
+                sync_db=not args.no_db,
+            )
+            print("=" * 60)
+            print("MIGRACIÓN DE CÓDIGO")
+            print("=" * 60)
+            print(f"MAC:             {res['mac']}")
+            print(f"Código:          {res['serial']}")
+            print(f"Acción:          {res['action']}")
+            print(f"Verificación:    {'Readback coincidente' if res['verified'] else 'No verificada'}")
+            print(f"Base de Datos:   {'Código actualizado' if res['db_registered'] else 'Sin cambio de fila en esta ejecución'}")
+            print(f"Etiqueta:        {res['label_file'] or 'No reimpresa (sin PoP previa verificada)'}")
+            print("=" * 60)
+            if not res["verified"]:
+                sys.exit(1)
+        except Exception as exc:
+            print(f"ERROR DE MIGRACIÓN: {exc}", file=sys.stderr)
+            sys.exit(1)
+    elif args.command == "recover":
+        try:
+            ports = [args.port] if args.port else Esp32SerialClient.detect_ports()
+            if not ports:
+                raise RuntimeError("No se detectó ningún ESP32 conectado.")
+            client = Esp32SerialClient(ports[0])
+            client.connect()
+            try:
+                ident = client.get_identity()
+                mac = normalize_mac(ident["mac"])
+                state_directory = provision_state_dir(args.out)
+                res = recover_open_provision(client, state_directory, mac)
+            finally:
+                client.close()
+            print(f"Recuperación: {res['status']}")
+            print(f"Identidad conservada: {'sí' if res['identity_conserved'] else 'no'}")
+            if res["status"] == "repair_required" or not res["identity_conserved"]:
+                print(_repair_text(res.get("unrestored") or []), file=sys.stderr)
+                sys.exit(1)
+        except Exception as exc:
+            print(f"ERROR DE RECUPERACIÓN: {exc}", file=sys.stderr)
+            sys.exit(1)
     else:
         parser.print_help()
 

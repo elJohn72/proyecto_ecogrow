@@ -273,6 +273,40 @@ def authenticate(mail, password):
     return row if row and valid else None
 
 
+def register_user(name: str, mail: str, password: str, password_confirm: str) -> dict:
+    if not isinstance(name, str) or not name.strip():
+        raise MobileError("invalid_payload", "El nombre es obligatorio.", 400)
+    clean_name = name.strip()[:100]
+
+    if not isinstance(mail, str) or not mail.strip():
+        raise MobileError("invalid_payload", "El correo electrónico es obligatorio.", 400)
+    clean_mail = mail.strip().lower()
+    if len(clean_mail) > 254 or "@" not in clean_mail or "." not in clean_mail:
+        raise MobileError("invalid_payload", "Formato de correo electrónico no válido.", 400)
+
+    if not isinstance(password, str) or not password:
+        raise MobileError("invalid_payload", "La contraseña es obligatoria.", 400)
+    if len(password) < 8:
+        raise MobileError("invalid_payload", "La contraseña debe tener al menos 8 caracteres.", 400)
+    if len(password) > 1024:
+        raise MobileError("invalid_payload", "La contraseña es demasiado larga.", 400)
+
+    if password != password_confirm:
+        raise MobileError("password_mismatch", "Las contraseñas no coinciden.", 400)
+
+    existing = _execute("SELECT id_usuario FROM usuarios WHERE LOWER(mail) = %s LIMIT 1", (clean_mail,), fetchone=True)
+    if existing:
+        raise MobileError("mail_already_registered", "Ya existe una cuenta con este correo.", 409)
+
+    try:
+        from Conexión.conexion import insert_mysql_usuario
+    except ModuleNotFoundError:
+        from ..Conexión.conexion import insert_mysql_usuario
+
+    user_id = insert_mysql_usuario(nombre=clean_name, mail=clean_mail, password=password)
+    return {"id_usuario": user_id, "nombre": clean_name, "mail": clean_mail}
+
+
 def user_by_id(user_id):
     return _execute("SELECT * FROM usuarios WHERE id_usuario = %s", (user_id,), fetchone=True)
 

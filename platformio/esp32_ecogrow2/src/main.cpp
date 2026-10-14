@@ -26,6 +26,7 @@
 #include <esp_bt.h>
 #include <time.h>
 #include "safety.h"
+#include "identity_policy.h"
 
 // Evitar que el core de Arduino libere la memoria Bluetooth (BTDM) al arrancar
 extern "C" bool btInUse() {
@@ -161,9 +162,9 @@ char ble_service_name[32] = "";
 #define ECOGROW_SENSOR_API_TOKEN ""
 #endif
 
-#ifndef ECOGROW_TORRE_CODIGO
-#define ECOGROW_TORRE_CODIGO "TORRE-001"
-#endif
+// ECOGROW_TORRE_CODIGO, si existe en config.h, no se copia a NVS al arrancar.
+// Un placeholder de ejemplo no debe sustituir ni reescribir la identidad activa.
+// El único escritor de torre_code es ECOGROW:SET_CODE, después del preflight de taller.
 
 // Temporizadores y Sincronización Remota
 unsigned long timestampCiclo = 0;
@@ -376,18 +377,19 @@ void handleRecipeControl(){
 // ------------------------------------------------------------------------------
 // IDENTIDAD CANÓNICA Y CREDENCIAL CLOUD INDIVIDUAL DEL DISPOSITIVO
 // ------------------------------------------------------------------------------
-String getTorreCodigo() {
+bool esCodigoValido(const String& c) {
+  return ecogrowCodeIsValid(c.c_str());
+}
+
+// Lectura pura. No crea ni reemplaza torre_code, aunque el valor sea un placeholder.
+String readStoredTorreCodigo() {
   String code = prefs.getString("torre_code", "");
-  if (code.length() > 0) return code;
-#ifdef ECOGROW_TORRE_CODIGO
-  return String(ECOGROW_TORRE_CODIGO);
-#else
-  uint8_t mac[6];
-  WiFi.macAddress(mac);
-  char buf[32];
-  snprintf(buf, sizeof(buf), "EG-TORRE-%02X%02X%02X", mac[3], mac[4], mac[5]);
-  return String(buf);
-#endif
+  code.trim();
+  return code;
+}
+
+String getTorreCodigo() {
+  return readStoredTorreCodigo();
 }
 
 String getDeviceToken() {
@@ -669,26 +671,32 @@ void procesarComandosTallerSerial() {
       char macStr[18];
       snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
       String pop = prefs.getString("pop", "");
-      String code = getTorreCodigo();
+      String code = readStoredTorreCodigo();
+      code.replace("\\", "");
+      code.replace("\"", "");
+      char suggested[32];
+      ecogrowSuggestCodeFromMac(mac, suggested, sizeof(suggested));
       String devToken = getDeviceToken();
-      Serial.printf("ECOGROW:IDENT:{\"mac\":\"%s\",\"ble_name\":\"%s\",\"code\":\"%s\",\"pop\":\"%s\",\"has_pop\":%s,\"has_token\":%s}\n",
-                    macStr, ble_service_name, code.c_str(), pop.c_str(),
+      const bool codeValid = ecogrowCodeIsValid(code.c_str());
+      Serial.printf("ECOGROW:IDENT:{\"mac\":\"%s\",\"ble_name\":\"%s\",\"code\":\"%s\",\"code_valid\":%s,\"suggested_code\":\"%s\",\"identity_mutated\":false,\"pop\":\"%s\",\"has_pop\":%s,\"has_token\":%s}\n",
+                    macStr, ble_service_name, code.c_str(), codeValid ? "true" : "false", suggested, pop.c_str(),
                     pop.length() >= 8 ? "true" : "false", devToken.length() >= 16 ? "true" : "false");
     } else if (line.startsWith("ECOGROW:SET_CODE:")) {
       String newCode = line.substring(17);
       newCode.trim();
       newCode.toUpperCase();
-      if (newCode.length() >= 3 && newCode.length() <= 64) {
+      if (ecogrowExplicitSetMayPersist(newCode.c_str())) {
         prefs.putString("torre_code", newCode);
         Serial.printf("ECOGROW:SET_CODE_OK:{\"code\":\"%s\"}\n", newCode.c_str());
       } else {
-        Serial.println("ECOGROW:SET_CODE_ERR:{\"error\":\"Código inválido (longitud entre 3 y 64)\"}");
+        Serial.println("ECOGROW:SET_CODE_ERR:{\"error\":\"Código inválido o de ejemplo (longitud 3-64, no placeholders)\"}");
       }
     } else if (line.startsWith("ECOGROW:VERIFY_CODE:")) {
       String checkCode = line.substring(20);
       checkCode.trim();
       checkCode.toUpperCase();
-      String storedCode = getTorreCodigo();
+      String storedCode = readStoredTorreCodigo();
+      storedCode.toUpperCase();
       bool match = (storedCode == checkCode);
       Serial.printf("ECOGROW:VERIFY_CODE:{\"match\":%s}\n", match ? "true" : "false");
     } else if (line.startsWith("ECOGROW:SET_DEVICE_TOKEN:")) {
@@ -700,6 +708,12 @@ void procesarComandosTallerSerial() {
       } else {
         Serial.println("ECOGROW:SET_TOKEN_ERR:{\"error\":\"Token inválido (mínimo 16 caracteres)\"}");
       }
+    } else if (line.startsWith("ECOGROW:VERIFY_DEVICE_TOKEN:")) {
+      String checkToken = line.substring(28);
+      checkToken.trim();
+      String storedToken = getDeviceToken();
+      bool match = (storedToken.length() >= 16 && storedToken == checkToken);
+      Serial.printf("ECOGROW:VERIFY_TOKEN:{\"match\":%s}\n", match ? "true" : "false");
     } else if (line.startsWith("ECOGROW:SET_POP:")) {
       String newPop = line.substring(16);
       newPop.trim();

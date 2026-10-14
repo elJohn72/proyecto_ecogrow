@@ -67,6 +67,34 @@ def get_session():
     return jsonify(session_payload())
 
 
+@mobile_bp.post("/register")
+def register():
+    data = payload()
+    name = data.get("name")
+    mail = data.get("mail")
+    password = data.get("password")
+    password_confirm = data.get("password_confirm")
+
+    key, now = request.remote_addr or "unknown", time.monotonic()
+    with _attempt_lock:
+        for address in list(_attempts):
+            _attempts[address] = [t for t in _attempts[address] if now - t < 60]
+            if not _attempts[address]:
+                del _attempts[address]
+        if len(_attempts) >= 4096 and key not in _attempts:
+            return error("rate_limited", "Espera un minuto antes de reintentar.", 429)
+        recent = _attempts.setdefault(key, [])
+        if len(recent) >= 10:
+            return error("rate_limited", "Espera un minuto antes de reintentar.", 429)
+        recent.append(now)
+
+    user_dict = service.register_user(name, mail, password, password_confirm)
+    session.clear()
+    session["csrf_token"] = secrets.token_urlsafe(32)
+    login_user(User(user_dict["id_usuario"], user_dict["nombre"], user_dict["mail"]))
+    return jsonify(session_payload()), 201
+
+
 @mobile_bp.post("/login")
 def login():
     data = payload()

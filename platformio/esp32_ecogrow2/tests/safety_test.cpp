@@ -1,5 +1,8 @@
 #include "safety.h"
+#include "identity_policy.h"
 #include <cassert>
+#include <cstdint>
+#include <cstring>
 #include <limits>
 
 int main() {
@@ -32,6 +35,20 @@ int main() {
   assert(manualLimitExceeded(true, 700000UL, 100000UL, 600000UL));
   assert(!manualLimitExceeded(false, 700000UL, 100000UL, 600000UL));
   assert(!manualLimitExceeded(true, 500000UL, 100000UL, 600000UL));
+
+  // Leer la identidad no persiste otro código. SET_CODE rechaza placeholders.
+  assert(!ecogrowIdentityReadPersists());
+  assert(ecogrowIsPlaceholderCode("TORRE-001"));
+  assert(ecogrowIsPlaceholderCode("EG-TORRE-01"));
+  assert(ecogrowIsPlaceholderCode(""));
+  assert(ecogrowIsPlaceholderCode(nullptr));
+  assert(!ecogrowExplicitSetMayPersist("TORRE-001"));
+  assert(!ecogrowExplicitSetMayPersist("PRUEBA"));
+  assert(ecogrowExplicitSetMayPersist("EG-TORRE-F870C4"));
+  uint8_t mac[6] = {0x44, 0x1D, 0x64, 0xF8, 0x70, 0xC4};
+  char suggested[32];
+  ecogrowSuggestCodeFromMac(mac, suggested, sizeof(suggested));
+  assert(std::strcmp(suggested, "EG-TORRE-F870C4") == 0);
 
   return 0;
 }

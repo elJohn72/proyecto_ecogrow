@@ -78,6 +78,70 @@ class MobileApiTest(unittest.TestCase):
         self.assertFalse(response.json["authenticated"])
         self.assertEqual(self.client.get("/api/mobile/towers").status_code, 401)
 
+    def test_register_success(self):
+        csrf = self.client.get("/api/mobile/session").json["csrf_token"]
+        headers = {"X-CSRF-Token": csrf}
+        payload = {
+            "name": "Operador PRUEBA",
+            "mail": "nuevo@ecogrow.local",
+            "password": "Password1234!",
+            "password_confirm": "Password1234!",
+        }
+        with patch.object(service, "_execute", return_value=None), \
+             patch("Conexión.conexion.insert_mysql_usuario", return_value=1):
+            response = self.client.post("/api/mobile/register", json=payload, headers=headers)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.json["authenticated"])
+        self.assertEqual(response.json["user"]["id"], 1)
+        self.assertEqual(response.json["user"]["mail"], "nuevo@ecogrow.local")
+        self.assertEqual(response.json["user"]["name"], "Operador PRUEBA")
+        self.assertNotIn("password", response.json["user"])
+        with self.client.session_transaction() as session:
+            self.assertEqual(session["_user_id"], "1")
+
+    def test_register_validation_errors(self):
+        csrf = self.client.get("/api/mobile/session").json["csrf_token"]
+        headers = {"X-CSRF-Token": csrf}
+        cases = [
+            ({}, 400),
+            ({"name": "", "mail": "test@ecogrow.local", "password": "PassWord123!", "password_confirm": "PassWord123!"}, 400),
+            ({"name": "Test", "mail": "bademail", "password": "PassWord123!", "password_confirm": "PassWord123!"}, 400),
+            ({"name": "Test", "mail": "test@ecogrow.local", "password": "short", "password_confirm": "short"}, 400),
+            ({"name": "Test", "mail": "test@ecogrow.local", "password": "PassWord123!", "password_confirm": "Mismatch123!"}, 400),
+        ]
+        for data, expected_status in cases:
+            response = self.client.post("/api/mobile/register", json=data, headers=headers)
+            self.assertEqual(response.status_code, expected_status)
+
+    def test_register_duplicate_email(self):
+        csrf = self.client.get("/api/mobile/session").json["csrf_token"]
+        headers = {"X-CSRF-Token": csrf}
+        payload = {
+            "name": "Operador PRUEBA",
+            "mail": "existente@ecogrow.local",
+            "password": "Password1234!",
+            "password_confirm": "Password1234!",
+        }
+        with patch.object(service, "_execute", return_value={"id_usuario": 99}):
+            response = self.client.post("/api/mobile/register", json=payload, headers=headers)
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.json["error"], "mail_already_registered")
+
+    def test_register_rate_limit(self):
+        csrf = self.client.get("/api/mobile/session").json["csrf_token"]
+        headers = {"X-CSRF-Token": csrf}
+        payload = {
+            "name": "Operador PRUEBA",
+            "mail": "nuevo@ecogrow.local",
+            "password": "Password1234!",
+            "password_confirm": "Password1234!",
+        }
+        with patch.object(service, "_execute", return_value={"id_usuario": 99}):
+            for _ in range(10):
+                self.assertEqual(self.client.post("/api/mobile/register", json=payload, headers=headers).status_code, 409)
+            self.assertEqual(self.client.post("/api/mobile/register", json=payload, headers=headers).status_code, 429)
+
     def test_database_failure_does_not_leak_details(self):
         self.logged_in()
         with patch.object(service, "list_towers", side_effect=Error("SECRET DATABASE HOST PRUEBA")):

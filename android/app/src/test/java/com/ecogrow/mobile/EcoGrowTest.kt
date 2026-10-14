@@ -320,4 +320,45 @@ class EcoGrowTest {
         assertEquals("Torre Sala", tower.name)
         assertEquals("EG-70C4", tower.code)
     }
+
+    @Test
+    fun testRegisterApiSuccess() {
+        val sessionJson = """{"authenticated":false,"user":null,"csrf_token":"CSRF_123"}"""
+        val registerJson = """{"authenticated":true,"user":{"id":5,"name":"Operador Test","mail":"test@ecogrow.io"},"csrf_token":"CSRF_456"}"""
+
+        server.enqueue(MockResponse().setResponseCode(200).setBody(sessionJson))
+        server.enqueue(MockResponse().setResponseCode(201).setBody(registerJson))
+
+        server.start()
+        val baseUrl = server.url("/").toString()
+        val api = EcoGrowApi(baseUrl, debug = true)
+
+        val result = api.register("Operador Test", "test@ecogrow.io", "Pass12345!", "Pass12345!")
+        assertTrue(result.getBoolean("authenticated"))
+        val user = result.getJSONObject("user")
+        assertEquals(5, user.getInt("id"))
+        assertEquals("Operador Test", user.getString("name"))
+        assertEquals("test@ecogrow.io", user.getString("mail"))
+
+        val recordedSessionReq = server.takeRequest()
+        assertEquals("/api/mobile/session", recordedSessionReq.path)
+
+        val recordedRegisterReq = server.takeRequest()
+        assertEquals("/api/mobile/register", recordedRegisterReq.path)
+        assertEquals("CSRF_123", recordedRegisterReq.getHeader("X-CSRF-Token"))
+    }
+
+    @Test
+    fun testRegisterApiServerRejection() {
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"authenticated":false,"csrf_token":"CSRF_123"}"""))
+        server.enqueue(MockResponse().setResponseCode(400).setBody("""{"error":"password_mismatch","message":"Las contraseñas no coinciden."}"""))
+
+        server.start()
+        val baseUrl = server.url("/").toString()
+        val api = EcoGrowApi(baseUrl, debug = true)
+
+        assertThrows(ApiFailure::class.java) {
+            api.register("Operador Test", "test@ecogrow.io", "Pass12345!", "Mismatch!")
+        }
+    }
 }

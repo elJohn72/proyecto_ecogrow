@@ -36,14 +36,16 @@ class EcoGrowViewModel(application: Application) : AndroidViewModel(application)
 
     private val state = MutableStateFlow(
         ScreenState(
-            endpoint = appPrefs.getString("saved_endpoint", DEFAULT_API_ENDPOINT) ?: DEFAULT_API_ENDPOINT
+            endpoint = DEFAULT_API_ENDPOINT
         )
     )
     val ui = state.asStateFlow()
 
     init {
-        val initialEndpoint = state.value.endpoint
-        api = EcoGrowApi(application, initialEndpoint, BuildConfig.DEBUG)
+        if (appPrefs.contains("saved_endpoint")) {
+            appPrefs.edit().remove("saved_endpoint").apply()
+        }
+        api = EcoGrowApi(application, DEFAULT_API_ENDPOINT, BuildConfig.DEBUG)
         checkExistingSession()
     }
 
@@ -100,6 +102,27 @@ class EcoGrowViewModel(application: Application) : AndroidViewModel(application)
 
     fun navigateTo(view: CurrentView) {
         state.value = state.value.copy(currentView = view, error = null, notice = null)
+    }
+
+    fun register(name: String, mail: String, pass: String, passConfirm: String) = action {
+        val targetEndpoint = DEFAULT_API_ENDPOINT
+        api = EcoGrowApi(getApplication(), targetEndpoint, BuildConfig.DEBUG)
+
+        val response = withContext(Dispatchers.IO) {
+            api.register(name.trim(), mail.trim(), pass, passConfirm)
+        }
+        val isAuth = response.optBoolean("authenticated", false)
+        if (!isAuth) throw ApiFailure(400, "No se pudo completar el registro.")
+
+        val userName = response.optJSONObject("user")?.optString("name") ?: name.trim()
+        state.value = state.value.copy(
+            authenticated = true,
+            user = userName,
+            currentView = CurrentView.HOME,
+            error = null,
+            notice = "¡Cuenta creada exitosamente! Bienvenido a EcoGrow."
+        )
+        loadCloudTowers()
     }
 
     fun login(mail: String, pass: String) = action {

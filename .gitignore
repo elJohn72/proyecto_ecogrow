@@ -13,3 +13,5 @@ platformio/**/.pio/
 android/build-check.log
 docs/soporte/etiquetas/*
 !docs/soporte/etiquetas/.gitkeep
+docs/soporte/taller-estado/
+**/.provision-state/
