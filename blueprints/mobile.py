@@ -103,6 +103,18 @@ def logout():
     return jsonify(session_payload())
 
 
+@mobile_bp.post("/towers/bind")
+@authenticated
+def bind_tower():
+    data = payload()
+    code = data.get("code")
+    pop = data.get("pop", "")
+    name = data.get("name", "")
+    location = data.get("location", "")
+    tower_info = service.bind_tower(int(current_user.get_id()), code, pop, name, location)
+    return jsonify(ok=True, tower=tower_info, message="Torre vinculada exitosamente a tu cuenta."), 201
+
+
 @mobile_bp.get("/towers")
 @authenticated
 def towers():
@@ -129,3 +141,23 @@ def pump(tower_id):
 @authenticated
 def irrigation(tower_id):
     return jsonify(service.save_irrigation(tower_id, int(current_user.get_id()), payload()))
+
+
+@mobile_bp.post("/towers/<int:tower_id>/mode")
+@authenticated
+def mode(tower_id):
+    data = payload()
+    m = data.get("mode")
+    if not m:
+        raise service.MobileError("invalid_payload", "Indica el modo: AUTO o MANUAL.")
+    return jsonify(service.command_mode(tower_id, int(current_user.get_id()), m)), 202
+
+
+@mobile_bp.post("/towers/<int:tower_id>/recipe")
+@authenticated
+def recipe(tower_id):
+    data = payload()
+    r = data.get("recipe_idx")
+    if r is None:
+        raise service.MobileError("invalid_payload", "Indica el índice de receta (recipe_idx).")
+    return jsonify(service.command_recipe(tower_id, int(current_user.get_id()), r)), 202

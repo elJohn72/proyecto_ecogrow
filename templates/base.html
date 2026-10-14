@@ -15,7 +15,10 @@
     <meta name="twitter:card" content="summary_large_image"/>
     <meta name="twitter:title" content="{{ self.title()|striptags }}"/>
     <meta name="twitter:description" content="{{ self.meta_description()|striptags }}"/>
-    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml"/>
+    <link rel="icon" href="{{ url_for('static', filename='brand/ecogrow-32.png') }}" type="image/png" sizes="32x32"/>
+    <link rel="icon" href="{{ url_for('static', filename='brand/favicon.ico') }}" sizes="any"/>
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='brand/ecogrow-192.png') }}"/>
+    <meta name="theme-color" content="#195C3D"/>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin/>
@@ -33,7 +36,7 @@
     <header class="site-header">
         <div class="site-header__bar">
             <a href="{{ url_for('main.inicio') }}" class="site-brand">
-                <span class="site-brand__icon material-symbols-outlined">eco</span>
+                <img class="site-brand__logo" src="{{ url_for('static', filename='brand/ecogrow-symbol.png') }}" alt="" width="52" height="52"/>
                 <span>
                     <strong class="site-brand__name">EcoGrow</strong>
                     <span class="site-brand__tag">Plataforma hidropónica inteligente</span>

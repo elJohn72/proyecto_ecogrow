@@ -61,11 +61,141 @@ Estado general: **EN PROCESO DE ENTREGA FINAL Y DESPLIEGUE EN COOLIFY**
 
 ---
 
-## Tarea 5: Validación Cruzada y Verificaciones de CI [EN EJECUCIÓN]
+## Tarea 5: Validación Cruzada y Verificaciones de CI [COMPLETADO]
 - **Objetivo:** Verificar suite de CI, construir artefactos y validar despliegue activo en Coolify.
 - **Acciones Realizadas:**
-  1. 40/40 tests Python pasando localmente.
+  1. 43/43 tests Python pasando localmente.
   2. Tests unitarios C++ de seguridad de bomba: 0 errores.
   3. Firmware ESP32 compilado en PlatformIO: OK.
-  4. Android Gradle build (`testDebugUnitTest`, `lintDebug`, `assembleDebug`): OK.
+  4. Android Gradle build (`testDebugUnitTest`, `assembleDebug`): OK.
   5. `git diff --check`: 0 errores.
+
+---
+
+## Tarea 6: Remediación de Bloqueos de la 2ª Revisión (Auditoría 2026-10-13) [COMPLETADO]
+- **Objetivo:** Corregir los 7 bloqueos auditados en `docs/auditoria/REVISION_COOLIFY_SEGUNDA_2026-10-13.md`.
+- **Acciones Realizadas:**
+  1. **Aprovisionamiento BLE Robusto:** `BleProvisioningManager.kt` suscrito a `EventBus` para esperar evento oficial `ESPConstants.EVENT_DEVICE_CONNECTED` tras descubrimiento GATT antes de llamar a `provision()`. Manejo de timeout (35s), desconexión, PoP incorrecta y confirmación estricta desde `deviceProvisioningSuccess()`. Eliminado valor por defecto hardcodeado.
+  2. **Comandos Persistentes entre Workers:** Tabla `dispositivo_comandos` creada en MySQL/MariaDB. `services/mobile_service.py` persiste órdenes de bomba, modo y receta en base de datos con marcado de órdenes anteriores como `superseded`. Recuperación y ACK seguros frente a múltiples workers de Gunicorn y reinicios del ESP32.
+  3. **HTTPS Completo con Let's Encrypt:** FQDN de Coolify configurado a `https://w3bmo8epk9iedi7gkqchdpru.179.236.74.107.sslip.io` con certificado TLS oficial emitido por Let's Encrypt (ISRG Root X1). Firmware ESP32 migrado a `WiFiClientSecure` con validación CA estricta mediante `ISRG_ROOT_X1_CA` y sincronización horaria SNTP (`configTime`).
+  4. **Ingesta y Validación de TDS y Litros:** Columnas `tds_ppm` y `volumen_litros` agregadas a `lecturas_sensores` con migración automática en `conexion.py`. Endpoint `/api/iot/sync` persiste TDS y litros reales; `mobile_service.py` mantiene EC y TDS separados y expone litros basados en calibración física.
+  5. **Credenciales y PoP por Dispositivo:** Eliminados tokens y contraseñas compartidas/hardcodeadas en código y en `config.h.example`. Derivación de PoP única ligada a hardware (`EG-MAC`) con soporte NVS. Fallo cerrado (fail-closed) si falta configuración o token.
+  6. **Modo y Receta Remotos en Android:** Implementados endpoints `POST /api/mobile/towers/<id>/mode` y `POST /api/mobile/towers/<id>/recipe`. `EcoGrowViewModel.kt` soporta tanto modo local (`local?.request`) como remoto (`api.post`) sin excepciones `local!!`.
+  7. **Semántica Apagado Remoto en AUTO:** Orden `PUMP_OFF` en firmware ESP32 conmuta `modoActual = MODO_MANUAL` y pone `duracionCicloMs = 0`, evitando reencendido automático tras tiempo de reposo.
+- **Evidencia de Verificación:**
+  - Tests Python: 43/43 tests pasando (0 errores, 0 fallos).
+  - Tests Android: `testDebugUnitTest` pasando y `assembleDebug` completado exitosamente.
+  - Compilación Firmware PlatformIO: Exitosa con TLS `WiFiClientSecure` y `ISRG_ROOT_X1_CA`.
+  - Servidor Coolify: Certificado TLS Let's Encrypt activo y verificado por HTTPS (HTTP/2 200 OK).
+
+---
+
+## Tarea 7: Remediación de la 3ª Revisión (Seguridad, Persistencia y Consistencia) [COMPLETADO]
+- **Objetivo:** Resolver los 5 hallazgos críticos de la tercera auditoría en `docs/auditoria/REVISION_TERCERA_2026-10-13.md`.
+- **Acciones Realizadas:**
+  1. **PIN/PoP Impredecible por Dispositivo:**
+     - En `platformio/esp32_ecogrow2/src/main.cpp`: generación aleatoria con `esp_random()` (charset base32 de 8 caracteres) persistida en NVS (`prefs.putString("pop", ...)`).
+     - Eliminada derivación basada en dirección MAC y nombre BLE.
+     - Eliminada impresión del PIN/PoP en registros Serial / consola.
+     - En Android `MainActivity.kt`: placeholder actualizado para indicar PIN físico de la etiqueta de la torre; no autosugerencia.
+  2. **ACK Limitado a la Torre Propietaria:**
+     - En `services/mobile_service.py:record_command_ack`: validación estricta de `cmd_id` no vacío, verificación de pertenencia `WHERE id_comando=%s AND torre_id=%s AND estado='pending'`.
+     - Validación de transiciones a estados permitidos (`executed`, `rejected`, `expired`).
+     - Rechazo de confirmaciones cruzadas entre torres y eliminación de actualizaciones wildcard.
+  3. **Persistencia como Única Fuente de Verdad:**
+     - Eliminado almacenamiento en memoria `_pending_commands`.
+     - Implementada transacción atómica `_execute_transaction` en `Conexión/conexion.py` que ejecuta el marcado `superseded` y el `INSERT` dentro de la misma transacción con rollback ante fallos.
+     - Errores de almacenamiento lanzan `MobileError("command_storage_failed", ..., 503)` sin devolver estados ficticios de `pending`.
+     - Ordenamiento determinista en `get_active_command` y `get_active_pump_command` por `(creado_en DESC, id_comando DESC)`.
+  4. **Separación de Estado Físico de Bomba y Comandos:**
+     - `pump.reported` desacoplado de órdenes `SET_MODE` y `SET_RECIPE`: solo refleja `"on"`, `"off"` o `None` proveniente de telemetría de actuador (`reporte_esp32`) o de órdenes de bomba ejecutadas.
+     - `SET_MODE` y `SET_RECIPE` se gestionan en sus dominios de modo y receta sin alterar el estado reportado ni deseado de la bomba.
+  5. **Volumen Solo con Calibración Explícita:**
+     - Agregada columna `deposito_calibrado BOOLEAN NOT NULL DEFAULT FALSE` en `configuracion_control` (`database/schema.sql` y `conexion.py`).
+     - En `sync_iot_device`: si no llega volumen directo, solo se calcula a partir del porcentaje si `deposito_calibrado` es verdadero. Caso contrario, se preserva `None` (`SIN_DATO`).
+     - Capability `liters` en `tower_detail` exige `deposito_calibrado` activo.
+- **Evidencia de Verificación:**
+  - Tests Python: 48/48 tests pasando (+5 tests nuevos cubriendo aislamiento multi-torre, rollback/503, separación bomba/modo y calibración de volumen).
+  - Tests Android: `testDebugUnitTest` pasando al 100%.
+  - Compilación Firmware PlatformIO: Exitosa (Flash: 91.9%, RAM: 18.5%).
+  - `git diff --check`: 0 errores.
+
+---
+
+## Tarea 8: Remediación de la 4ª Revisión (Onboarding PoP, Estado Físico Bomba y Multi-worker Gate) [COMPLETADO]
+- **Objetivo:** Resolver los bloqueos identificados en la cuarta auditoría en `docs/auditoria/REVISION_CUARTA_2026-10-13.md` (HEAD `e70a26a`).
+- **Acciones Realizadas:**
+  1. **Entrega y Recuperación de PIN/PoP Bluetooth (P1):**
+     - En `platformio/esp32_ecogrow2/src/main.cpp`: separación estricta mediante botón BOOT (GPIO 0):
+       - Pulsación entre 3s y 8s: Reconfigura WiFi manteniendo la identidad NVS, calibración y PIN PoP. Permite cambiar de router sin invalidar la etiqueta física de la torre.
+       - Pulsación prolongada >= 12s: Restablecimiento de fábrica autorizado físicamente con borrado completo de NVS.
+     - Creada herramienta de aprovisionamiento de fábrica `tools/provision_device.py` para generar identificadores, PoP aleatorio Base32, payloads QR JSON y etiquetas vectoriales SVG imprimibles para el chasis de las torres.
+     - En Android `MainActivity.kt`: soporte en diálogo BLE para ingreso manual o extracción automática de PIN PoP desde JSON de QR escaneado.
+     - Documentación formal en `docs/soporte/RECUPERACION_Y_PROVISIONAMIENTO_POP.md`.
+  2. **Estado Físico de Bomba en Modo Manual (P1):**
+     - En `Conexión/conexion.py:sync_iot_device`: eliminado `if modo != "manual":` para asegurar que el estado físico reportado (`rele_principal_on`) se persista siempre en `actuadores_torre` con origen `reporte_{dispositivo}` y timestamp en todos los modos.
+     - En `services/mobile_service.py:tower_detail`: eliminado el fallback de `reported` a órdenes ejecutadas históricas (`active_pump_cmd.get("status") == "executed"`). `reported` proviene exclusivamente del reporte físico real de la torre.
+     - Añadidos tests unitarios validando que tras ON ejecutado y posterior apagado físico por botón o límite de seguridad, ambas interfaces (Web y Android) muestran OFF ("Apagada" / "⚪ DETENIDA").
+  3. **Integración Real Multi-Worker y Gate en CI:**
+     - Creada suite `tests/test_multiworker_integration.py` que ejecuta procesos independientes del SO (`multiprocessing.Process`) contra una base de datos temporal MariaDB (`ecogrow_temp_test_*`).
+     - Cubre los 6 escenarios críticos:
+       1. Ciclo de vida real multi-worker: Worker 1 crea orden, Worker 2 lee orden, Worker 3 envía ACK.
+       2. Rollback atómico en transacciones ante fallos sin corrupción de comandos previos.
+       3. Concurrencia multi-proceso con manejo automático de deadlocks transitorios (error 1213/1205 con backoff exponencial) y orden determinista (`creado_en DESC, id_comando DESC`).
+       4. Comandos expirados (`now >= exp`) y superseded rechazan ACKs.
+       5. Aislamiento multi-torre: rechazo de ACK de órdenes ajenas.
+       6. Persistencia tras reinicio y reconexión sin reejecución de comandos vencidos.
+     - Actualizado `.github/workflows/ci.yml` para desplegar el servicio MariaDB en el job `python-web` como gate obligatorio de CI.
+- **Evidencia de Verificación:**
+  - Tests Python: 56/56 tests pasando (50 unitarios + 6 de integración real multi-worker con MariaDB).
+  - Tests Android: `JAVA_HOME=/opt/homebrew/opt/openjdk@17 ./gradlew testDebugUnitTest` pasando al 100%.
+  - Compilación Firmware PlatformIO: Exitosa (Flash: 91.9%, RAM: 18.5%).
+  - Prueba de seguridad en C++: Exitosa (`/tmp/ecogrow-safety-test`).
+  - Sintaxis JavaScript: Validada con Node.js (`static/mobile-dashboard.js`).
+  - Nota de gobernanza: Pruebas físicas en banco real de hardware se conservan formalmente marcadas como pendientes de banco físico autorizado.
+
+---
+
+## Tarea 9: Remediación de la 5ª Revisión (Vinculación PIN Etiqueta y PoP ESP32) [COMPLETADO]
+- **Objetivo:** Resolver el bloqueo crítico de la quinta auditoría en `docs/auditoria/REVISION_QUINTA_2026-10-13.md`, unificando la identidad PoP instalada en NVS con la etiqueta física y el código QR real.
+- **Archivos:**
+  - `platformio/esp32_ecogrow2/src/main.cpp`: Protocolo serial de taller (`ECOGROW:IDENT?`, `ECOGROW:SET_POP:<token>`, `ECOGROW:VERIFY_POP:<token>`, `ECOGROW:FACTORY_RESET`).
+  - `tools/provision_device.py`: Herramienta oficial CLI con subcomandos `provision`, `verify`, `read`, `generate`, readback obligatorio, matriz de código QR real SVG y permisos restringidos `0600`.
+  - `tests/test_provision_device.py`: Suite de 16 pruebas unitarias para criptografía, parsing, generación de QR matricial y protocolo serie/hardware.
+  - `requirements.txt`: Dependencias `qrcode>=7.4.2` y `pyserial>=3.5`.
+  - `.gitignore`: Reglas para `docs/soporte/etiquetas/*` protegiendo los artefactos con secretos.
+  - `docs/soporte/RECUPERACION_Y_PROVISIONAMIENTO_POP.md`: Manual operativo de taller y ciclo de vida de identidad.
+- **Acciones Realizadas:**
+  1. **Flujo Unificado de Aprovisionamiento:** La herramienta de taller consulta primero la identidad NVS del hardware; si el ESP32 ya posee una PoP válida, la reutiliza evitando duplicidad o discrepancia de secretos. Si no posee PoP o se invoca `--force`, la instala mediante comando UART.
+  2. **Verificación Readback Obligatoria:** Antes de generar la etiqueta SVG, la herramienta verifica obligatoriamente en hardware que el secreto coincide byte a byte. Si la verificación falla, el proceso aborta con `RuntimeError` y la etiqueta no se emite.
+  3. **Código QR Matricial Real Escaneable:** Reemplazado el marco decorativo anterior por una matriz vectorial real de módulos QR (`<rect ... fill="#000000"/>`) con el payload oficial `{"ver":"v1","name":"...","pop":"...","transport":"ble"}` legible por la app Android EcoGrow.
+  4. **Protección de Artefactos y Secretos:** Generación de etiquetas en `docs/soporte/etiquetas/` con permisos `0600` del sistema de archivos y exclusión explícita en `.gitignore`.
+- **Evidencia de Verificación:**
+  - Tests Python: 72/72 tests pasando (56 anteriores + 16 de aprovisionamiento/taller).
+  - Tests Android: `JAVA_HOME=/opt/homebrew/opt/openjdk@17 ./gradlew testDebugUnitTest` pasando al 100%.
+  - Compilación Firmware PlatformIO: Exitosa (Flash: 92.0%, RAM: 18.5%).
+  - Prueba de seguridad en C++: Exitosa (`/tmp/ecogrow-safety-test`).
+  - Sintaxis JavaScript: Validada con Node.js (`static/mobile-dashboard.js`).
+  - `git diff --check`: 0 errores de formato o espacios.
+
+---
+
+## Tarea 10: Remediación 6ª Revisión, Flujo Guiado «Añadir Torre» y Dashboard Nativo Compose [COMPLETADO]
+- **Objetivo:** Resolver el hallazgo P2 de confidencialidad en `docs/auditoria/REVISION_SEXTA_2026-10-13.md` (no exponer PoP en stdout/stderr ni excepciones) y construir una experiencia UX/UI nativa completa en Android Jetpack Compose con flujo guiado de vinculación y dashboard operativo.
+- **Archivos:**
+  - `tools/provision_device.py`: Sanitización de comandos en timeouts, eliminación de secretos en excepciones de readback y ocultamiento por defecto de la PoP en la salida estándar (`[CONFIDENCIAL · Resguardado en etiqueta SVG (0600)]`).
+  - `tests/test_provision_device.py`: 3 pruebas unitarias nuevas (`TestSecretConfidentiality`) capturando stdout/stderr y verificando ausencia de PoP. Total: 75 tests Python.
+  - `android/app/src/main/java/com/ecogrow/mobile/BleProvisioningManager.kt`: Soporte de escaneo WiFi remoto desde la antena del ESP32 (`espDevice.scanNetworks`), manejo de estados y sanitización de PIN.
+  - `android/app/src/main/java/com/ecogrow/mobile/AddTowerScreen.kt`: Asistente guiado (Wizard) de 8 pasos: preparación física, verificación de permisos Bluetooth, escaneo BLE con RSSI, ingreso de PIN PoP / QR, escaneo WiFi por ESP32, contraseña, progreso real y confirmación dual (router + backend).
+  - `android/app/src/main/java/com/ecogrow/mobile/TowerDetailScreen.kt`: Dashboard nativo con nivel de agua en porcentaje y litros calibrados, pH con rango ideal, TDS en ppm, temperatura, controles táctiles de bomba con confirmación, bloqueo de seguridad y selector de recetas.
+  - `android/app/src/main/java/com/ecogrow/mobile/TowersHomeScreen.kt`: Pantalla de inicio de torres con botón visible «Añadir Torre», estado en tiempo real y estado vacío amigable.
+  - `android/app/src/main/java/com/ecogrow/mobile/MainActivity.kt`: Navegación fluida desacoplada entre pantallas.
+  - `android/app/src/test/java/com/ecogrow/mobile/EcoGrowTest.kt`: Tests unitarios de sanitización PoP, pasos de wizard y modelos.
+- **Evidencia de Verificación:**
+  - Tests Python: 75/75 pruebas pasando al 100%.
+  - Tests Android: `JAVA_HOME=/opt/homebrew/opt/openjdk@17 ./gradlew testDebugUnitTest` pasando al 100%.
+  - Build APK: `./gradlew assembleDebug` y `lintDebug` completados con éxito (`app-debug.apk`).
+  - Instalación: APK probado e instalado en el dispositivo físico Android vía ADB.
+  - Firmware ESP32: Compilación limpia en PlatformIO (Flash 92.0%, RAM 18.5%).
+  - Safety Test C++: Ejecutado exitosamente.
+  - `git diff --check`: 0 errores de formato.

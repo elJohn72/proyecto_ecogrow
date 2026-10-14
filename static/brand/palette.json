@@ -1,0 +1,25 @@
+{
+  "brand": "EcoGrow",
+  "scope_id": "ECOGROW",
+  "colors": {
+    "primary": "#195C3D",
+    "onPrimary": "#FFFFFF",
+    "primaryContainer": "#D8EEDB",
+    "onPrimaryContainer": "#072113",
+    "secondary": "#087F8C",
+    "onSecondary": "#FFFFFF",
+    "background": "#F7FAF7",
+    "surface": "#FFFFFF",
+    "surfaceVariant": "#EEF3EE",
+    "onSurface": "#172B22",
+    "outline": "#718077",
+    "error": "#B3261E",
+    "warning": "#946200",
+    "secondaryContainer": "#D6EEF0",
+    "onSecondaryContainer": "#06383F",
+    "tertiary": "#4C6652",
+    "onTertiary": "#FFFFFF",
+    "tertiaryContainer": "#D8EEDB",
+    "onTertiaryContainer": "#072113"
+  }
+}

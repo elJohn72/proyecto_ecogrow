@@ -248,8 +248,8 @@ def api_sensor_reading():
 @sensores_bp.route("/api/iot/sync", methods=("POST",))
 def api_iot_sync():
     api_token = _extract_token(request)
-    if api_token != current_app.config["SENSOR_API_TOKEN"]:
-        return jsonify({"ok": False, "error": "Token de dispositivo invalido."}), 401
+    if not api_token:
+        return jsonify({"ok": False, "error": "Token de dispositivo requerido."}), 401
 
     payload = request.get_json(silent=True) or {}
     dispositivo = str(payload.get("dispositivo", "")).strip()
@@ -259,6 +259,31 @@ def api_iot_sync():
         return jsonify({"ok": False, "error": "El campo 'dispositivo' es obligatorio."}), 400
     if not torre_codigo:
         return jsonify({"ok": False, "error": "El campo 'torre_codigo' es obligatorio."}), 400
+
+    # Verificación de credencial cloud individual (1:1 con la torre)
+    try:
+        from Conexión.conexion import fetch_dispositivo_by_token, fetch_dispositivo_by_codigo
+    except ModuleNotFoundError:
+        from ..Conexión.conexion import fetch_dispositivo_by_token, fetch_dispositivo_by_codigo
+
+    disp_por_token = fetch_dispositivo_by_token(api_token)
+    if disp_por_token:
+        if disp_por_token["codigo_torre"].strip().upper() != torre_codigo.strip().upper():
+            return jsonify({
+                "ok": False,
+                "error": "Token de dispositivo no autorizado para este código de torre."
+            }), 403
+    else:
+        global_token = current_app.config.get("SENSOR_API_TOKEN", "")
+        if api_token == global_token:
+            disp_registrado = fetch_dispositivo_by_codigo(torre_codigo)
+            if disp_registrado and disp_registrado.get("device_token"):
+                return jsonify({
+                    "ok": False,
+                    "error": "Esta torre requiere su token individual de dispositivo; no se admite el token administrativo compartido."
+                }), 403
+        else:
+            return jsonify({"ok": False, "error": "Token de dispositivo invalido."}), 401
 
     rele_raw = payload.get("rele_principal")
     rele_principal_on = None
@@ -282,7 +307,9 @@ def api_iot_sync():
             temperatura_agua=parse_optional_float(payload.get("temperatura_agua")),
             ph=parse_optional_float(payload.get("ph")),
             ec=parse_optional_float(payload.get("ec")),
+            tds_ppm=parse_optional_float(payload.get("tds_ppm")),
             nivel_agua=parse_optional_float(payload.get("nivel_agua")),
+            volumen_litros=parse_optional_float(payload.get("volumen_litros") or payload.get("litros")),
             luminosidad=parse_optional_float(payload.get("luminosidad")),
         )
     except ValueError as exc:
@@ -320,6 +347,10 @@ def api_iot_sync():
                     "ttl_sec": active_cmd["ttl_sec"],
                     "now": int(time.time()),
                 }
+                if "mode" in active_cmd:
+                    command_payload["mode"] = active_cmd["mode"]
+                if "recipe_idx" in active_cmd:
+                    command_payload["recipe_idx"] = active_cmd["recipe_idx"]
         except Exception:
             pass
 

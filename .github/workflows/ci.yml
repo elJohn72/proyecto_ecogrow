@@ -13,6 +13,15 @@ jobs:
   python-web:
     name: Backend & Web Validation
     runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: ecogrow_mysql
+        ports:
+          - 3306:3306
+        options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=10s --health-timeout=5s --health-retries=5
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,7 +45,13 @@ jobs:
       - name: Validate JavaScript syntax
         run: node --check static/mobile-dashboard.js
 
-      - name: Run Python unit tests
+      - name: Run Python unit and integration tests
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: 3306
+          MYSQL_USER: root
+          MYSQL_PASSWORD: root
+          MYSQL_USE_SOCKET: "false"
         run: python -m unittest discover -s tests -v
 
       - name: Check git formatting
