@@ -8,7 +8,7 @@
 - Orquestador: Coolify, administración solo por túnel SSH
 - Endpoint: `https://w3bmo8epk9iedi7gkqchdpru.179.236.74.107.sslip.io`
 
-El servidor no se edita a mano. El camino es rama, pull request, checks verdes, merge autorizado y el redeploy de Coolify. Esta preparación no fusiona ni redespliega.
+El servidor no se edita a mano. El camino es rama, pull request, checks verdes, merge autorizado y el redeploy de Coolify.
 
 ## Contraseñas
 
@@ -18,37 +18,26 @@ El registro y el cambio de clave usan `werkzeug.security.generate_password_hash`
 
 Sonda TLS con el paquete de CA de certifi. No se desactiva la verificación del certificado.
 
-Fecha de la sonda previa a este cambio de código: 2026-10-13.
+Fecha de la sonda posterior al redeploy: 2026-10-13, 23:58 hora local. El proceso en Coolify es el commit `3567f19e3aea545d9b352aa42ba6bb075f76dc92` (`main`), que incluye `44cde1c`. El contenedor de la aplicación quedó healthy. La base `ecogrow-db` no se reemplazó.
 
 | Ruta | Método | Código | Lectura |
 |---|---|---|---|
 | `/health` | GET | 200 | `{"database":"connected","service":"ecogrow","status":"ok"}`, servidor gunicorn |
-| `/api/mobile/login` | OPTIONS | 200 | La ruta de login existe en el despliegue actual |
-| `/api/iot/sync` | OPTIONS | 200 | La ruta de sincronización existe en el despliegue actual |
-| `/api/mobile/register` | OPTIONS | 404 | El despliegue no incluye el registro de PR #6 |
-| `/api/mobile/towers/bind` | OPTIONS | 404 | El despliegue no incluye la vinculación de PR #6 |
+| `/api/mobile/login` | OPTIONS | 200 | La ruta de login existe |
+| `/api/mobile/register` | OPTIONS | 200 | La ruta de registro existe |
+| `/api/mobile/towers/bind` | OPTIONS | 200 | La ruta de vinculación existe |
+| `/api/iot/sync` | OPTIONS | 200 | La ruta de sincronización existe |
 
-Ese proceso no es el SHA de esta rama. Un APK compilado contra `/api/mobile/register` y `/api/mobile/towers/bind` no queda demostrado contra el VPS mientras esas rutas respondan 404. Health 200 no equivale a sesión, torre vinculada ni telemetría.
+Comprobación en ese mismo entorno, con TLS verificado:
 
-Volver a comprobar, con el mismo cliente TLS, después de un merge y redeploy autorizados:
+- Un registro aislado `PRUEBA` creó la sesión y respondió 201.
+- `GET /api/mobile/towers` respondió 200 con cero torres para esa sesión.
+- Vincular un código inexistente respondió 404 `unregistered_device`. No se creó una torre.
+- `POST /api/iot/sync` sin token respondió 401.
+- Esa cuenta de prueba se eliminó después. No había dispositivos ni códigos placeholder en el inventario.
 
-- `/health`
-- OPTIONS de `/api/mobile/register`, `/api/mobile/login` y `/api/mobile/towers/bind`
-- un registro de prueba aislado, su sesión, el inventario, una vinculación y una sincronización en ese mismo entorno
+El workflow de GitHub “Deploy VPS kv2” sigue terminando sin avisar a Coolify, porque el panel administrativo no es público. Un push posterior a `main` no actualiza este proceso por sí solo: hay que encolar el redeploy de `ecogrow-app` en Coolify.
 
-La migración de identidades (`tools/migrate_identities.py`) se aplica en la base de ese despliegue solo con autorización, después de `--dry-run`. No se ensaya sobre la base del VPS desde el desarrollo.
+## Lo que este despliegue no demuestra
 
-## Lo que este código deja listo y lo que no
-
-Listo en la rama, pendiente de autorización para llegar al VPS:
-
-- registro, sesión y vinculación por PoP
-- migración SQL sobre `dispositivos_iot.codigo_torre` y `torres.codigo_unico`
-- aprovisionamiento con diario y reversión verificada
-- firmware que no reescribe la identidad al leerla
-
-Sigue pendiente aunque el CI esté verde:
-
-- aceptación física: WiFi por BLE, primera telemetría, orden remota con ACK, reinicios, cambio de router y dos usuarios con dos torres
-- merge y redeploy autorizados
-- repetir la sonda anterior sobre el SHA ya desplegado
+Sigue pendiente la aceptación física: WiFi por BLE, primera telemetría, orden remota con ACK, reinicios, cambio de router y dos usuarios con dos torres. Health 200 no equivale a telemetría ni a una torre vinculada.
