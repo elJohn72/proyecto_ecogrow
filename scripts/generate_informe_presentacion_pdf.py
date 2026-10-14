@@ -86,7 +86,6 @@ def main() -> int:
         "AJTecnology / AJENZA S.A.S.",
     ]:
         builder.pdf.cell(0, 6, line, align="C", new_x="LMARGIN", new_y="NEXT")
-    builder._footer()
 
     content = SOURCE.read_text(encoding="utf-8")
     builder.render_markdown(

@@ -62,7 +62,8 @@ class MainActivity : ComponentActivity() {
                                     onBack = { vm.back() },
                                     onPumpControl = { vm.pump(it) },
                                     onModeControl = { vm.mode(it) },
-                                    onRecipeControl = { vm.recipe(it) }
+                                    onRecipeControl = { vm.recipe(it) },
+                                    onChangeWifi = { vm.changeTowerWifi() }
                                 )
                             } else {
                                 LaunchedEffect(Unit) {
@@ -89,7 +90,9 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onOpenTowerDetail = { towerId ->
                                     vm.select(towerId)
-                                }
+                                },
+                                wifiOnly = state.provisioningWifiOnly,
+                                initialTowerCode = state.provisioningTowerCode
                             )
                         }
                     }

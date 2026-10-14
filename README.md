@@ -44,6 +44,10 @@ El ecosistema EcoGrow 2.0 se compone de 4 capas integradas con seguridad fail-cl
 
 ---
 
+## Hardware (`hardware/`)
+
+Diagrama, pines y armado en baquelita: [hardware/README.md](hardware/README.md). La bomba va por MOSFET en el GPIO 25. El módulo relé no forma parte del montaje.
+
 ## ⚡ 2. Firmware ESP32 (`platformio/esp32_ecogrow2/`)
 - **Plataforma:** PlatformIO, Framework Arduino ESP32 (v6.9.0), tabla `min_spiffs.csv` (1.9MB app).
 - **Protección de Bomba Fail-Closed:** Seguridad local obligatoria. Si el sensor ultrasónico detecta nivel de agua inferior al mínimo (<10%), la bomba se apaga físicamente y se bloquea el encendido.

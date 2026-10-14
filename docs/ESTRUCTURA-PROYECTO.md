@@ -27,7 +27,9 @@ proyecto_ecogrow/
 ├── tests/                 # Pruebas unitarias
 │
 ├── platformio/            # Firmware ESP32
-├── hardware/              # Piezas físicas (CAD / impresión 3D)
+├── hardware/              # Esquema, gerbers y piezas 3D
+│   ├── schematics/        # Diagrama eléctrico de la torre
+│   ├── gerbers/           # PCB, cuando exista
 │   └── 3d/
 │       └── germinador/    # Estación de germinación (.3mf)
 ├── docs/                  # Documentación técnica

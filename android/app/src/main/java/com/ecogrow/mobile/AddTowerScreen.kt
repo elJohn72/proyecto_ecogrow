@@ -68,7 +68,9 @@ fun AddTowerScreen(
     onCancel: () -> Unit,
     onTowerAddedAndBound: (towerCode: String, popProof: String, towerName: String, onComplete: (Boolean, String?, Int?) -> Unit) -> Unit,
     onFetchTowerDetail: (suspend (Int) -> TowerDetailModel?)? = null,
-    onOpenTowerDetail: ((Int) -> Unit)? = null
+    onOpenTowerDetail: ((Int) -> Unit)? = null,
+    wifiOnly: Boolean = false,
+    initialTowerCode: String = ""
 ) {
     val context = LocalContext.current
     var currentStep by remember { mutableStateOf(AddTowerStep.INSTRUCTIONS) }
@@ -76,11 +78,13 @@ fun AddTowerScreen(
     // Estados conservados entre pasos
     var discoveredTowers by remember { mutableStateOf<List<DiscoveredTower>>(emptyList()) }
     var selectedTower by remember { mutableStateOf<DiscoveredTower?>(null) }
-    var canonicalTowerCode by remember { mutableStateOf("") }
+    var canonicalTowerCode by remember { mutableStateOf(initialTowerCode.trim().uppercase()) }
     var popInput by remember { mutableStateOf("") }
     var customTowerName by remember { mutableStateOf("") }
     var discoveredWifis by remember { mutableStateOf<List<DiscoveredWifi>>(emptyList()) }
     var selectedSsid by remember { mutableStateOf("") }
+    var wifiScanAttempts by remember { mutableStateOf(0) }
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
     var isManualSsid by remember { mutableStateOf(false) }
     var manualSsidInput by remember { mutableStateOf("") }
     var wifiPassword by remember { mutableStateOf("") }
@@ -328,7 +332,7 @@ fun AddTowerScreen(
                                 InstructionItem(
                                     number = "2",
                                     title = "Verifica el estado del Bluetooth",
-                                    description = "Al encender, la torre emite un anuncio BLE 'PROV_EcoGrow_XXXX'. Si ya estaba configurada, mantén el botón BOOT pulsado entre 3 y 8 segundos para reconfigurar WiFi."
+                                    description = "Si la torre no encuentra su red, abre sola el Bluetooth PROV_EcoGrow_XXXX en cerca de un minuto. El PIN de la etiqueta no cambia. También puedes mantener BOOT entre 3 y 8 segundos."
                                 )
                                 InstructionItem(
                                     number = "3",
@@ -639,21 +643,35 @@ fun AddTowerScreen(
                         val tower = selectedTower ?: return
                         isScanningWifi = true
                         errorMessage = null
-                        progressMessage = "Consultando redes WiFi detectadas por la antena del ESP32..."
+                        progressMessage = if (wifiScanAttempts == 0) {
+                            "Consultando redes WiFi de 2.4 GHz que oye la torre..."
+                        } else {
+                            "La torre sigue buscando redes de 2.4 GHz..."
+                        }
 
                         bleManager?.scanWifiFromTower(
                             device = tower.device,
                             pop = popInput,
                             onNetworksFound = { wifis ->
-                                isScanningWifi = false
-                                discoveredWifis = wifis
-                                if (selectedSsid.isBlank() && wifis.isNotEmpty()) {
-                                    selectedSsid = wifis.first().ssid
+                                if (wifis.isEmpty() && wifiScanAttempts < 2) {
+                                    wifiScanAttempts += 1
+                                    mainHandler.postDelayed({ queryWifiFromTower() }, 1200)
+                                } else {
+                                    isScanningWifi = false
+                                    discoveredWifis = wifis
+                                    if (selectedSsid.isBlank() && wifis.isNotEmpty()) {
+                                        selectedSsid = wifis.first().ssid
+                                    }
                                 }
                             },
                             onError = { err ->
-                                isScanningWifi = false
-                                errorMessage = err
+                                if (wifiScanAttempts < 2) {
+                                    wifiScanAttempts += 1
+                                    mainHandler.postDelayed({ queryWifiFromTower() }, 1200)
+                                } else {
+                                    isScanningWifi = false
+                                    errorMessage = err
+                                }
                             }
                         )
                     }
@@ -677,7 +695,11 @@ fun AddTowerScreen(
                             if (isScanningWifi) {
                                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Color(0xFF195C3D))
                             } else {
-                                TextButton(onClick = { queryWifiFromTower() }) {
+                                TextButton(onClick = {
+                                    wifiScanAttempts = 0
+                                    discoveredWifis = emptyList()
+                                    queryWifiFromTower()
+                                }) {
                                     Text("Escanear", fontSize = 12.sp)
                                 }
                             }
@@ -695,6 +717,15 @@ fun AddTowerScreen(
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
+                                if (discoveredWifis.isEmpty()) {
+                                    item {
+                                        Text(
+                                            "Todavía no aparece ninguna red de 2.4 GHz. Acerca la torre al router y pulsa Escanear.",
+                                            fontSize = 13.sp,
+                                            color = Color(0xFF555555)
+                                        )
+                                    }
+                                }
                                 items(discoveredWifis) { wifi ->
                                     val isSelected = !isManualSsid && selectedSsid == wifi.ssid
                                     Card(
@@ -913,13 +944,13 @@ fun AddTowerScreen(
                     }
 
                     LaunchedEffect(Unit) {
-                        if (!cloudBindSuccess) {
-                            triggerBind()
-                        }
+                        if (wifiOnly || cloudBindSuccess) return@LaunchedEffect
+                        triggerBind()
                     }
 
                     // Polling para confirmar la primera telemetría real recibida en el backend
                     LaunchedEffect(cloudBindSuccess, boundTowerId, telemetryPollTrigger) {
+                        if (wifiOnly) return@LaunchedEffect
                         val towerId = boundTowerId
                         if (cloudBindSuccess && towerId != null && onFetchTowerDetail != null && !telemetryConfirmed) {
                             isPollingTelemetry = true
@@ -957,6 +988,7 @@ fun AddTowerScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             val titleText = when {
+                                wifiOnly -> "Red WiFi actualizada"
                                 cloudBindSuccess && telemetryConfirmed -> "🎉 ¡Torre Vinculada y Operativa!"
                                 cloudBindSuccess && pollingTimeout -> "⚠️ Torre Vinculada · Esperando Primeros Datos"
                                 cloudBindSuccess -> "⏳ Torre Vinculada · Esperando Telemetría..."
@@ -965,6 +997,7 @@ fun AddTowerScreen(
                             }
 
                             val titleColor = when {
+                                wifiOnly -> Color(0xFF1B5E20)
                                 cloudBindSuccess && telemetryConfirmed -> Color(0xFF1B5E20)
                                 cloudBindSuccess && pollingTimeout -> Color(0xFFE65100)
                                 cloudBindSuccess -> Color(0xFF087F8C)
@@ -973,6 +1006,7 @@ fun AddTowerScreen(
                             }
 
                             val descriptionText = when {
+                                wifiOnly -> "La torre $derivedCode ya usa la red nueva. Sigue siendo la misma torre y el mismo PIN de la etiqueta."
                                 cloudBindSuccess && telemetryConfirmed -> "Tu torre $derivedCode se conectó a tu router WiFi, ha sido vinculada exitosamente a tu cuenta y sus sensores están transmitiendo en tiempo real."
                                 cloudBindSuccess && pollingTimeout -> "Tu torre $derivedCode está vinculada a tu cuenta y conectada al router WiFi, pero aún no se han recibido lecturas de sensores. Puedes reintentar la comprobación de telemetría o ingresar al dashboard para supervisarla."
                                 cloudBindSuccess -> "Tu torre $derivedCode se conectó al WiFi y ha sido vinculada a tu cuenta. Esperando la primera lectura de los sensores de la torre..."
@@ -1040,7 +1074,16 @@ fun AddTowerScreen(
                                 }
                             }
 
-                            if (cloudBindError != null) {
+                            if (wifiOnly) {
+                                Button(
+                                    onClick = onCancel,
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF195C3D)),
+                                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("Listo", fontWeight = FontWeight.Bold)
+                                }
+                            } else if (cloudBindError != null) {
                                 Button(
                                     onClick = { triggerBind() },
                                     enabled = !isBindingCloud,

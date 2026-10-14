@@ -77,8 +77,18 @@ data class TowerDetailModel(
     val pump: PumpStatus,
     val recipe: RecipeInfo?,
     val alerts: List<AlertItem>,
-    val capabilities: TowerCapabilities
+    val capabilities: TowerCapabilities,
+    val levelCutoffPct: Double = 20.0,
+    val levelTurnOnPct: Double = 25.0
 ) {
+    fun canRequestPumpOn(): Boolean {
+        val level = sensors.nivelPct
+        if (stale || level == null || !level.isFinite()) return false
+        if (!levelCutoffPct.isFinite() || !levelTurnOnPct.isFinite()) return false
+        if (!(levelCutoffPct > 0.0 && levelTurnOnPct > levelCutoffPct && levelTurnOnPct <= 100.0)) return false
+        return level >= levelTurnOnPct && level <= 100.0
+    }
+
     fun formattedLastSeen(): String {
         if (updatedAt.isNullOrBlank()) return "Sin telemetría registrada"
         return try {
@@ -147,6 +157,10 @@ data class TowerDetailModel(
                 }
             }
 
+            val safety = json.optJSONObject("safety")
+            val cutoff = safety?.optDouble("level_cutoff_pct", 20.0) ?: 20.0
+            val turnOn = safety?.optDouble("level_turn_on_pct", 25.0) ?: 25.0
+
             val cObj = json.optJSONObject("capabilities") ?: JSONObject()
             val capabilities = TowerCapabilities(
                 pumpControl = cObj.optBoolean("pump_control", false),
@@ -167,7 +181,9 @@ data class TowerDetailModel(
                 pump = pump,
                 recipe = recipe,
                 alerts = alertsList,
-                capabilities = capabilities
+                capabilities = capabilities,
+                levelCutoffPct = if (cutoff.isFinite()) cutoff else Double.NaN,
+                levelTurnOnPct = if (turnOn.isFinite()) turnOn else Double.NaN
             )
         }
     }

@@ -22,9 +22,11 @@
 - [hidroponia/MANUAL-DOMINIO-TORRE-VERTICAL.md](hidroponia/MANUAL-DOMINIO-TORRE-VERTICAL.md)
 
 ### IoT y hardware
+- [../hardware/TALLER.md](../hardware/TALLER.md) — **Orden de taller:** pulir el esquemático hasta dejarlo fabricable
+- [../hardware/README.md](../hardware/README.md) — Carpetas de esquema, gerbers y piezas 3D
+- [../hardware/schematics/diagrama-electrico.md](../hardware/schematics/diagrama-electrico.md) — Diagrama eléctrico EcoGrow 2.0
 - [iot/ROADMAP-AUTOMATIZACION-FASES.md](iot/ROADMAP-AUTOMATIZACION-FASES.md) — **A1 ahora:** bomba por tiempo + nivel; A2 nutrientes después
-- [iot/FASE1-ESP32-BOMBA-RELE.md](iot/FASE1-ESP32-BOMBA-RELE.md) — A0 (ESP32 + relé + bomba)
-- [iot/GUIA-ESP32-RELE.md](iot/GUIA-ESP32-RELE.md) — Resumen API
+- [iot/FASE1-ESP32-BOMBA-RELE.md](iot/FASE1-ESP32-BOMBA-RELE.md) — Fase antigua de banco con relé en GPIO 26. No es el montaje de esta torre
 - [../hardware/3d/germinador/README.md](../hardware/3d/germinador/README.md) — Modelo 3D germinador (.3mf)
 
 ### Calidad y despliegue

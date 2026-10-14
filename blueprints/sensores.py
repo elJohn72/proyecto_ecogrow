@@ -357,6 +357,19 @@ def api_iot_sync():
     response_data = {"ok": True, **result}
     if command_payload:
         response_data["command"] = command_payload
+    try:
+        from services import mobile_service
+        limits = mobile_service.pump_level_limits(
+            (mobile_service.configuration(torre_id) or {}).get("nivel_minimo")
+        )
+        if limits:
+            response_data["safety"] = {
+                "level_cutoff_pct": limits[0],
+                "level_turn_on_pct": limits[1],
+                "output_is_flow": False,
+            }
+    except Exception:
+        pass
 
     return jsonify(response_data), 200
 

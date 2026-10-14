@@ -24,7 +24,8 @@ fun TowerDetailScreen(
     onBack: () -> Unit,
     onPumpControl: (Boolean) -> Unit,
     onModeControl: (String) -> Unit,
-    onRecipeControl: (Int) -> Unit
+    onRecipeControl: (Int) -> Unit,
+    onChangeWifi: () -> Unit = {}
 ) {
     var showPumpConfirmDialog by remember { mutableStateOf<Boolean?>(null) }
     var showBootInfoDialog by remember { mutableStateOf(false) }
@@ -37,8 +38,8 @@ fun TowerDetailScreen(
         }
     }
 
-    val isWaterLow = (detail.sensors.nivelPct != null && detail.sensors.nivelPct <= 15.0)
-    val isSafetyLocked = detail.stale || isWaterLow
+    val canTurnPumpOn = detail.canRequestPumpOn()
+    val levelAtCutoff = detail.sensors.nivelPct != null && detail.sensors.nivelPct <= detail.levelCutoffPct
 
     Scaffold(
         topBar = {
@@ -127,6 +128,15 @@ fun TowerDetailScreen(
                 }
             }
 
+            Button(
+                onClick = onChangeWifi,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF195C3D))
+            ) {
+                Text("Cambiar red WiFi", fontWeight = FontWeight.Bold)
+            }
+
             // =========================================================================
             // 2. ALERTAS DEL SISTEMA
             // =========================================================================
@@ -174,7 +184,7 @@ fun TowerDetailScreen(
                             detail.sensors.nivelFormatted(),
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
-                            color = if (isWaterLow) Color(0xFFB3261E) else Color(0xFF087F8C)
+                            color = if (levelAtCutoff) Color(0xFFB3261E) else Color(0xFF087F8C)
                         )
                     }
 
@@ -186,7 +196,7 @@ fun TowerDetailScreen(
                             .fillMaxWidth()
                             .height(10.dp)
                             .clip(RoundedCornerShape(5.dp)),
-                        color = if (isWaterLow) Color(0xFFB3261E) else Color(0xFF087F8C),
+                        color = if (levelAtCutoff) Color(0xFFB3261E) else Color(0xFF087F8C),
                         trackColor = Color(0xFFEEEEEE)
                     )
 
@@ -203,14 +213,14 @@ fun TowerDetailScreen(
                         )
                     }
 
-                    if (isWaterLow) {
+                    if (detail.sensors.nivelPct != null && detail.sensors.nivelPct < detail.levelTurnOnPct) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = Color(0xFFFFEBEE),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                "⚠️ Nivel crítico (≤ 15%). La bomba no puede encenderse para prevenir marcha en seco.",
+                                "⚠️ El encendido pide al menos ${detail.levelTurnOnPct.toInt()} % de agua. Por debajo de ${detail.levelCutoffPct.toInt()} % la salida se corta.",
                                 color = Color(0xFFB3261E),
                                 fontSize = 12.sp,
                                 modifier = Modifier.padding(10.dp)
@@ -343,7 +353,7 @@ fun TowerDetailScreen(
                     ) {
                         Button(
                             onClick = { showPumpConfirmDialog = true },
-                            enabled = !busy && !isSafetyLocked && !detail.pump.isPhysicallyOn,
+                            enabled = !busy && canTurnPumpOn && !detail.pump.isPhysicallyOn,
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF195C3D))
@@ -361,9 +371,9 @@ fun TowerDetailScreen(
                         }
                     }
 
-                    if (isSafetyLocked) {
+                    if (!canTurnPumpOn) {
                         Text(
-                            text = if (detail.stale) "* Encendido bloqueado: telemetría desactualizada." else "* Encendido bloqueado: nivel de agua crítico.",
+                            text = if (detail.stale) "* Encendido bloqueado: telemetría desactualizada." else "* Encendido bloqueado: hace falta un nivel de agua válido.",
                             fontSize = 11.sp,
                             color = Color(0xFFB3261E)
                         )
@@ -476,7 +486,7 @@ fun TowerDetailScreen(
                         style = MaterialTheme.typography.bodySmall
                     )
                     Text(
-                        "1. Reconfigurar WiFi (Pulsar 3 a 8 segundos):\nBorra la red WiFi y reactiva el anuncio BLE sin perder la identidad de la torre ni el PIN PoP de la etiqueta.",
+                        "1. Cambiar de red:\nSi llevas la torre a otro lugar, espera cerca de un minuto. Ella abre sola el Bluetooth PROV_EcoGrow sin borrar el PIN. En la app pulsa Cambiar red WiFi, elige la torre y la red de 2.4 GHz, y escribe la contraseña. También puedes mantener BOOT entre 3 y 8 segundos.",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = Color(0xFF087F8C)
