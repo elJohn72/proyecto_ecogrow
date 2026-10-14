@@ -282,7 +282,7 @@ class Esp32SerialClient:
             if line.startswith("ECOGROW:"):
                 return line
 
-        sanitized_cmd = re.sub(r":(SET_POP|VERIFY_POP|SET_DEVICE_TOKEN):.*", r":\1:***", cmd.strip())
+        sanitized_cmd = re.sub(r":(SET_POP|VERIFY_POP|SET_DEVICE_TOKEN|VERIFY_DEVICE_TOKEN):.*", r":\1:***", cmd.strip())
         raise TimeoutError(f"Tiempo de espera agotado ({self.timeout}s) sin respuesta del ESP32 para: {sanitized_cmd}")
 
     def get_identity(self) -> dict:
@@ -350,6 +350,16 @@ class Esp32SerialClient:
         data = json.loads(resp[len(prefix) :].strip())
         return bool(data.get("set", False))
 
+    def verify_device_token(self, token: str) -> bool:
+        """Verifica que el token individual coincida en el hardware mediante ECOGROW:VERIFY_DEVICE_TOKEN:<token>."""
+        clean_token = token.strip()
+        resp = self.send_command(f"ECOGROW:VERIFY_DEVICE_TOKEN:{clean_token}")
+        prefix = "ECOGROW:VERIFY_TOKEN:"
+        if not resp.startswith(prefix):
+            raise ValueError(f"Respuesta inválida al verificar token de dispositivo: {resp}")
+        data = json.loads(resp[len(prefix) :].strip())
+        return bool(data.get("match", False))
+
 
 def provision_hardware_device(
     port: str | None = None,
@@ -370,7 +380,7 @@ def provision_hardware_device(
             raise RuntimeError("No se detectó ningún ESP32 conectado. Conecta la placa por USB o especifica --port.")
         selected_port = detected[0]
 
-    # 2. Conectar y leer identidad
+    # 2. Conectar y leer identidad física (FASE DE SOLO LECTURA)
     client = Esp32SerialClient(selected_port)
     client.connect()
     try:
@@ -381,7 +391,65 @@ def provision_hardware_device(
         has_valid_pop = ident.get("has_pop", False) and len(existing_pop) == 8
         has_existing_token = ident.get("has_token", False)
 
-        # 3. Decidir PoP a instalar o conservar
+        # Determinar código único de torre canónico (rechazando placeholders de ejemplo)
+        raw_code = desired_code or ident.get("code")
+        if raw_code and raw_code.strip().upper() not in ("", "TORRE-001", "EG-TORRE-01", "DUMMY", "PRUEBA", "TEST", "IDENTIFICADOR_TECNICO"):
+            serial_no = raw_code.strip().upper()
+        else:
+            serial_no = f"EG-TORRE-{mac.replace(':', '')[-6:]}".upper()
+
+        # FASE 1: PREFLIGHT ESTRICTO EN BASE DE DATOS (ANTES DE CUALQUIER MUTACIÓN DE HARDWARE)
+        existing_db_disp = None
+        if sync_db:
+            try:
+                from Conexión.conexion import fetch_dispositivo_by_codigo, fetch_dispositivo_by_mac
+                existing_db_disp = fetch_dispositivo_by_codigo(serial_no) or fetch_dispositivo_by_mac(mac)
+                if existing_db_disp and existing_db_disp.get("estado") == "reclamada" and not force:
+                    raise ValueError(f"El dispositivo '{serial_no}' ya fue reclamado por un usuario en la nube. Usa --force si deseas reasignarlo a fábrica.")
+            except ImportError:
+                pass
+
+        # FASE 2: PLANIFICACIÓN Y VALIDACIÓN PROTEGIDA DE TOKEN
+        previous_token: str | None = None
+        new_token_to_write: str | None = None
+        final_token_for_db: str | None = None
+
+        if sync_db:
+            db_token = existing_db_disp.get("device_token") if existing_db_disp else None
+            if has_existing_token and db_token:
+                # Comprobar si el token físico coincide con el registrado en base de datos mediante challenge
+                token_matches = client.verify_device_token(db_token)
+                if token_matches:
+                    previous_token = db_token
+                    if rotate_token or desired_token:
+                        new_token_to_write = (desired_token or secrets.token_hex(24)).strip()
+                        final_token_for_db = new_token_to_write
+                    else:
+                        # Conservar el token existente ya sincronizado entre DB y ESP32
+                        new_token_to_write = None
+                        final_token_for_db = db_token
+                else:
+                    # Token en hardware no coincide con el de DB
+                    if not force and not rotate_token and not desired_token:
+                        raise RuntimeError(f"DESINCRONIZACIÓN DE TOKEN: El token físico del ESP32 no coincide con el token registrado en la base de datos para '{serial_no}'. Usa --rotate-token o --force para sincronizar.")
+                    new_token_to_write = (desired_token or secrets.token_hex(24)).strip()
+                    final_token_for_db = new_token_to_write
+            else:
+                # Dispositivo nuevo o sin token registrado en DB
+                new_token_to_write = (desired_token or secrets.token_hex(24)).strip()
+                final_token_for_db = new_token_to_write
+        else:
+            # Modo offline / sync_db=False:
+            # Si el hardware ya tiene un token y no se solicitó rotar ni un token específico, NO mutar token!
+            if has_existing_token and not rotate_token and not desired_token:
+                new_token_to_write = None
+                final_token_for_db = None
+            else:
+                new_token_to_write = (desired_token or secrets.token_hex(24)).strip()
+                final_token_for_db = new_token_to_write
+
+        # FASE 3: MUTACIÓN FÍSICA Y VERIFICACIÓN EN HARDWARE (Solo tras superar preflight)
+        # 3.1 PoP
         if has_valid_pop and not force and not desired_pop:
             target_pop = existing_pop
             action_taken = "identidad_existente_conservada"
@@ -390,56 +458,45 @@ def provision_hardware_device(
             client.set_pop(target_pop)
             action_taken = "nueva_identidad_instalada"
 
-        # 4. Verificación obligatoria de coincidencia PoP en hardware
         match_ok = client.verify_pop(target_pop)
         if not match_ok:
             raise RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que la PoP no coincide con el valor programado.")
 
-        # 5. Programar y verificar código único de torre canónico (rechazando placeholders de ejemplo)
-        raw_code = desired_code or ident.get("code")
-        if raw_code and raw_code.strip() not in ("", "TORRE-001", "EG-TORRE-01", "DUMMY"):
-            serial_no = raw_code.strip().upper()
-        else:
-            serial_no = f"EG-TORRE-{mac.replace(':', '')[-6:]}".upper()
-
+        # 3.2 Código de torre
         client.set_code(serial_no)
         code_match = client.verify_code(serial_no)
         if not code_match:
             raise RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que el código no coincide.")
 
-        # Pre-chequeo en base de datos si sync_db está activo
-        existing_db_disp = None
-        if sync_db:
-            try:
-                from Conexión.conexion import fetch_dispositivo_by_codigo
-                existing_db_disp = fetch_dispositivo_by_codigo(serial_no)
-                if existing_db_disp and existing_db_disp.get("estado") == "reclamada" and not force:
-                    raise ValueError(f"El dispositivo '{serial_no}' ya fue reclamado por un usuario en la nube. Usa --force si deseas reasignarlo a fábrica.")
-            except ImportError:
-                pass
-
-        # 6. Programar token individual de dispositivo (conservar existente salvo rotación explícita o force)
-        if has_existing_token and not force and not rotate_token and not desired_token:
-            dev_token = existing_db_disp.get("device_token") if existing_db_disp else None
-            if not dev_token:
-                dev_token = secrets.token_hex(24)
-                set_ok = client.set_device_token(dev_token)
-                if not set_ok:
-                    raise RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El ESP32 rechazó la instalación del token de dispositivo.")
-        else:
-            dev_token = (desired_token or secrets.token_hex(24)).strip()
-            set_ok = client.set_device_token(dev_token)
+        # 3.3 Token individual (si requiere escritura)
+        token_written = False
+        if new_token_to_write is not None:
+            set_ok = client.set_device_token(new_token_to_write)
             if not set_ok:
                 raise RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El ESP32 rechazó la instalación del token de dispositivo.")
+            verify_tok_ok = client.verify_device_token(new_token_to_write)
+            if not verify_tok_ok:
+                raise RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que el token no coincide tras la escritura.")
+            token_written = True
 
-        # 7. Registro obligatorio en base de datos de fábrica si sync_db es True
+        # FASE 4: REGISTRO EN BASE DE DATOS CON ROLLBACK COORDINADO
         db_registered = False
         if sync_db:
-            from Conexión.conexion import register_dispositivo_fabrica
-            register_dispositivo_fabrica(serial_no, mac, target_pop, dev_token, force=force)
-            db_registered = True
+            try:
+                from Conexión.conexion import register_dispositivo_fabrica
+                register_dispositivo_fabrica(serial_no, mac, target_pop, final_token_for_db, force=force)
+                db_registered = True
+            except Exception as db_err:
+                # Si falló la DB y mutamos el token del hardware teniendo un token previo válido,
+                # revertimos el token en el hardware para evitar desincronización
+                if token_written and previous_token is not None:
+                    try:
+                        client.set_device_token(previous_token)
+                    except Exception:
+                        pass
+                raise db_err
 
-        # 8. Generar y guardar etiqueta SVG con QR real y permisos 0600 (SOLO tras éxito en HW y DB)
+        # FASE 5: GENERACIÓN DE ETIQUETA SVG SEGURA (SOLO TRAS ÉXITO EN HW Y DB)
         svg_content = generate_svg_label(mac, ble_name, target_pop, serial_no)
         out_filename = os.path.join(out_dir, f"{ble_name}_etiqueta.svg")
         save_secure_label(out_filename, svg_content)
@@ -452,7 +509,7 @@ def provision_hardware_device(
             "ble_name": ble_name,
             "serial": serial_no,
             "pop": target_pop,
-            "device_token": dev_token,
+            "device_token": final_token_for_db,
             "label_file": out_filename,
             "verified": True,
             "db_registered": db_registered,

@@ -103,6 +103,7 @@ fun AddTowerScreen(
     var telemetryConfirmed by remember { mutableStateOf(false) }
     var firstTelemetryData by remember { mutableStateOf<TowerDetailModel?>(null) }
     var pollingTimeout by remember { mutableStateOf(false) }
+    var telemetryPollTrigger by remember { mutableStateOf(0) }
 
     // Permisos Bluetooth
     val requiredPermissions = remember {
@@ -918,10 +919,11 @@ fun AddTowerScreen(
                     }
 
                     // Polling para confirmar la primera telemetría real recibida en el backend
-                    LaunchedEffect(cloudBindSuccess, boundTowerId) {
+                    LaunchedEffect(cloudBindSuccess, boundTowerId, telemetryPollTrigger) {
                         val towerId = boundTowerId
                         if (cloudBindSuccess && towerId != null && onFetchTowerDetail != null && !telemetryConfirmed) {
                             isPollingTelemetry = true
+                            pollingTimeout = false
                             var attempts = 0
                             while (attempts < 10 && !telemetryConfirmed) {
                                 kotlinx.coroutines.delay(3000L)
@@ -955,21 +957,27 @@ fun AddTowerScreen(
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             val titleText = when {
-                                cloudBindSuccess -> "🎉 ¡Torre Vinculada y Operativa!"
+                                cloudBindSuccess && telemetryConfirmed -> "🎉 ¡Torre Vinculada y Operativa!"
+                                cloudBindSuccess && pollingTimeout -> "⚠️ Torre Vinculada · Esperando Primeros Datos"
+                                cloudBindSuccess -> "⏳ Torre Vinculada · Esperando Telemetría..."
                                 cloudBindError != null -> "⚠️ WiFi Conectado · Vinculación Pendiente"
                                 else -> "⏳ WiFi Conectado · Vinculando en la Nube..."
                             }
 
                             val titleColor = when {
-                                cloudBindSuccess -> Color(0xFF1B5E20)
+                                cloudBindSuccess && telemetryConfirmed -> Color(0xFF1B5E20)
+                                cloudBindSuccess && pollingTimeout -> Color(0xFFE65100)
+                                cloudBindSuccess -> Color(0xFF087F8C)
                                 cloudBindError != null -> Color(0xFFB3261E)
                                 else -> Color(0xFF087F8C)
                             }
 
                             val descriptionText = when {
-                                cloudBindSuccess -> "Tu torre $derivedCode se conectó a tu router WiFi y ha sido vinculada exitosamente a tu cuenta de operador."
-                                cloudBindError != null -> "La torre completó la conexión WiFi al router, pero la vinculación cloud con la cuenta falló: $cloudBindError"
-                                else -> "La torre completó la conexión WiFi al router. Autenticando con el servidor remoto Coolify..."
+                                cloudBindSuccess && telemetryConfirmed -> "Tu torre $derivedCode se conectó a tu router WiFi, ha sido vinculada exitosamente a tu cuenta y sus sensores están transmitiendo en tiempo real."
+                                cloudBindSuccess && pollingTimeout -> "Tu torre $derivedCode está vinculada a tu cuenta y conectada al router WiFi, pero aún no se han recibido lecturas de sensores. Puedes reintentar la comprobación de telemetría o ingresar al dashboard para supervisarla."
+                                cloudBindSuccess -> "Tu torre $derivedCode se conectó al WiFi y ha sido vinculada a tu cuenta. Esperando la primera lectura de los sensores de la torre..."
+                                cloudBindError != null -> "La torre completó la conexión WiFi al router, pero la vinculación remota con la cuenta falló: $cloudBindError"
+                                else -> "La torre completó la conexión WiFi al router. Autenticando con el servidor remoto..."
                             }
 
                             Text(
@@ -1013,17 +1021,20 @@ fun AddTowerScreen(
                                                 )
                                             }
                                         } else if (pollingTimeout) {
-                                            Text("⏳ 4. ESP32 conectado al router. Transmisión remota pendiente en su próximo ciclo de 10s. Puedes ingresar al dashboard para supervisarla.", fontSize = 12.sp, color = Color(0xFF555555))
+                                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Text("⚠️ 4. Sin lecturas de sensores recibidas aún tras la vinculación.", fontSize = 12.sp, color = Color(0xFFE65100), fontWeight = FontWeight.SemiBold)
+                                                Text("La torre está enlazada. Si los sensores aún se están inicializando, puedes reintentar la comprobación o ingresar al dashboard.", fontSize = 11.sp, color = Color(0xFF555555))
+                                            }
                                         } else {
                                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                 CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = Color(0xFF195C3D))
-                                                Text("📡 4. Esperando primera telemetría del ciclo de 10s desde el Coolify remoto...", fontSize = 12.sp, color = Color(0xFF555555))
+                                                Text("📡 4. Esperando primera telemetría del ciclo desde el servidor remoto...", fontSize = 12.sp, color = Color(0xFF555555))
                                             }
                                         }
                                     } else if (cloudBindError != null) {
                                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                             Text("⚠️ 3. Error al vincular con la cuenta: $cloudBindError", fontSize = 12.sp, color = Color(0xFFB3261E), fontWeight = FontWeight.SemiBold)
-                                            Text("Verifica que el PIN PoP coincida con la torre y que el servidor Coolify esté accesible.", fontSize = 11.sp, color = Color(0xFF555555))
+                                            Text("Verifica que el PIN PoP coincida con la torre y que el servidor remoto esté accesible.", fontSize = 11.sp, color = Color(0xFF555555))
                                         }
                                     }
                                 }
@@ -1048,6 +1059,20 @@ fun AddTowerScreen(
                                     Text("Cerrar y Vincular Más Tarde", color = Color(0xFF555555))
                                 }
                             } else {
+                                if (cloudBindSuccess && pollingTimeout && !telemetryConfirmed) {
+                                    Button(
+                                        onClick = {
+                                            pollingTimeout = false
+                                            telemetryPollTrigger++
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF087F8C)),
+                                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text("🔄 Reintentar Comprobación de Telemetría", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+                                }
+
                                 Button(
                                     onClick = {
                                         val targetId = boundTowerId

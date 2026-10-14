@@ -131,12 +131,15 @@ class TestSerialProtocolAndHardwareProvisioning(unittest.TestCase):
         patcher_code = patch("tools.provision_device.Esp32SerialClient.set_code", return_value="CODE_OK")
         patcher_vcode = patch("tools.provision_device.Esp32SerialClient.verify_code", return_value=True)
         patcher_token = patch("tools.provision_device.Esp32SerialClient.set_device_token", return_value=True)
+        self.patcher_vtoken = patch("tools.provision_device.Esp32SerialClient.verify_device_token", return_value=True)
         self.mock_set_code = patcher_code.start()
         self.mock_verify_code = patcher_vcode.start()
         self.mock_set_token = patcher_token.start()
+        self.mock_verify_token = self.patcher_vtoken.start()
         self.addCleanup(patcher_code.stop)
         self.addCleanup(patcher_vcode.stop)
         self.addCleanup(patcher_token.stop)
+        self.addCleanup(self.patcher_vtoken.stop)
 
     def test_esp32_serial_client_communication(self):
         mock_serial = MagicMock()
@@ -162,6 +165,8 @@ class TestSerialProtocolAndHardwareProvisioning(unittest.TestCase):
             b'ECOGROW:SET_POP_OK:{"pop":"NEWPOP22"}\r\n',
             b'ECOGROW:VERIFY:{"match":true}\r\n',
             b'ECOGROW:VERIFY:{"match":false}\r\n',
+            b'ECOGROW:VERIFY_TOKEN:{"match":true}\r\n',
+            b'ECOGROW:VERIFY_TOKEN:{"match":false}\r\n',
         ]
 
         client = Esp32SerialClient(port="/dev/mock_esp32", timeout=1.0)
@@ -176,6 +181,14 @@ class TestSerialProtocolAndHardwareProvisioning(unittest.TestCase):
 
         # Verify mismatch
         self.assertFalse(client.verify_pop("WRONGPOP"))
+
+        # Verify device token (challenge readback) - unstop mock for this test
+        self.patcher_vtoken.stop()
+        try:
+            self.assertTrue(client.verify_device_token("CORRECT_SECRET_TOKEN"))
+            self.assertFalse(client.verify_device_token("WRONG_SECRET_TOKEN"))
+        finally:
+            self.patcher_vtoken.start()
 
     @patch("tools.provision_device.Esp32SerialClient.connect")
     @patch("tools.provision_device.Esp32SerialClient.get_identity")
@@ -450,6 +463,151 @@ class TestSerialProtocolAndHardwareProvisioning(unittest.TestCase):
                 self.assertIn("MariaDB connection lost", str(ctx.exception))
                 # Ninguna etiqueta debe ser creada si falló el registro en base de datos
                 self.assertEqual(len(os.listdir(tmpdir)), 0)
+
+    @patch("tools.provision_device.Esp32SerialClient.connect")
+    @patch("tools.provision_device.Esp32SerialClient.get_identity")
+    @patch("tools.provision_device.Esp32SerialClient.set_pop")
+    @patch("tools.provision_device.Esp32SerialClient.close")
+    def test_preflight_aborts_without_mutating_hardware_when_claimed(
+        self, mock_close, mock_set_pop, mock_ident, mock_connect
+    ):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mock_ident.return_value = {
+                "mac": "44:1D:64:F8:70:C4",
+                "ble_name": "PROV_EcoGrow_70C4",
+                "pop": "OLDPOP11",
+                "has_pop": True,
+                "has_token": True,
+            }
+            claimed_disp = {
+                "codigo_dispositivo": "EG-TORRE-F870C4",
+                "estado": "reclamada",
+                "device_token": "TOK1",
+            }
+            with patch("Conexión.conexion.fetch_dispositivo_by_codigo", create=True, return_value=claimed_disp):
+                with self.assertRaises(ValueError) as ctx:
+                    provision_hardware_device(
+                        port="/dev/ttyUSB0",
+                        desired_pop="NEWPOP22",
+                        force=False,
+                        out_dir=tmpdir,
+                        sync_db=True,
+                    )
+
+                self.assertIn("ya fue reclamado por un usuario", str(ctx.exception))
+                # Hardware NO debe haber sido mutado
+                mock_set_pop.assert_not_called()
+                self.mock_set_code.assert_not_called()
+                self.mock_set_token.assert_not_called()
+                self.assertEqual(len(os.listdir(tmpdir)), 0)
+
+    @patch("tools.provision_device.Esp32SerialClient.connect")
+    @patch("tools.provision_device.Esp32SerialClient.get_identity")
+    @patch("tools.provision_device.Esp32SerialClient.set_pop")
+    @patch("tools.provision_device.Esp32SerialClient.verify_pop")
+    @patch("tools.provision_device.Esp32SerialClient.close")
+    def test_token_rotation_rollback_on_database_failure(
+        self, mock_close, mock_verify, mock_set_pop, mock_ident, mock_connect
+    ):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mock_ident.return_value = {
+                "mac": "44:1D:64:F8:70:C4",
+                "ble_name": "PROV_EcoGrow_70C4",
+                "pop": "TESTPOP1",
+                "has_pop": True,
+                "has_token": True,
+            }
+            mock_verify.return_value = True
+
+            existing_disp = {
+                "codigo_dispositivo": "EG-TORRE-F870C4",
+                "estado": "fabrica",
+                "device_token": "VERIFIED_OLD_TOKEN_999",
+            }
+            with patch("Conexión.conexion.fetch_dispositivo_by_codigo", create=True, return_value=existing_disp), \
+                 patch("Conexión.conexion.register_dispositivo_fabrica", create=True, side_effect=RuntimeError("DB write failure")):
+
+                with self.assertRaises(RuntimeError) as ctx:
+                    provision_hardware_device(
+                        port="/dev/ttyUSB0",
+                        rotate_token=True,
+                        sync_db=True,
+                        out_dir=tmpdir,
+                    )
+
+                self.assertIn("DB write failure", str(ctx.exception))
+                # Debe haberse llamado a set_device_token con nuevo token y luego con rollback al token previo
+                calls = self.mock_set_token.call_args_list
+                self.assertGreaterEqual(len(calls), 2)
+                # La última llamada a set_device_token debe restaurar el token anterior
+                last_call_token = calls[-1][0][0]
+                self.assertEqual(last_call_token, "VERIFIED_OLD_TOKEN_999")
+
+    @patch("tools.provision_device.Esp32SerialClient.connect")
+    @patch("tools.provision_device.Esp32SerialClient.get_identity")
+    @patch("tools.provision_device.Esp32SerialClient.set_pop")
+    @patch("tools.provision_device.Esp32SerialClient.verify_pop")
+    @patch("tools.provision_device.Esp32SerialClient.close")
+    def test_offline_mode_preserves_token_without_rotate(
+        self, mock_close, mock_verify, mock_set_pop, mock_ident, mock_connect
+    ):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mock_ident.return_value = {
+                "mac": "44:1D:64:F8:70:C4",
+                "ble_name": "PROV_EcoGrow_70C4",
+                "pop": "TESTPOP1",
+                "has_pop": True,
+                "has_token": True,
+            }
+            mock_verify.return_value = True
+
+            res = provision_hardware_device(
+                port="/dev/ttyUSB0",
+                sync_db=False,
+                rotate_token=False,
+                out_dir=tmpdir,
+            )
+
+            self.assertEqual(res["status"], "success")
+            self.assertIsNone(res["device_token"])
+            self.mock_set_token.assert_not_called()
+
+    @patch("tools.provision_device.Esp32SerialClient.connect")
+    @patch("tools.provision_device.Esp32SerialClient.get_identity")
+    @patch("tools.provision_device.Esp32SerialClient.set_pop")
+    @patch("tools.provision_device.Esp32SerialClient.close")
+    def test_token_desync_detected_and_aborts_without_mutation(
+        self, mock_close, mock_set_pop, mock_ident, mock_connect
+    ):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mock_ident.return_value = {
+                "mac": "44:1D:64:F8:70:C4",
+                "ble_name": "PROV_EcoGrow_70C4",
+                "pop": "TESTPOP1",
+                "has_pop": True,
+                "has_token": True,
+            }
+            # Simular desincronización: hardware responde match=False ante el token de la DB
+            self.mock_verify_token.return_value = False
+
+            existing_disp = {
+                "codigo_dispositivo": "EG-TORRE-F870C4",
+                "estado": "fabrica",
+                "device_token": "DB_TOKEN_THAT_DOES_NOT_MATCH_HW",
+            }
+            with patch("Conexión.conexion.fetch_dispositivo_by_codigo", create=True, return_value=existing_disp):
+                with self.assertRaises(RuntimeError) as ctx:
+                    provision_hardware_device(
+                        port="/dev/ttyUSB0",
+                        sync_db=True,
+                        force=False,
+                        rotate_token=False,
+                        out_dir=tmpdir,
+                    )
+
+                self.assertIn("DESINCRONIZACIÓN DE TOKEN", str(ctx.exception))
+                mock_set_pop.assert_not_called()
+                self.mock_set_token.assert_not_called()
 
 
 class TestSecretConfidentiality(unittest.TestCase):

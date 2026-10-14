@@ -1841,6 +1841,22 @@ def fetch_dispositivo_by_codigo(codigo: str) -> dict | None:
     )
 
 
+def fetch_dispositivo_by_mac(mac: str) -> dict | None:
+    if not mac or not str(mac).strip():
+        return None
+    clean_mac = "".join(c for c in mac if c in "0123456789ABCDEFabcdef").upper()
+    if len(clean_mac) == 12:
+        mac_norm = ":".join(clean_mac[i : i + 2] for i in range(0, 12, 2))
+    else:
+        mac_norm = mac.strip().upper()
+    create_mysql_tables()
+    return _execute(
+        "SELECT * FROM dispositivos_iot WHERE mac = %s LIMIT 1",
+        (mac_norm,),
+        fetchone=True,
+    )
+
+
 def update_torre_estado(torre_id: int, estado: str) -> None:
     create_mysql_tables()
     _execute(
