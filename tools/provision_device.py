@@ -282,7 +282,7 @@ class Esp32SerialClient:
             if line.startswith("ECOGROW:"):
                 return line
 
-        sanitized_cmd = re.sub(r":(SET_POP|VERIFY_POP):.*", r":\1:***", cmd.strip())
+        sanitized_cmd = re.sub(r":(SET_POP|VERIFY_POP|SET_DEVICE_TOKEN):.*", r":\1:***", cmd.strip())
         raise TimeoutError(f"Tiempo de espera agotado ({self.timeout}s) sin respuesta del ESP32 para: {sanitized_cmd}")
 
     def get_identity(self) -> dict:
@@ -357,6 +357,7 @@ def provision_hardware_device(
     desired_code: str | None = None,
     desired_token: str | None = None,
     force: bool = False,
+    rotate_token: bool = False,
     out_dir: str = "docs/soporte/etiquetas",
     sync_db: bool = True,
 ) -> dict:
@@ -378,6 +379,7 @@ def provision_hardware_device(
         ble_name = ident.get("ble_name", derive_ble_name(mac))
         existing_pop = ident.get("pop", "")
         has_valid_pop = ident.get("has_pop", False) and len(existing_pop) == 8
+        has_existing_token = ident.get("has_token", False)
 
         # 3. Decidir PoP a instalar o conservar
         if has_valid_pop and not force and not desired_pop:
@@ -393,31 +395,54 @@ def provision_hardware_device(
         if not match_ok:
             raise RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que la PoP no coincide con el valor programado.")
 
-        # 5. Programar y verificar código único de torre canónico
-        serial_no = (desired_code or ident.get("code") or f"EG-TORRE-{mac.replace(':', '')[-6:]}").strip().upper()
+        # 5. Programar y verificar código único de torre canónico (rechazando placeholders de ejemplo)
+        raw_code = desired_code or ident.get("code")
+        if raw_code and raw_code.strip() not in ("", "TORRE-001", "EG-TORRE-01", "DUMMY"):
+            serial_no = raw_code.strip().upper()
+        else:
+            serial_no = f"EG-TORRE-{mac.replace(':', '')[-6:]}".upper()
+
         client.set_code(serial_no)
         code_match = client.verify_code(serial_no)
         if not code_match:
             raise RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El hardware reporta que el código no coincide.")
 
-        # 6. Programar token individual de dispositivo
-        dev_token = (desired_token or secrets.token_hex(24)).strip()
-        client.set_device_token(dev_token)
+        # Pre-chequeo en base de datos si sync_db está activo
+        existing_db_disp = None
+        if sync_db:
+            try:
+                from Conexión.conexion import fetch_dispositivo_by_codigo
+                existing_db_disp = fetch_dispositivo_by_codigo(serial_no)
+                if existing_db_disp and existing_db_disp.get("estado") == "reclamada" and not force:
+                    raise ValueError(f"El dispositivo '{serial_no}' ya fue reclamado por un usuario en la nube. Usa --force si deseas reasignarlo a fábrica.")
+            except ImportError:
+                pass
 
-        # 7. Generar y guardar etiqueta SVG con QR real y permisos 0600
+        # 6. Programar token individual de dispositivo (conservar existente salvo rotación explícita o force)
+        if has_existing_token and not force and not rotate_token and not desired_token:
+            dev_token = existing_db_disp.get("device_token") if existing_db_disp else None
+            if not dev_token:
+                dev_token = secrets.token_hex(24)
+                set_ok = client.set_device_token(dev_token)
+                if not set_ok:
+                    raise RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El ESP32 rechazó la instalación del token de dispositivo.")
+        else:
+            dev_token = (desired_token or secrets.token_hex(24)).strip()
+            set_ok = client.set_device_token(dev_token)
+            if not set_ok:
+                raise RuntimeError("FALLO CRÍTICO DE VERIFICACIÓN: El ESP32 rechazó la instalación del token de dispositivo.")
+
+        # 7. Registro obligatorio en base de datos de fábrica si sync_db es True
+        db_registered = False
+        if sync_db:
+            from Conexión.conexion import register_dispositivo_fabrica
+            register_dispositivo_fabrica(serial_no, mac, target_pop, dev_token, force=force)
+            db_registered = True
+
+        # 8. Generar y guardar etiqueta SVG con QR real y permisos 0600 (SOLO tras éxito en HW y DB)
         svg_content = generate_svg_label(mac, ble_name, target_pop, serial_no)
         out_filename = os.path.join(out_dir, f"{ble_name}_etiqueta.svg")
         save_secure_label(out_filename, svg_content)
-
-        # 8. Registro opcional en base de datos de fábrica
-        db_registered = False
-        if sync_db:
-            try:
-                from Conexión.conexion import register_dispositivo_fabrica
-                register_dispositivo_fabrica(serial_no, mac, target_pop, dev_token, force=force)
-                db_registered = True
-            except Exception:
-                pass
 
         return {
             "status": "success",
@@ -500,7 +525,8 @@ def generate_offline_label(
     serial: str | None = None,
     device_token: str | None = None,
     out_dir: str = "docs/soporte/etiquetas",
-    sync_db: bool = True,
+    sync_db: bool = False,
+    force: bool = False,
 ) -> dict:
     """Genera una etiqueta en modo offline (para pruebas unitarias y entornos sin hardware físico)."""
     mac_norm = normalize_mac(mac)
@@ -515,12 +541,9 @@ def generate_offline_label(
 
     db_registered = False
     if sync_db:
-        try:
-            from Conexión.conexion import register_dispositivo_fabrica
-            register_dispositivo_fabrica(serial_no, mac_norm, pop_token, dev_token, force=True)
-            db_registered = True
-        except Exception:
-            pass
+        from Conexión.conexion import register_dispositivo_fabrica
+        register_dispositivo_fabrica(serial_no, mac_norm, pop_token, dev_token, force=force)
+        db_registered = True
 
     return {
         "status": "success",
@@ -542,6 +565,9 @@ def main():
     prov_parser = subparsers.add_parser("provision", help="Aprovisionar hardware ESP32 y generar etiqueta verificada")
     prov_parser.add_argument("--port", help="Puerto serial del ESP32 (si no se indica, se autodetecta)")
     prov_parser.add_argument("--pop", help="Clave PoP específica a instalar (opcional; si se omite, se genera segura)")
+    prov_parser.add_argument("--code", help="Código canónico específico a instalar (opcional)")
+    prov_parser.add_argument("--rotate-token", action="store_true", help="Forzar rotación del token individual de dispositivo")
+    prov_parser.add_argument("--no-db", action="store_true", help="Omitir registro en base de datos cloud")
     prov_parser.add_argument("--force", action="store_true", help="Sobreescribir identidad si ya existe en NVS")
     prov_parser.add_argument("--out", default="docs/soporte/etiquetas", help="Carpeta destino para guardar la etiqueta SVG")
 
@@ -560,6 +586,8 @@ def main():
     gen_parser.add_argument("--mac", required=True, help="Dirección MAC física (ej: 44:1D:64:F8:70:C4)")
     gen_parser.add_argument("--pop", help="Clave PoP (opcional; se genera si no se especifica)")
     gen_parser.add_argument("--serial", help="Número de serie físico (opcional)")
+    gen_parser.add_argument("--sync-db", action="store_true", default=False, help="Sincronizar en base de datos cloud de fábrica")
+    gen_parser.add_argument("--force", action="store_true", default=False, help="Forzar sobreescritura en base de datos si ya existe")
     gen_parser.add_argument("--out", default="docs/soporte/etiquetas", help="Carpeta destino para guardar la etiqueta SVG")
 
     # Argumento común opcional para entornos de taller autorizados
@@ -570,7 +598,15 @@ def main():
 
     if args.command == "provision":
         try:
-            res = provision_hardware_device(port=args.port, desired_pop=args.pop, force=args.force, out_dir=args.out)
+            res = provision_hardware_device(
+                port=args.port,
+                desired_pop=args.pop,
+                desired_code=args.code,
+                force=args.force,
+                rotate_token=args.rotate_token,
+                out_dir=args.out,
+                sync_db=not args.no_db,
+            )
             pop_display = res['pop'] if getattr(args, 'reveal_pop', False) else "[CONFIDENCIAL · Resguardado en etiqueta SVG (0600)]"
             print("=" * 60)
             print("🌱 APROVISIONAMIENTO DE FÁBRICA EXITOSO (HARDWARE VERIFICADO)")
@@ -582,6 +618,7 @@ def main():
             print(f"PIN PoP:         {pop_display}")
             print(f"Acción:          {res['action']}")
             print(f"Verificación:    Hardware NVS coincide al 100%")
+            print(f"Base de Datos:   {'Registrado en inventario cloud' if res['db_registered'] else 'Omitido / Offline'}")
             print(f"Etiqueta SVG:    {res['label_file']} (Permisos: 0600)")
             print("=" * 60)
         except Exception as exc:
@@ -632,7 +669,14 @@ def main():
             sys.exit(1)
 
     elif args.command == "generate":
-        res = generate_offline_label(args.mac, args.pop, args.serial, args.out)
+        res = generate_offline_label(
+            mac=args.mac,
+            pop=args.pop,
+            serial=args.serial,
+            out_dir=args.out,
+            sync_db=args.sync_db,
+            force=args.force,
+        )
         pop_display = res['pop'] if getattr(args, 'reveal_pop', False) else "[CONFIDENCIAL · Resguardado en etiqueta SVG (0600)]"
         print("=" * 60)
         print("🌱 ETIQUETA OFFLINE GENERADA CON CÓDIGO QR REAL")
@@ -641,6 +685,7 @@ def main():
         print(f"MAC:             {res['mac']}")
         print(f"Número de Serie: {res['serial']}")
         print(f"PIN PoP:         {pop_display}")
+        print(f"Base de Datos:   {'Sincronizado' if res['db_registered'] else 'No modificada (Modo offline)'}")
         print(f"Etiqueta SVG:    {res['label_file']} (Permisos: 0600)")
         print("=" * 60)
     else:

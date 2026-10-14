@@ -378,16 +378,22 @@ void handleRecipeControl(){
 // ------------------------------------------------------------------------------
 String getTorreCodigo() {
   String code = prefs.getString("torre_code", "");
-  if (code.length() > 0) return code;
-#ifdef ECOGROW_TORRE_CODIGO
-  return String(ECOGROW_TORRE_CODIGO);
-#else
+  if (code.length() >= 3) return code;
+#if defined(ECOGROW_TORRE_CODIGO)
+  String macroCode = String(ECOGROW_TORRE_CODIGO);
+  macroCode.trim();
+  if (macroCode.length() >= 3 && macroCode != "TORRE-001" && macroCode != "EG-TORRE-01" && macroCode != "DUMMY") {
+    prefs.putString("torre_code", macroCode);
+    return macroCode;
+  }
+#endif
   uint8_t mac[6];
   WiFi.macAddress(mac);
   char buf[32];
   snprintf(buf, sizeof(buf), "EG-TORRE-%02X%02X%02X", mac[3], mac[4], mac[5]);
-  return String(buf);
-#endif
+  String derived = String(buf);
+  prefs.putString("torre_code", derived);
+  return derived;
 }
 
 String getDeviceToken() {

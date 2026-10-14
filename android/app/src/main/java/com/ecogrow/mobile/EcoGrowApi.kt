@@ -201,6 +201,18 @@ class EcoGrowApi(
 
     fun getSession(): JSONObject = get("session")
 
+    fun register(name: String, mail: String, pass: String, passConfirm: String): JSONObject {
+        if (csrf.isBlank()) {
+            runCatching { get("session") }
+        }
+        val payload = JSONObject()
+            .put("name", name.trim())
+            .put("mail", mail.trim())
+            .put("password", pass)
+            .put("password_confirm", passConfirm)
+        return post("register", payload)
+    }
+
     fun login(mail: String, pass: String): JSONObject {
         if (csrf.isBlank()) {
             runCatching { get("session") }

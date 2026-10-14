@@ -33,6 +33,9 @@ class MainActivity : ComponentActivity() {
                                 errorMessage = state.error,
                                 onLogin = { mail, pass ->
                                     vm.login(mail, pass)
+                                },
+                                onRegister = { name, mail, pass, passConfirm ->
+                                    vm.register(name, mail, pass, passConfirm)
                                 }
                             )
                         }
@@ -83,6 +86,9 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onFetchTowerDetail = { towerId ->
                                     vm.getTowerDetailAsync(towerId)
+                                },
+                                onOpenTowerDetail = { towerId ->
+                                    vm.select(towerId)
                                 }
                             )
                         }

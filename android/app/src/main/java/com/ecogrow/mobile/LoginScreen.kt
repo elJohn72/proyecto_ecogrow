@@ -22,10 +22,15 @@ import androidx.compose.ui.unit.sp
 fun LoginScreen(
     busy: Boolean,
     errorMessage: String?,
-    onLogin: (mail: String, pass: String) -> Unit
+    onLogin: (mail: String, pass: String) -> Unit,
+    onRegister: (name: String, mail: String, pass: String, passConfirm: String) -> Unit
 ) {
+    var isRegisterMode by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
     var mail by remember { mutableStateOf("") }
     var pass by remember { mutableStateOf("") }
+    var passConfirm by remember { mutableStateOf("") }
+    var localValidationErr by remember { mutableStateOf<String?>(null) }
 
     Box(
         modifier = Modifier
@@ -64,22 +69,24 @@ fun LoginScreen(
                 )
 
                 Text(
-                    text = "Sistema de Gestión y Control Hidropónico Remoto",
+                    text = if (isRegisterMode) "Crea tu cuenta de operador para gestionar tus torres"
+                           else "Sistema de Gestión y Control Hidropónico Remoto",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color(0xFF666666),
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
-                if (!errorMessage.isNullOrBlank()) {
+                val displayError = localValidationErr ?: errorMessage
+                if (!displayError.isNullOrBlank()) {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = Color(0xFFFFEBEE),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = errorMessage,
+                            text = displayError,
                             color = Color(0xFFB3261E),
                             fontSize = 13.sp,
                             modifier = Modifier.padding(12.dp),
@@ -88,9 +95,20 @@ fun LoginScreen(
                     }
                 }
 
+                if (isRegisterMode) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it; localValidationErr = null },
+                        label = { Text("Nombre Completo") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+
                 OutlinedTextField(
                     value = mail,
-                    onValueChange = { mail = it },
+                    onValueChange = { mail = it; localValidationErr = null },
                     label = { Text("Correo Electrónico") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -99,17 +117,52 @@ fun LoginScreen(
 
                 OutlinedTextField(
                     value = pass,
-                    onValueChange = { pass = it },
-                    label = { Text("Contraseña") },
+                    onValueChange = { pass = it; localValidationErr = null },
+                    label = { Text(if (isRegisterMode) "Contraseña (mínimo 8 caracteres)" else "Contraseña") },
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 )
 
+                if (isRegisterMode) {
+                    OutlinedTextField(
+                        value = passConfirm,
+                        onValueChange = { passConfirm = it; localValidationErr = null },
+                        label = { Text("Confirmar Contraseña") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+
                 Button(
-                    onClick = { onLogin(mail, pass) },
-                    enabled = !busy && mail.isNotBlank() && pass.isNotBlank(),
+                    onClick = {
+                        localValidationErr = null
+                        if (isRegisterMode) {
+                            if (name.isBlank() || mail.isBlank() || pass.isBlank()) {
+                                localValidationErr = "Completa todos los campos requeridos."
+                                return@Button
+                            }
+                            if (pass.length < 8) {
+                                localValidationErr = "La contraseña debe tener al menos 8 caracteres."
+                                return@Button
+                            }
+                            if (pass != passConfirm) {
+                                localValidationErr = "Las contraseñas no coinciden."
+                                return@Button
+                            }
+                            onRegister(name, mail, pass, passConfirm)
+                        } else {
+                            if (mail.isBlank() || pass.isBlank()) {
+                                localValidationErr = "Indica correo y contraseña."
+                                return@Button
+                            }
+                            onLogin(mail, pass)
+                        }
+                    },
+                    enabled = !busy,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(50.dp),
@@ -123,8 +176,27 @@ fun LoginScreen(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Text("Iniciar Sesión", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text(
+                            text = if (isRegisterMode) "Crear Cuenta" else "Iniciar Sesión",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
                     }
+                }
+
+                TextButton(
+                    onClick = {
+                        isRegisterMode = !isRegisterMode
+                        localValidationErr = null
+                    }
+                ) {
+                    Text(
+                        text = if (isRegisterMode) "¿Ya tienes cuenta? Inicia sesión"
+                               else "¿No tienes una cuenta? Regístrate aquí",
+                        color = Color(0xFF087F8C),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
+                    )
                 }
             }
         }
