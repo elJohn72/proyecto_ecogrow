@@ -145,20 +145,43 @@ Quitar la alimentación y volver a darla: la bomba sigue apagada. Un corte de Wi
 
 Estado: PENDIENTE. La conectividad sin sensores, hecha antes, queda como PASÓ solo en ese alcance.
 
+## Bitácora 2026-10-15
+
+Torre de banco, chip ESP32-D0WD-V3. Identificadores en la bitácora interna.
+
+Se cargó el firmware de banco con la carga normal de PlatformIO, sin borrar la flash. El código, el PIN y el token siguieron en la memoria.
+
+Esta unidad no tiene botones en el GPIO 26 ni en el GPIO 27. Esos pines quedan sin cable. El GPIO 0 es el BOOT de la placa.
+
+John confirmó el cableado de salida y ultrasonido: D25 bomba o motor, D5 TRIG, D19 ECHO. Coincide con el programa. El eco lleva el divisor 2,2 kΩ / 3,3 kΩ. Esa tensión no se midió.
+
+En el monitor, `ECOGROW:DIAG` mostró temperatura `desconectado`, nivel `timeout`, pH y TDS `no_calibrado`, salida `apagada`. No había porcentaje de agua.
+
+`ECOGROW:PUMP_TEST` puso la salida en alto 5 segundos y la devolvió a bajo. En esa prueba la bomba de agua no estaba conectada: había un motor en la salida del MOSFET. Desde aquí no se vio si el motor giró.
+
+Con alimentación externa y el USB desconectado, el servidor recibió el reporte de la torre. La salida figuraba apagada y el modo en automático. Lecturas guardadas: 0. Cultivo abierto: 0. La app sigue en «Sin telemetría» por eso. El nivel no se envía hasta calibrar el depósito, y el servidor no guarda la lectura sin un cultivo.
+
+La app sí cambió el modo en una tanda anterior y la torre contestó. Encender desde la app no se probó: no había nivel.
+
+Tensiones de buck, divisor, MOSFET y corriente de la bomba siguen sin medir.
+
 ## Resultado de esta preparación
 
 | Prueba | Estado |
 |---|---|
 | ESP32 sin sensores: Bluetooth, WiFi y reporte al servidor | PASÓ, en la prueba anterior. No incluye sensores ni bomba |
+| Firmware de banco en esta torre, memoria conservada | PASÓ, 2026-10-15 |
+| Reporte con alimentación externa, sin USB | PASÓ. Sin lecturas de sensor |
+| DIAG: temperatura y nivel | Temperatura desconectada. Nivel en timeout |
+| pH y TDS calibrados | PENDIENTE |
+| Pulso de 5 s en la salida, con motor y sin bomba de agua | La salida se ordenó. El giro no se observó desde aquí |
 | Tensiones de fuente y buck | PENDIENTE |
 | DS18B20 | PENDIENTE |
 | Nivel calibrado | PENDIENTE |
-| pH | PENDIENTE |
-| TDS | PENDIENTE |
 | Gate sin bomba | PENDIENTE |
 | Bomba con agua | PENDIENTE |
 | Sensores durante el bombeo | PENDIENTE |
-| Control con datos móviles | PENDIENTE |
+| Encender desde la app | PENDIENTE. Falta nivel reciente de 25 % o más |
 | Reinicio sin encendido sorpresa | PENDIENTE |
 
 Grabar este firmware no borra la partición NVS si se usa la carga normal de PlatformIO, sin borrar toda la flash. No se ejecuta un borrado de flash para esta prueba.

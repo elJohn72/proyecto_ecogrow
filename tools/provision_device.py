@@ -159,7 +159,9 @@ def generate_svg_label(mac: str, ble_name: str, pop: str, serial: str) -> str:
     payload_dict = build_provisioning_payload(ble_name, pop, serial)
     payload_json = json.dumps(payload_dict)
 
-    _, qr_elements = generate_qr_svg_elements(payload_json, size=120.0)
+    # El QR impreso es solo el PIN de 8 caracteres. La cámara y la app lo leen así.
+    # El comentario conserva el JSON para el taller, sin cambiar el dibujo.
+    _, qr_elements = generate_qr_svg_elements(pop.strip().upper(), size=120.0)
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="520" height="270" viewBox="0 0 520 270">
   <!-- ECOGROW-QR-PAYLOAD: {payload_json} -->

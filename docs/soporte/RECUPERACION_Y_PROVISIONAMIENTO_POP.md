@@ -17,10 +17,9 @@ Cada torre EcoGrow cuenta con una identidad única e impredecible gestionada de 
    - **Verificación obligatoria (Readback):** La herramienta envía un comando de verificación al ESP32. Si el hardware reporta discrepancia, la herramienta **aborta con error y no genera la etiqueta**.
 4. **Etiqueta Física y Código QR Matricial:**
    - Una vez confirmada la coincidencia al 100%, la herramienta genera la etiqueta en formato vectorial SVG oficial con permisos restringidos `0600` en `docs/soporte/etiquetas/`.
-   - La etiqueta incluye el PIN legible en fuente destacada y un **código QR matricial real escaneable** con el payload JSON oficial:
-     ```json
-     {"ver":"v1","name":"PROV_EcoGrow_XXXX","pop":"ABCDEF12","transport":"ble"}
-     ```
+   - La etiqueta incluye el PIN legible y un código QR que contiene solo ese PIN de 8 caracteres. Así lo lee la app al volver a conectar la misma torre desde otro teléfono.
+   - El archivo SVG guarda además, en un comentario, el JSON de taller. Ese comentario no es el dibujo que se escanea.
+   - La etiqueta se pega en la torre y no se versiona. Actualizar el firmware no la cambia. Deja de servir si se borra la memoria de la placa.
    - Las etiquetas generadas quedan excluidas del repositorio Git (`.gitignore`).
 
 ---

@@ -285,7 +285,21 @@ float leerPhSolucion() {
   return valid ? ph : NAN;
 }
 
+bool pruebaBombaActiva = false;
+uint32_t pruebaBombaInicio = 0;
+
 void verificarSeguridadAgua() {
+  if (pruebaBombaActiva) {
+    if (!benchPulseStillOn(millis(), pruebaBombaInicio)) {
+      pruebaBombaActiva = false;
+      digitalWrite(PIN_BOMBA, LOW);
+      digitalWrite(PIN_LED_ESTADO, LOW);
+      estadoBomba = false;
+      mensajeAlerta = "Prueba terminada. Salida apagada.";
+      Serial.println("ECOGROW:PUMP_TEST_OFF");
+    }
+    return;
+  }
   bool fresco = levelSampleFresh(millis(), nivelMuestraMs);
   nivelAguaOk = fresco && safeWaterLevel(nivelAguaPct, tanque.ok, estadoBomba, nivelCortePct, nivelArmadoPct);
   if (!nivelAguaOk) {
@@ -294,6 +308,17 @@ void verificarSeguridadAgua() {
     estadoBomba = false;
     mensajeAlerta = "Nivel ausente, viejo o por debajo del corte. Salida apagada.";
   }
+}
+
+void iniciarPruebaBomba() {
+  modoActual = MODO_MANUAL;
+  pruebaBombaActiva = true;
+  pruebaBombaInicio = millis();
+  digitalWrite(PIN_BOMBA, HIGH);
+  digitalWrite(PIN_LED_ESTADO, HIGH);
+  estadoBomba = true;
+  mensajeAlerta = "Prueba de 5 s. La salida está en alto; eso no mide caudal.";
+  Serial.println("ECOGROW:PUMP_TEST_ON");
 }
 
 void encenderBomba() {
@@ -893,6 +918,8 @@ void procesarComandosTallerSerial() {
       String storedPop = prefs.getString("pop", "");
       bool match = (storedPop.length() >= 8 && storedPop == checkPop);
       Serial.printf("ECOGROW:VERIFY:{\"match\":%s}\n", match ? "true" : "false");
+    } else if (line == "ECOGROW:PUMP_TEST") {
+      iniciarPruebaBomba();
     } else if (line == "ECOGROW:DIAG") {
       imprimirDiagnostico(true);
     } else if (line.startsWith("ECOGROW:CAL_TANK:")) {

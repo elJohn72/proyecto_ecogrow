@@ -50,6 +50,13 @@ inline bool shouldApplyPumpCommand(bool alreadySeen, bool expired, bool requestO
   return levelAllowsOn;
 }
 
+// Pulso explícito de banco. No sustituye el nivel de agua y no se queda activo.
+inline uint32_t benchPumpPulseMs() { return 5000; }
+
+inline bool benchPulseStillOn(uint32_t nowMs, uint32_t startMs) {
+  return (uint32_t)(nowMs - startMs) < benchPumpPulseMs();
+}
+
 inline bool validRecipe(int index, int count) {
   return index >= 0 && index < count;
 }

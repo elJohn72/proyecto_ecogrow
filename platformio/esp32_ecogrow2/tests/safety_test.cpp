@@ -31,6 +31,10 @@ int main() {
   assert(!shouldApplyPumpCommand(false, false, true, false));
   assert(shouldApplyPumpCommand(false, false, false, false));
   assert(shouldApplyPumpCommand(false, false, true, true));
+  assert(benchPumpPulseMs() == 5000);
+  assert(benchPulseStillOn(0, 0));
+  assert(benchPulseStillOn(4999, 0));
+  assert(!benchPulseStillOn(5000, 0));
 
   // Pruebas de recetas
   assert(validRecipe(0, 4));
